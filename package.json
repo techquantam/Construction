@@ -1,0 +1,43 @@
+{
+  "name": "construction-erp-desktop",
+  "version": "1.0.0",
+  "description": "Construction ERP Desktop Software",
+  "main": "main.js",
+  "scripts": {
+    "electron:dev": "electron .",
+    "electron:build": "npm run build:all && electron-packager . \"Construction ERP\" --platform=win32 --arch=x64 --out=dist-desktop --overwrite",
+    "build:all": "npm run build:backend && npm run build:frontend",
+    "build:backend": "npm run --prefix backend build",
+    "build:frontend": "npm run --prefix frontend build"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
+    "electron-packager": "^17.1.2"
+  },
+  "build": {
+    "appId": "com.construction.erp",
+    "productName": "Construction ERP",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "backend/dist/**/*",
+      "backend/node_modules/**/*",
+      "backend/package.json",
+      "frontend/.next/**/*",
+      "frontend/node_modules/**/*",
+      "frontend/public/**/*",
+      "frontend/package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

@@ -1,0 +1,241 @@
+{
+  "admins": [
+    {
+      "id": "4d626eac-5d2e-49c2-903f-09099452de3e",
+      "username": "admin",
+      "email": "admin@example.com",
+      "password": "$2b$10$TlJHNC4TshJ5zbbjGL3Ypu340GtcMWtDmQ6h1s2PkWOK6NehbRHlO",
+      "createdAt": "2026-05-17T19:32:37.788Z",
+      "updatedAt": "2026-05-17T19:32:37.788Z"
+    }
+  ],
+  "sites": [
+    {
+      "id": "9b78497d-4dac-4a63-94a8-38bd3d89eeb8",
+      "name": "test 1",
+      "clientName": "Abhi",
+      "address": "Lucknow",
+      "budget": 200000,
+      "status": "RUNNING",
+      "startDate": "2026-05-17T00:00:00.000Z",
+      "completionDate": null,
+      "description": null,
+      "createdAt": "2026-05-17T19:39:41.801Z",
+      "updatedAt": "2026-05-17T19:39:41.801Z"
+    },
+    {
+      "id": "4964225e-3119-43a1-9337-4a560e40f9ca",
+      "name": "test 2",
+      "clientName": "Akhand",
+      "address": "gorakhpur",
+      "budget": 10000,
+      "status": "COMPLETED",
+      "startDate": "2026-05-17T00:00:00.000Z",
+      "completionDate": null,
+      "description": null,
+      "createdAt": "2026-05-17T19:47:12.461Z",
+      "updatedAt": "2026-05-17T19:47:12.461Z"
+    },
+    {
+      "id": "0cefde5d-e6e6-4c05-a8f0-5ed2c89602b8",
+      "name": "test 3",
+      "clientName": "Pankaj",
+      "address": "Delhi",
+      "budget": 35000,
+      "status": "RUNNING",
+      "startDate": "2026-05-17T00:00:00.000Z",
+      "completionDate": null,
+      "description": null,
+      "createdAt": "2026-05-17T20:05:46.633Z",
+      "updatedAt": "2026-05-17T20:05:46.633Z"
+    },
+    {
+      "id": "42106d32-fab3-4923-9cb0-93b17d48dace",
+      "name": "lck",
+      "clientName": "test",
+      "address": "Lucknow",
+      "budget": 0,
+      "status": "RUNNING",
+      "startDate": "2026-05-18T00:00:00.000Z",
+      "completionDate": null,
+      "description": null,
+      "createdAt": "2026-05-18T09:03:55.163Z",
+      "updatedAt": "2026-05-18T09:03:55.163Z"
+    }
+  ],
+  "dayBooks": [
+    {
+      "id": "8e62fd43-288c-4157-a470-762d4c0a595a",
+      "siteId": "9b78497d-4dac-4a63-94a8-38bd3d89eeb8",
+      "date": "2026-05-17T00:00:00.000Z",
+      "expenseType": "Diesel",
+      "amount": 50000,
+      "description": "vahicle fuel",
+      "paymentMode": "Cash",
+      "referenceNumber": "",
+      "createdAt": "2026-05-17T19:46:02.362Z",
+      "updatedAt": "2026-05-17T19:46:02.362Z"
+    },
+    {
+      "id": "6b7b4ac0-6cfb-4a17-bce5-865e746c9e84",
+      "siteId": "0cefde5d-e6e6-4c05-a8f0-5ed2c89602b8",
+      "date": "2026-05-17T00:00:00.000Z",
+      "expenseType": "Sand",
+      "amount": 4000,
+      "description": "2 tali",
+      "paymentMode": "Cash",
+      "referenceNumber": "",
+      "createdAt": "2026-05-17T20:10:55.247Z",
+      "updatedAt": "2026-05-17T20:10:55.247Z"
+    },
+    {
+      "id": "6e965094-49c7-4ad6-8a2a-6175964729ea",
+      "siteId": "42106d32-fab3-4923-9cb0-93b17d48dace",
+      "date": "2026-05-19T18:30:00.000Z",
+      "expenseType": "By ANANDI",
+      "amount": 50000,
+      "description": "DAY BOOK DIRECT ENTRY",
+      "paymentMode": "RTGS SBI",
+      "referenceNumber": "DIRECT_FORM_V2",
+      "createdAt": "2026-05-20T08:03:29.310Z",
+      "updatedAt": "2026-05-20T08:03:29.310Z"
+    },
+    {
+      "id": "2b068705-9c37-4dbc-b85c-de4d017923ca",
+      "siteId": "4964225e-3119-43a1-9337-4a560e40f9ca",
+      "date": "2026-05-19T18:30:00.000Z",
+      "expenseType": "To CYVANTA",
+      "amount": 1000,
+      "description": "DAY BOOK DIRECT ENTRY",
+      "paymentMode": "RTGS SBI",
+      "referenceNumber": "DIRECT_FORM_V2",
+      "createdAt": "2026-05-20T09:21:41.882Z",
+      "updatedAt": "2026-05-20T09:21:41.882Z"
+    },
+    {
+      "id": "c6899e6f-075d-48be-b8d2-34f8c83357d3",
+      "siteId": "42106d32-fab3-4923-9cb0-93b17d48dace",
+      "date": "2026-05-19T18:30:00.000Z",
+      "expenseType": "By LAKSHMI TRADER",
+      "amount": 20000,
+      "description": "DAY BOOK DIRECT ENTRY CORRECTION",
+      "paymentMode": "CASH",
+      "referenceNumber": "DIRECT_FORM_V2",
+      "createdAt": "2026-05-20T07:46:12.114Z",
+      "updatedAt": "2026-05-20T10:50:44.927Z"
+    },
+    {
+      "id": "c01367fe-973e-42c0-a415-2fb01c2b0cc4",
+      "siteId": "4964225e-3119-43a1-9337-4a560e40f9ca",
+      "date": "2026-05-19T18:30:00.000Z",
+      "expenseType": "By MANOJ",
+      "amount": 10000,
+      "description": "LEDGER DIRECT ENTRY CORRECTION",
+      "paymentMode": "RTGS",
+      "referenceNumber": "DIRECT_FORM_V2",
+      "createdAt": "2026-05-20T09:15:50.621Z",
+      "updatedAt": "2026-05-20T11:19:23.453Z"
+    },
+    {
+      "id": "02dcc726-8c44-496c-89af-946f8b628c56",
+      "siteId": "0cefde5d-e6e6-4c05-a8f0-5ed2c89602b8",
+      "date": "2026-05-19T18:30:00.000Z",
+      "expenseType": "By CYVANTA 2",
+      "amount": 25000,
+      "description": "DAY BOOK DIRECT ENTRY",
+      "paymentMode": "RTGS PNB",
+      "referenceNumber": "DIRECT_FORM_V2",
+      "createdAt": "2026-05-20T11:29:48.838Z",
+      "updatedAt": "2026-05-20T11:29:48.838Z"
+    },
+    {
+      "id": "cad6abd3-8cc6-45dc-933d-91732ed0a78f",
+      "siteId": "0cefde5d-e6e6-4c05-a8f0-5ed2c89602b8",
+      "date": "2026-05-19T18:30:00.000Z",
+      "expenseType": "To CYVANTA 2",
+      "amount": 25000,
+      "description": "DAY BOOK DIRECT ENTRY",
+      "paymentMode": "CASH PAID",
+      "referenceNumber": "DIRECT_FORM_V2",
+      "createdAt": "2026-05-20T11:30:38.882Z",
+      "updatedAt": "2026-05-20T11:30:38.882Z"
+    }
+  ],
+  "ledgers": [
+    {
+      "id": "b461d1d2-069b-4a9c-9c83-f4f7f2919e01",
+      "type": "Party",
+      "name": "ANANDI",
+      "contactPerson": null,
+      "phone": null,
+      "outstandingBalance": 0,
+      "createdAt": "2026-05-20T08:03:28.390Z",
+      "updatedAt": "2026-05-20T08:03:28.390Z"
+    },
+    {
+      "id": "18ecd9ed-8164-4bc5-b01b-db81bb6b1975",
+      "type": "Party",
+      "name": "MANOJ",
+      "contactPerson": null,
+      "phone": null,
+      "outstandingBalance": 0,
+      "createdAt": "2026-05-20T09:15:49.737Z",
+      "updatedAt": "2026-05-20T09:15:49.737Z"
+    },
+    {
+      "id": "3d38d7f2-53ba-4d21-980b-6e69f8ce23d0",
+      "type": "Party",
+      "name": "CYVANTA",
+      "contactPerson": null,
+      "phone": null,
+      "outstandingBalance": 0,
+      "createdAt": "2026-05-20T09:21:41.180Z",
+      "updatedAt": "2026-05-20T09:21:41.180Z"
+    },
+    {
+      "id": "1866d24b-f241-4a0a-8ce3-aecfadd861bb",
+      "type": "Party",
+      "name": "CYVANTA 2",
+      "contactPerson": null,
+      "phone": null,
+      "outstandingBalance": 0,
+      "createdAt": "2026-05-20T11:29:47.478Z",
+      "updatedAt": "2026-05-20T11:29:47.478Z"
+    }
+  ],
+  "ledgerTransactions": [],
+  "materials": [
+    {
+      "id": "3b3e8260-9da9-45a1-8287-f26231fac5e8",
+      "name": "Bricks",
+      "unit": "pieces",
+      "currentStock": 5000,
+      "lowStockAlert": 5000,
+      "createdAt": "2026-05-17T20:01:56.649Z",
+      "updatedAt": "2026-05-17T20:14:41.976Z"
+    }
+  ],
+  "materialTransactions": [
+    {
+      "id": "1e211ccb-653a-44a3-966d-83659e617b01",
+      "materialId": "3b3e8260-9da9-45a1-8287-f26231fac5e8",
+      "siteId": null,
+      "date": "2026-05-17T00:00:00.000Z",
+      "type": "StockIn",
+      "quantity": 10000,
+      "description": "",
+      "createdAt": "2026-05-17T20:14:02.646Z"
+    },
+    {
+      "id": "bcbc07de-169e-4741-b588-19079ae77044",
+      "materialId": "3b3e8260-9da9-45a1-8287-f26231fac5e8",
+      "siteId": "0cefde5d-e6e6-4c05-a8f0-5ed2c89602b8",
+      "date": "2026-05-17T00:00:00.000Z",
+      "type": "StockOut",
+      "quantity": 55000,
+      "description": "trddtfghjk",
+      "createdAt": "2026-05-17T20:14:41.871Z"
+    }
+  ],
+  "exportedAt": "2026-05-20T11:37:24.608Z"
+}
