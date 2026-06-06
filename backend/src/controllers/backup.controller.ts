@@ -38,14 +38,21 @@ export const runBackup = async (req: Request, res: Response): Promise<void> => {
     let fileName = "";
 
     if (backupPath) {
-      // Normalize path for Windows/Unix compatibility
-      const normalizedPath = path.normalize(backupPath);
+      // Replace drive letter and backslashes on non-windows platform to prevent permission errors
+      let adjustedPath = backupPath;
+      if (process.platform !== 'win32') {
+        adjustedPath = backupPath.replace(/^[a-zA-Z]:/, '').replace(/\\/g, '/');
+        if (adjustedPath.startsWith('/')) {
+          adjustedPath = adjustedPath.substring(1);
+        }
+      }
+      const normalizedPath = path.normalize(adjustedPath);
       // Ensure file ends in .bak
       filePath = normalizedPath.toLowerCase().endsWith('.bak') ? normalizedPath : `${normalizedPath}.bak`;
       fileName = path.basename(filePath);
       
       const dir = path.dirname(filePath);
-      if (!fs.existsSync(dir)) {
+      if (dir && dir !== '.' && !fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
     } else {
@@ -101,7 +108,15 @@ export const restoreBackup = async (req: Request, res: Response): Promise<void> 
       filePath = backupLog.fileUrl || path.join(BACKUP_DIR, backupLog.fileName);
       fileName = backupLog.fileName;
     } else if (backupPath) {
-      filePath = path.normalize(backupPath);
+      // Replace drive letter and backslashes on non-windows platform
+      let adjustedPath = backupPath;
+      if (process.platform !== 'win32') {
+        adjustedPath = backupPath.replace(/^[a-zA-Z]:/, '').replace(/\\/g, '/');
+        if (adjustedPath.startsWith('/')) {
+          adjustedPath = adjustedPath.substring(1);
+        }
+      }
+      filePath = path.normalize(adjustedPath);
       fileName = path.basename(filePath);
     } else {
       res.status(400).json({ success: false, message: 'Backup Log ID or Backup Path is required' });
@@ -223,6 +238,13 @@ export const getBackupLogs = async (req: Request, res: Response): Promise<void> 
 };
 
 export const selectFolder = async (req: Request, res: Response): Promise<void> => {
+  if (process.platform !== 'win32') {
+    res.status(400).json({ 
+      success: false, 
+      message: 'Folder picker is only supported in Windows desktop mode.' 
+    });
+    return;
+  }
   const { exec } = require('child_process');
   try {
     // PowerShell script to trigger FolderBrowserDialog
