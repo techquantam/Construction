@@ -1008,14 +1008,12 @@ function ReportsContent() {
       return;
     }
 
-    const headers = ["Account Name", "Address", "Mobile No.", "Debit", "Credit", "Dr/Cr", "Balance"];
+    const headers = ["Account Name", "Address", "Mobile No.", "Dr/Cr", "Balance"];
     const rows = dataToExport.map((item: any) => {
       return [
         item.name.toUpperCase(),
         item.address ? item.address.toUpperCase() : "-",
         item.phone || "-",
-        item.totalDebit,
-        item.totalCredit,
         item.status,
         item.balance
       ];
@@ -1034,10 +1032,22 @@ function ReportsContent() {
     toast.success("Excel CSV file downloaded successfully");
   };
 
-  // Keyboard shortcut listeners (F2 for PDF, F3 for Excel)
+  // Keyboard shortcut listeners (1 for PDF, F3 for Excel)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
+      if (e.key === "1") {
+        const activeEl = document.activeElement;
+        if (activeEl) {
+          const tagName = activeEl.tagName.toUpperCase();
+          if (
+            tagName === "INPUT" ||
+            tagName === "TEXTAREA" ||
+            tagName === "SELECT" ||
+            (activeEl as HTMLElement).isContentEditable
+          ) {
+            return;
+          }
+        }
         e.preventDefault();
         window.print();
       } else if (e.key === "F3") {
@@ -1470,8 +1480,6 @@ function ReportsContent() {
                             <th className="border border-slate-800 py-3 px-3 text-left text-black font-black">Account Name</th>
                             <th className="border border-slate-800 py-3 px-3 text-left text-black font-black">Address</th>
                             <th className="border border-slate-800 py-3 px-3 text-center w-28 text-black font-black">Mobile No.</th>
-                            <th className="border border-slate-800 py-3 px-3 text-right w-28 text-black font-black">Debit</th>
-                            <th className="border border-slate-800 py-3 px-3 text-right w-28 text-black font-black">Credit</th>
                             <th className="border border-slate-800 py-3 px-3 text-center w-16 text-black font-black">Dr/Cr</th>
                             <th className="border border-slate-800 py-3 px-3 text-right w-36 text-black font-black">Balance</th>
                           </tr>
@@ -1479,7 +1487,7 @@ function ReportsContent() {
                         <tbody>
                           {summaryLedgersList.length === 0 ? (
                             <tr>
-                              <td colSpan={8} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
+                              <td colSpan={6} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
                                 No accounts or transactions found for this site.
                               </td>
                             </tr>
@@ -1509,12 +1517,6 @@ function ReportsContent() {
                                     <td className="border-r border-slate-400 px-3 py-2 text-center font-bold text-slate-700 text-xs">
                                       {item.phone || "-"}
                                     </td>
-                                    <td className="border-r border-slate-400 px-3 py-2 text-right text-slate-900 font-black">
-                                      {item.totalDebit > 0 ? item.totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                                    </td>
-                                    <td className="border-r border-slate-400 px-3 py-2 text-right text-slate-900 font-black">
-                                      {item.totalCredit > 0 ? item.totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                                    </td>
                                     <td className={`border-r border-slate-400 px-3 py-2 text-center font-black ${
                                       item.status === "DR" ? "text-emerald-700" : item.status === "CR" ? "text-rose-700" : "text-slate-650"
                                     }`}>
@@ -1535,8 +1537,6 @@ function ReportsContent() {
                                   <td className="border-r border-slate-350 px-3 py-2"></td>
                                   <td className="border-r border-slate-350 px-3 py-2"></td>
                                   <td className="border-r border-slate-350 px-3 py-2"></td>
-                                  <td className="border-r border-slate-350 px-3 py-2"></td>
-                                  <td className="border-r border-slate-350 px-3 py-2"></td>
                                   <td className="px-3 py-2"></td>
                                 </tr>
                               ))}
@@ -1544,12 +1544,6 @@ function ReportsContent() {
                               {/* Table Totals Row */}
                               <tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[12px] text-slate-955">
                                 <td colSpan={4} className="border-r border-slate-400 px-3 py-2.5 text-right font-black">TOTALS:</td>
-                                <td className="border-r border-slate-400 px-3 py-2.5 text-right text-slate-955 font-black">
-                                  {summaryLedgersList.reduce((acc, curr) => acc + curr.totalDebit, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="border-r border-slate-400 px-3 py-2.5 text-right text-slate-955 font-black">
-                                  {summaryLedgersList.reduce((acc, curr) => acc + curr.totalCredit, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </td>
                                 <td className="border-r border-slate-400 px-3 py-2.5 text-center text-slate-955 font-black">
                                   -
                                 </td>
@@ -1581,7 +1575,7 @@ function ReportsContent() {
                     onClick={handlePrintPDF}
                     className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
                   >
-                    <span>[F2] PRINT PDF</span>
+                    <span>[1] PRINT PDF</span>
                   </button>
                   <button
                     type="button"
@@ -2106,7 +2100,7 @@ function ReportsContent() {
                   onClick={handlePrintPDF}
                   className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
                 >
-                  <span>[F2] PRINT PDF</span>
+                  <span>[1] PRINT PDF</span>
                 </button>
                 <button
                   type="button"
@@ -2444,7 +2438,7 @@ function ReportsContent() {
               onClick={handlePrintPDF}
               className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
             >
-              <span>[F2] PRINT PDF</span>
+              <span>[1] PRINT PDF</span>
             </button>
             <button
               type="button"
