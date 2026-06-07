@@ -154,6 +154,7 @@ function ReportsContent() {
   const [lgFilterDate, setLgFilterDate] = useState("");
   const [lgSelectedRowIndex, setLgSelectedRowIndex] = useState<number>(-1);
   const [dbSelectedRowIndex, setDbSelectedRowIndex] = useState<number>(-1);
+  const [smSelectedRowIndex, setSmSelectedRowIndex] = useState<number>(-1);
 
   // SUMMARY STATES
   const [smSiteSearchVal, setSmSiteSearchVal] = useState("");
@@ -608,8 +609,7 @@ function ReportsContent() {
         e.preventDefault();
       } else if (e.key === "Enter") {
         e.preventDefault();
-        smLedgerInputRef.current?.focus();
-        smLedgerInputRef.current?.select();
+        smSiteInputRef.current?.blur();
       }
       return;
     }
@@ -640,10 +640,7 @@ function ReportsContent() {
         setSmSelectedLedgerId(null);
         setSmLedgerSearchVal("");
 
-        setTimeout(() => {
-          smLedgerInputRef.current?.focus();
-          smLedgerInputRef.current?.select();
-        }, 100);
+        smSiteInputRef.current?.blur();
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -1077,6 +1074,15 @@ function ReportsContent() {
     }
   }, [dbSelectedSiteId, processedDbData.items.length, reportType]);
 
+  // Auto-select first row (index 0) in Print Summary table when summary data changes
+  useEffect(() => {
+    if (reportType === "summary" && summaryLedgersList.length > 0) {
+      setSmSelectedRowIndex(0);
+    } else {
+      setSmSelectedRowIndex(-1);
+    }
+  }, [smSelectedSiteId, summaryLedgersList.length, reportType]);
+
   // Global keydown handler for navigating ledger rows
   useEffect(() => {
     const handleLgTableKeyDown = (e: KeyboardEvent) => {
@@ -1187,8 +1193,62 @@ function ReportsContent() {
     isDbSiteSuggestionsOpen,
     isLgSiteSuggestionsOpen, 
     isLgLedgerSuggestionsOpen,
+    isSmSiteSuggestionsOpen
+  ]);
+
+  // Global keydown handler for navigating summary rows
+  useEffect(() => {
+    const handleSmTableKeyDown = (e: KeyboardEvent) => {
+      if (reportType !== "summary") return;
+      if (
+        isSmSiteSuggestionsOpen || 
+        isLgSiteSuggestionsOpen || 
+        isLgLedgerSuggestionsOpen || 
+        isDbSiteSuggestionsOpen
+      ) {
+        return;
+      }
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "SELECT"
+      ) {
+        return;
+      }
+
+      const itemsCount = summaryLedgersList.length;
+      if (itemsCount === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSmSelectedRowIndex((prev) => {
+          const next = prev + 1;
+          const target = next >= itemsCount ? itemsCount - 1 : next;
+          const el = document.getElementById(`sm-row-${target}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+          return target;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSmSelectedRowIndex((prev) => {
+          const next = prev - 1;
+          const target = next < 0 ? 0 : next;
+          const el = document.getElementById(`sm-row-${target}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+          return target;
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleSmTableKeyDown);
+    return () => window.removeEventListener("keydown", handleSmTableKeyDown);
+  }, [
+    reportType, 
+    summaryLedgersList.length, 
     isSmSiteSuggestionsOpen,
-    isSmLedgerSuggestionsOpen
+    isLgSiteSuggestionsOpen, 
+    isLgLedgerSuggestionsOpen,
+    isDbSiteSuggestionsOpen
   ]);
 
 
@@ -1298,10 +1358,7 @@ function ReportsContent() {
                                 setHighlightedSmSiteIndex(-1);
                                 setSmSelectedLedgerId(null);
                                 setSmLedgerSearchVal("");
-                                setTimeout(() => {
-                                  smLedgerInputRef.current?.focus();
-                                  smLedgerInputRef.current?.select();
-                                }, 80);
+                                smSiteInputRef.current?.blur();
                               }}
                               onMouseEnter={() => setHighlightedSmSiteIndex(index)}
                               className={`w-full text-left px-2.5 py-1.5 border-b border-slate-100 last:border-b-0 font-black uppercase text-[11px] ${
@@ -1318,92 +1375,7 @@ function ReportsContent() {
                 </div>
               </div>
  
-              {/* ACCOUNT SELECTOR */}
-              <div className="space-y-1.5 animate-in fade-in duration-200" ref={smLedgerSelectorRef}>
-                <span className="font-bold text-[10px] uppercase text-slate-700 tracking-wider block">Select Account :</span>
-                <div className="relative">
-                  <div className="relative flex items-center bg-white border border-slate-400 rounded overflow-hidden">
-                    <input 
-                      ref={smLedgerInputRef}
-                      type="text"
-                      value={smLedgerSearchVal}
-                      placeholder="ALL ACCOUNTS"
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSmLedgerSearchVal(val);
-                        setIsSmLedgerSuggestionsOpen(true);
-                        setHighlightedSmLedgerIndex(-1);
-                        
-                        const norm = val.trim().toUpperCase();
-                        if (norm === "ALL ACCOUNTS" || !norm) {
-                          setSmSelectedLedgerId("all");
-                        } else {
-                          const exact = summaryActiveSiteLedgers.find((l: any) => l.name.toUpperCase() === norm);
-                          if (exact) {
-                            setSmSelectedLedgerId(exact.id);
-                          } else {
-                            setSmSelectedLedgerId(null);
-                          }
-                        }
-                      }}
-                      onFocus={(e) => {
-                        setIsSmLedgerSuggestionsOpen(true);
-                        setHighlightedSmLedgerIndex(-1);
-                        setIsSmLedgerFocused(true);
-                        e.target.select();
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => setIsSmLedgerFocused(false), 200);
-                      }}
-                      onKeyDown={handleSmLedgerKeyDown}
-                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-450 uppercase font-mono tracking-wide transition-colors ${
-                        isSmLedgerFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
-                      }`}
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setIsSmLedgerSuggestionsOpen((prev) => !prev);
-                        setHighlightedSmLedgerIndex(-1);
-                      }}
-                      className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
- 
-                  {isSmLedgerSuggestionsOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-50 max-h-[350px] overflow-y-auto font-mono text-[11px] uppercase">
-                      {filteredSmLedgers.length === 0 ? (
-                        <div className="p-2.5 text-slate-400 italic">No matching accounts found</div>
-                      ) : (
-                        filteredSmLedgers.map((ledger: any, index: number) => {
-                          const isActive = highlightedSmLedgerIndex === index;
-                          return (
-                            <button
-                              key={ledger.id}
-                              id={`sm-acct-opt-${index}`}
-                              type="button"
-                              onClick={() => {
-                                setSmSelectedLedgerId(ledger.id);
-                                setSmLedgerSearchVal(ledger.name.toUpperCase());
-                                setIsSmLedgerSuggestionsOpen(false);
-                                setHighlightedSmLedgerIndex(-1);
-                              }}
-                              onMouseEnter={() => setHighlightedSmLedgerIndex(index)}
-                              className={`w-full text-left px-2.5 py-1.5 border-b border-slate-100 last:border-b-0 font-black uppercase text-[11px] ${
-                                isActive ? "bg-[#2B547E] text-white" : "bg-white hover:bg-slate-200 text-slate-900"
-                              }`}
-                            >
-                              <span className="truncate block py-0.5">{ledger.name.toUpperCase()}</span>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+
  
             </div>
  
@@ -1515,7 +1487,16 @@ function ReportsContent() {
                             <>
                               {summaryLedgersList.map((item: any, idx: number) => {
                                 return (
-                                  <tr key={item.id || item.name} className="border-b border-slate-400 font-black uppercase hover:bg-slate-100/60 text-slate-955 animate-in fade-in duration-100">
+                                  <tr 
+                                    key={item.id || item.name} 
+                                    id={`sm-row-${idx}`}
+                                    onClick={() => setSmSelectedRowIndex(idx)}
+                                    className={`border-b border-slate-400 font-black uppercase text-slate-955 animate-in fade-in duration-100 ${
+                                      smSelectedRowIndex === idx 
+                                        ? "bg-[#FFE600] text-black font-extrabold" 
+                                        : "hover:bg-slate-100/60"
+                                    }`}
+                                  >
                                     <td className="border-r border-slate-400 px-2 py-2 text-center font-bold text-slate-500">
                                       {idx + 1}
                                     </td>
