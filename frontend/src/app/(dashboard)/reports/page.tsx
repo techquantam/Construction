@@ -564,6 +564,10 @@ function ReportsContent() {
         if (ledger) {
           setLgSelectedLedgerId(ledger.id);
           setLgLedgerSearchVal(ledger.name.toUpperCase());
+          setTimeout(() => {
+            const el = document.getElementById(`lg-acct-opt-${index}`);
+            if (el) el.scrollIntoView({ block: "nearest" });
+          }, 10);
         }
         return index;
       });
@@ -576,6 +580,10 @@ function ReportsContent() {
         if (ledger) {
           setLgSelectedLedgerId(ledger.id);
           setLgLedgerSearchVal(ledger.name.toUpperCase());
+          setTimeout(() => {
+            const el = document.getElementById(`lg-acct-opt-${index}`);
+            if (el) el.scrollIntoView({ block: "nearest" });
+          }, 10);
         }
         return index;
       });
@@ -663,6 +671,10 @@ function ReportsContent() {
         if (ledger) {
           setSmSelectedLedgerId(ledger.id);
           setSmLedgerSearchVal(ledger.name.toUpperCase());
+          setTimeout(() => {
+            const el = document.getElementById(`sm-acct-opt-${index}`);
+            if (el) el.scrollIntoView({ block: "nearest" });
+          }, 10);
         }
         return index;
       });
@@ -675,6 +687,10 @@ function ReportsContent() {
         if (ledger) {
           setSmSelectedLedgerId(ledger.id);
           setSmLedgerSearchVal(ledger.name.toUpperCase());
+          setTimeout(() => {
+            const el = document.getElementById(`sm-acct-opt-${index}`);
+            if (el) el.scrollIntoView({ block: "nearest" });
+          }, 10);
         }
         return index;
       });
@@ -1042,14 +1058,6 @@ function ReportsContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [reportType, processedDbData, processedLgData, dbSelectedSiteId, lgSelectedSiteId, lgSelectedLedgerId, smSelectedSiteId, smSelectedLedgerId, summaryLedgersList]);
 
-  // Auto-select first account in Print Ledger when site changes and activeSiteLedgers is populated
-  useEffect(() => {
-    if (lgSelectedSiteId && activeSiteLedgers.length > 0 && !lgSelectedLedgerId) {
-      const first = activeSiteLedgers[0];
-      setLgSelectedLedgerId(first.id);
-      setLgLedgerSearchVal(first.name.toUpperCase());
-    }
-  }, [lgSelectedSiteId, activeSiteLedgers, lgSelectedLedgerId]);
 
   // Auto-select first row (index 0) in Print Ledger table when ledger data changes
   useEffect(() => {
@@ -1338,10 +1346,11 @@ function ReportsContent() {
                           }
                         }
                       }}
-                      onFocus={() => {
+                      onFocus={(e) => {
                         setIsSmLedgerSuggestionsOpen(true);
                         setHighlightedSmLedgerIndex(-1);
                         setIsSmLedgerFocused(true);
+                        e.target.select();
                       }}
                       onBlur={() => {
                         setTimeout(() => setIsSmLedgerFocused(false), 200);
@@ -1364,19 +1373,16 @@ function ReportsContent() {
                   </div>
  
                   {isSmLedgerSuggestionsOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-50 max-h-40 overflow-y-auto font-mono text-[11px] uppercase">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-50 max-h-[350px] overflow-y-auto font-mono text-[11px] uppercase">
                       {filteredSmLedgers.length === 0 ? (
                         <div className="p-2.5 text-slate-400 italic">No matching accounts found</div>
                       ) : (
                         filteredSmLedgers.map((ledger: any, index: number) => {
                           const isActive = highlightedSmLedgerIndex === index;
-                          const details = parsePartyDetails(ledger.contactPerson);
-                          const address = details ? details.address : (ledger.contactPerson || "");
-                          const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
- 
                           return (
                             <button
                               key={ledger.id}
+                              id={`sm-acct-opt-${index}`}
                               type="button"
                               onClick={() => {
                                 setSmSelectedLedgerId(ledger.id);
@@ -1389,15 +1395,7 @@ function ReportsContent() {
                                 isActive ? "bg-[#2B547E] text-white" : "bg-white hover:bg-slate-200 text-slate-900"
                               }`}
                             >
-                              <div className="flex flex-col">
-                                <span className="truncate">{ledger.name.toUpperCase()}</span>
-                                {(!ledger.isVirtual && ledger.id !== "all" && (phone || address)) && (
-                                  <div className={`text-[9px] mt-0.5 font-normal normal-case flex flex-wrap gap-x-2 gap-y-0.5 ${isActive ? "text-slate-200" : "text-slate-500"}`}>
-                                    {phone && <span>📞 {phone}</span>}
-                                    {address && <span className="truncate max-w-[250px]">📍 {address}</span>}
-                                  </div>
-                                )}
-                              </div>
+                              <span className="truncate block py-0.5">{ledger.name.toUpperCase()}</span>
                             </button>
                           );
                         })
@@ -1884,10 +1882,11 @@ function ReportsContent() {
                           }
                         }
                       }}
-                      onFocus={() => {
+                      onFocus={(e) => {
                         setIsLgLedgerSuggestionsOpen(true);
                         setHighlightedLgLedgerIndex(-1);
                         setIsLgLedgerFocused(true);
+                        e.target.select();
                       }}
                       onBlur={() => {
                         setTimeout(() => setIsLgLedgerFocused(false), 200);
@@ -1910,19 +1909,16 @@ function ReportsContent() {
                   </div>
  
                   {isLgLedgerSuggestionsOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-50 max-h-40 overflow-y-auto font-mono text-[11px] uppercase">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-50 max-h-[350px] overflow-y-auto font-mono text-[11px] uppercase">
                       {filteredLgLedgers.length === 0 ? (
                         <div className="p-2.5 text-slate-400 italic">No matching accounts found</div>
                       ) : (
                         filteredLgLedgers.map((ledger: any, index: number) => {
                           const isActive = highlightedLgLedgerIndex === index;
-                          const details = parsePartyDetails(ledger.contactPerson);
-                          const address = details ? details.address : (ledger.contactPerson || "");
-                          const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
-
                           return (
                             <button
                               key={ledger.id}
+                              id={`lg-acct-opt-${index}`}
                               type="button"
                               onClick={() => {
                                 setLgSelectedLedgerId(ledger.id);
@@ -1935,15 +1931,7 @@ function ReportsContent() {
                                 isActive ? "bg-[#2B547E] text-white" : "bg-white hover:bg-slate-200 text-slate-900"
                               }`}
                             >
-                              <div className="flex flex-col">
-                                <span className="truncate">{ledger.name.toUpperCase()}</span>
-                                {(!ledger.isVirtual && ledger.id !== "all" && (phone || address)) && (
-                                  <div className={`text-[9px] mt-0.5 font-normal normal-case flex flex-wrap gap-x-2 gap-y-0.5 ${isActive ? "text-slate-200" : "text-slate-500"}`}>
-                                    {phone && <span>📞 {phone}</span>}
-                                    {address && <span className="truncate max-w-[250px]">📍 {address}</span>}
-                                  </div>
-                                )}
-                              </div>
+                              <span className="truncate block py-0.5">{ledger.name.toUpperCase()}</span>
                             </button>
                           );
                         })

@@ -600,13 +600,23 @@ export default function ChallanPage() {
       e.preventDefault();
       setHighlightedLedgerIndex((prev) => {
         const next = prev + 1;
-        return next >= filteredLedgers.length ? 0 : next;
+        const index = next >= filteredLedgers.length ? 0 : next;
+        setTimeout(() => {
+          const el = document.getElementById(`acct-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
+        return index;
       });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedLedgerIndex((prev) => {
         const next = prev - 1;
-        return next < 0 ? filteredLedgers.length - 1 : next;
+        const index = next < 0 ? filteredLedgers.length - 1 : next;
+        setTimeout(() => {
+          const el = document.getElementById(`acct-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
+        return index;
       });
     } else if (e.key === "Enter") {
       e.preventDefault();
@@ -1061,9 +1071,10 @@ export default function ChallanPage() {
                     setSelectedLedgerId(null);
                   }
                 }}
-                onFocus={() => {
+                onFocus={(e) => {
                   setIsLedgerFocused(true);
                   setIsLedgerSuggestionsOpen(true);
+                  e.target.select();
                 }}
                 onBlur={() => setIsLedgerFocused(false)}
                 onKeyDown={handleLedgerKeyDown}
@@ -1086,17 +1097,15 @@ export default function ChallanPage() {
 
             {/* Account Suggestions Autocomplete list */}
             {isLedgerSuggestionsOpen && filteredLedgers.length > 0 && (
-              <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-50 max-h-48 overflow-y-auto">
+              <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-50 max-h-[350px] overflow-y-auto">
                 {filteredLedgers.map((ledger: any, idx: number) => {
                   const isHighlighted = idx === highlightedLedgerIndex;
                   const isSelected = ledger.id === selectedLedgerId;
-                  const details = parsePartyDetails(ledger.contactPerson);
-                  const address = details ? details.address : (ledger.contactPerson || "");
-                  const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
 
                   return (
                     <button
                       key={ledger.id}
+                      id={`acct-opt-${idx}`}
                       onClick={() => {
                         setSelectedLedgerId(ledger.id);
                         setLedgerSearchVal(ledger.name.toUpperCase());
@@ -1104,21 +1113,13 @@ export default function ChallanPage() {
                         setHighlightedLedgerIndex(-1);
                       }}
                       className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
-                        ? "bg-amber-400 text-slate-950 font-black"
+                        ? "bg-amber-400 text-slate-955 font-black"
                         : isSelected
                           ? "bg-amber-100 text-amber-900"
                           : "hover:bg-slate-100 text-slate-700"
                         }`}
                     >
-                      <div className="flex flex-col">
-                        <span className="truncate">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
-                        {(!ledger.isVirtual && (phone || address)) && (
-                          <div className={`text-[10px] mt-0.5 font-normal flex flex-wrap gap-x-2 gap-y-0.5 ${isHighlighted ? "text-slate-955 font-medium" : "text-slate-500"}`}>
-                            {phone && <span>📞 {phone}</span>}
-                            {address && <span className="truncate max-w-[250px]">📍 {address}</span>}
-                          </div>
-                        )}
-                      </div>
+                      <span className="truncate block py-0.5">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
                     </button>
                   );
                 })}

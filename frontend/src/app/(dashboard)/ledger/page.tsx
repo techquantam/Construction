@@ -2155,9 +2155,10 @@ function LedgerContent() {
                       setIsAccountSuggestionsOpen(true);
                       setHighlightedAccountIndex(-1);
                     }}
-                    onFocus={() => {
+                    onFocus={(e) => {
                       setIsAccountSuggestionsOpen(true);
                       setHighlightedAccountIndex(-1);
+                      e.target.select();
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "ArrowRight") {
@@ -2188,13 +2189,23 @@ function LedgerContent() {
                         e.preventDefault();
                         setHighlightedAccountIndex((prev) => {
                           const next = prev + 1;
-                          return next >= filteredAccountSuggestions.length ? 0 : next;
+                          const index = next >= filteredAccountSuggestions.length ? 0 : next;
+                          setTimeout(() => {
+                            const el = document.getElementById(`acct-opt-${index}`);
+                            if (el) el.scrollIntoView({ block: "nearest" });
+                          }, 10);
+                          return index;
                         });
                       } else if (e.key === "ArrowUp") {
                         e.preventDefault();
                         setHighlightedAccountIndex((prev) => {
                           const next = prev - 1;
-                          return next < 0 ? filteredAccountSuggestions.length - 1 : next;
+                          const index = next < 0 ? filteredAccountSuggestions.length - 1 : next;
+                          setTimeout(() => {
+                            const el = document.getElementById(`acct-opt-${index}`);
+                            if (el) el.scrollIntoView({ block: "nearest" });
+                          }, 10);
+                          return index;
                         });
                       } else if (e.key === "Enter") {
                         let targetIndex = highlightedAccountIndex;
@@ -2261,16 +2272,12 @@ function LedgerContent() {
  
                 {/* Autocomplete floating panel */}
                 {isAccountSuggestionsOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-[60] max-h-40 overflow-y-auto font-mono text-[11px] uppercase">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-[60] max-h-[350px] overflow-y-auto font-mono text-[11px] uppercase">
                     {filteredAccountSuggestions.length === 0 ? (
                       <div className="p-2 text-slate-400 italic">No matching accounts</div>
                     ) : (
                       filteredAccountSuggestions.map((ledger: any, index: number) => {
                         const isActive = highlightedAccountIndex === index;
-                        const details = parsePartyDetails(ledger.contactPerson);
-                        const address = details ? details.address : (ledger.contactPerson || "");
-                        const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
-
                         return (
                           <button
                             key={ledger.id}
@@ -2305,15 +2312,7 @@ function LedgerContent() {
                               isActive ? "bg-[#2B547E] text-white" : "bg-white hover:bg-slate-200 text-slate-900"
                             }`}
                           >
-                            <div className="flex flex-col">
-                              <span className="truncate">{ledger.name.toUpperCase()}</span>
-                              {(!ledger.isVirtual && ledger.id !== "all" && (phone || address)) && (
-                                <div className={`text-[9px] mt-0.5 font-normal normal-case flex flex-wrap gap-x-2 gap-y-0.5 ${isActive ? "text-slate-200" : "text-slate-500"}`}>
-                                  {phone && <span>📞 {phone}</span>}
-                                  {address && <span className="truncate max-w-[250px]">📍 {address}</span>}
-                                </div>
-                              )}
-                            </div>
+                            <span className="truncate block py-0.5">{ledger.name.toUpperCase()}</span>
                           </button>
                         );
                       })
