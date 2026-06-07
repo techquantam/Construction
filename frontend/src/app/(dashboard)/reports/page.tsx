@@ -1541,23 +1541,33 @@ function ReportsContent() {
                                 </tr>
                               ))}
  
-                              {/* Table Totals Row */}
-                              <tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[12px] text-slate-955">
-                                <td colSpan={4} className="border-r border-slate-400 px-3 py-2.5 text-right font-black">TOTALS:</td>
-                                <td className="border-r border-slate-400 px-3 py-2.5 text-center text-slate-955 font-black">
-                                  -
-                                </td>
-                                <td className="px-3 py-2.5 text-right text-slate-955 font-black">
-                                  {/* Net sum of balances */}
-                                  {(() => {
-                                    const drSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "DR" ? curr.balance : 0), 0);
-                                    const crSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "CR" ? curr.balance : 0), 0);
-                                    const diff = drSum - crSum;
-                                    const status = diff > 0 ? "DR" : diff < 0 ? "CR" : "NIL";
-                                    return diff === 0 ? "NILL" : `${status} ${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-                                  })()}
-                                </td>
-                              </tr>
+                              {/* Table Totals Rows */}
+                              {(() => {
+                                const drSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "DR" ? curr.balance : 0), 0);
+                                const crSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "CR" ? curr.balance : 0), 0);
+                                return (
+                                  <>
+                                    <tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[12px] text-slate-955">
+                                      <td colSpan={4} className="border-r border-slate-400 px-3 py-2.5 text-right font-black">TOTAL DEBIT:</td>
+                                      <td className="border-r border-slate-400 px-3 py-2.5 text-center text-emerald-700 font-black">
+                                        DR
+                                      </td>
+                                      <td className="px-3 py-2.5 text-right text-emerald-700 font-black">
+                                        {drSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                      </td>
+                                    </tr>
+                                    <tr className="bg-[#D3DFEE] font-black border-t border-slate-400 uppercase text-[12px] text-slate-955">
+                                      <td colSpan={4} className="border-r border-slate-400 px-3 py-2.5 text-right font-black">TOTAL CREDIT:</td>
+                                      <td className="border-r border-slate-400 px-3 py-2.5 text-center text-rose-700 font-black">
+                                        CR
+                                      </td>
+                                      <td className="px-3 py-2.5 text-right text-rose-700 font-black">
+                                        {crSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                      </td>
+                                    </tr>
+                                  </>
+                                );
+                              })()}
                             </>
                           )}
                         </tbody>
