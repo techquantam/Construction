@@ -750,7 +750,8 @@ function LedgerContent() {
         setCompMobile("");
       }
     }
-  }, [selectedLedgerId, filteredLedgers, existingLedgers, ledgerTypeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLedgerId, ledgerTypeTab]);
 
   // Global Escape interceptor inside Ledger to cancel metadata editing before the layout's global handler can close the page
   useEffect(() => {
