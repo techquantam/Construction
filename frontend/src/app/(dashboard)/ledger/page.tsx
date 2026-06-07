@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Wallet, History, ArrowDown, ArrowUpRight, ArrowDownLeft, Edit, Trash2, User, Phone, Settings, X } from "lucide-react";
+import { Plus, Wallet, History, ArrowDown, ArrowUpRight, ArrowDownLeft, Edit, Trash2, User, Phone, Settings, X, Eraser } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
 import { useApp } from "@/context/AppContext";
@@ -101,9 +101,7 @@ function LedgerContent() {
   
   const action = searchParams.get("action") || "entry";
 
-  const [ledgerTypeTab, setLedgerTypeTab] = useState<"PLOT" | "COMPANY" | null>(
-    action === "entry" ? null : "PLOT"
-  );
+  const [ledgerTypeTab, setLedgerTypeTab] = useState<"PLOT" | "COMPANY" | null>(null);
 
   // States for Autocomplete Dropdowns
   const [siteSearchVal, setSiteSearchVal] = useState("");
@@ -148,7 +146,7 @@ function LedgerContent() {
   useEffect(() => {
     // Focus the Select Site input when the action or component mounts or active tab changes
     setTimeout(() => {
-      if (ledgerTypeTab && siteInputRef.current) {
+      if ((ledgerTypeTab || action !== "entry") && siteInputRef.current) {
         siteInputRef.current.focus();
         siteInputRef.current.select();
       }
@@ -652,7 +650,7 @@ function LedgerContent() {
         ledgerTypeTab === "COMPANY" ? dbLedger.type === "Company" : (dbLedger.type === "Party" || !dbLedger.type)
       );
       
-      const shouldInclude = (action === "entry" ? isCorrectType : true) && (action === "entry" || activeNames.has(ledgerNameUpper));
+      const shouldInclude = isCorrectType;
       
       if (shouldInclude) {
         list.push({
@@ -742,6 +740,9 @@ function LedgerContent() {
         }
       }
     } else {
+      if (action !== "entry") {
+        setLedgerTypeTab(null);
+      }
       // Only clear if the input is not currently focused (meaning the user isn't typing)
       if (document.activeElement !== accountInputRef.current) {
         setAccountSearchVal("");
@@ -898,14 +899,13 @@ function LedgerContent() {
         : filteredLedgers;
 
       let initialLedgers = activeSource;
-      if (recentNames.length > 0) {
+      if (recentNames.length > 0 && action === "entry") {
         // Filter and keep the recent ones in order of their recency
         initialLedgers = recentNames
           .map((name) => activeSource.find((l) => l.name.toUpperCase() === name))
           .filter(Boolean) as any[];
       } else {
-        // Fallback: If no daybook entries, just show the first 3 registered ledgers
-        initialLedgers = activeSource.slice(0, 3);
+        initialLedgers = activeSource;
       }
 
       return [{ id: "all", name: firstOptionName }, ...initialLedgers];
@@ -913,7 +913,13 @@ function LedgerContent() {
     
     // In entry mode, if the user is searching, we allow selecting globally from existingLedgers
     // In delete/correction mode, we only allow selecting from filteredLedgers (accounts with transactions)
-    const searchSource = (action === "entry") ? existingLedgers : filteredLedgers;
+    const searchSource = (action === "entry")
+      ? existingLedgers.filter((dbLedger: any) => {
+          return ledgerTypeTab === null || (
+            ledgerTypeTab === "COMPANY" ? dbLedger.type === "Company" : (dbLedger.type === "Party" || !dbLedger.type)
+          );
+        })
+      : filteredLedgers;
     
     const matches = searchSource.filter((ledger: any) => {
       const details = parsePartyDetails(ledger.contactPerson);
@@ -1072,6 +1078,36 @@ function LedgerContent() {
     );
     if (isConfirmed) {
       deleteLedgerMutation.mutate(selectedLedgerId);
+    }
+  };
+
+  const deleteLedgerDataMutation = useMutation({
+    mutationFn: async ({ id, siteId }: { id: string; siteId?: string }) => {
+      const url = siteId ? `/ledgers/${id}/data?siteId=${siteId}` : `/ledgers/${id}/data`;
+      return await api.delete(url);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["daybooks"] });
+      queryClient.invalidateQueries({ queryKey: ["ledgers"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      toast.success("Ledger data entries deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to delete ledger data");
+    },
+  });
+
+  const handleDeleteLedgerData = () => {
+    if (!selectedLedgerId || selectedLedgerId === "all") return;
+    const ledgerName = selectedLedger ? selectedLedger.name : "this ledger";
+    const isConfirmed = window.confirm(
+      `⚠️ WARNING: TRANSACTION DATA LOSS!\n\nAre you sure you want to delete ALL daybook entries of "${ledgerName.toUpperCase()}" for the selected site?\n\nThe ledger account (head) itself will NOT be deleted.\n\nThis action cannot be undone. Click OK to proceed.`
+    );
+    if (isConfirmed) {
+      deleteLedgerDataMutation.mutate({ 
+        id: selectedLedgerId, 
+        siteId: selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined 
+      });
     }
   };
 
@@ -1882,7 +1918,9 @@ function LedgerContent() {
             
             {/* Title Bar */}
             <div className="bg-[#2B547E] border-b-2 border-slate-950 px-4 py-2.5 flex items-center justify-between text-white shrink-0">
-              <span className="text-xs font-black uppercase tracking-wider font-mono">Select Ledger Module (Entry Mode)</span>
+              <span className="text-xs font-black uppercase tracking-wider font-mono">
+                Select Ledger Module ({action === "entry" ? "Entry" : action === "delete" ? "Delete" : "Correction"} Mode)
+              </span>
               <span className="text-[10px] bg-[#ECC30B] text-slate-950 font-black px-1.5 py-0.5 rounded-xs animate-pulse">ACTION REQUIRED</span>
             </div>
 
@@ -1934,7 +1972,7 @@ function LedgerContent() {
       ) : (
         <>
           {/* Small top utility bar to switch back if selected */}
-          {action === "entry" && ledgerTypeTab !== null && (
+          {ledgerTypeTab !== null && (
             <div className="flex justify-between items-center pb-2.5 border-b border-slate-350 animate-in fade-in duration-200">
               <div className="text-xs font-black uppercase text-[#2B547E] tracking-wider flex items-center gap-1.5">
                 <span>Active Mode:</span>
@@ -1986,13 +2024,15 @@ function LedgerContent() {
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setLedgerTypeTab(null)}
-                  className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border border-slate-950 bg-white hover:bg-slate-100 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none active:translate-y-0.5 cursor-pointer flex items-center gap-1"
-                >
-                  <span>← Change Ledger Type</span>
-                </button>
+                {action === "entry" && (
+                  <button
+                    type="button"
+                    onClick={() => setLedgerTypeTab(null)}
+                    className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border border-slate-955 bg-white hover:bg-slate-100 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none active:translate-y-0.5 cursor-pointer flex items-center gap-1"
+                  >
+                    <span>← Change Ledger Type</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -2154,6 +2194,9 @@ function LedgerContent() {
                       setAccountSearchVal(e.target.value);
                       setIsAccountSuggestionsOpen(true);
                       setHighlightedAccountIndex(-1);
+                      if (e.target.value === "") {
+                        setSelectedLedgerId(null);
+                      }
                     }}
                     onFocus={(e) => {
                       setIsAccountSuggestionsOpen(true);
@@ -2354,16 +2397,7 @@ function LedgerContent() {
 
 
 
-            {selectedSiteId && selectedSiteId !== "all" && selectedLedgerId && selectedLedgerId !== "all" && action === "delete" && (
-              <button
-                type="button"
-                onClick={handleDeleteWholeLedger}
-                className="w-full bg-red-650 bg-red-600 hover:bg-red-700 text-white border border-slate-950 font-black text-xs py-2 rounded shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none transition-all active:translate-y-0.5 uppercase tracking-widest cursor-pointer flex items-center justify-center gap-1.5 mt-4"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>DELETE WHOLE LEDGER</span>
-              </button>
-            )}
+
           </div>
           )}
 
@@ -2373,20 +2407,43 @@ function LedgerContent() {
             {/* Selected Ledger Metadata Info Banner */}
             <div 
               className={`p-4 bg-slate-50 border-b border-slate-200 text-xs text-slate-800 relative ${
-                !isEditingMetadata && selectedLedger && selectedLedgerId !== "all" 
+                !isEditingMetadata && selectedLedger && selectedLedgerId !== "all" && action !== "delete" 
                   ? "cursor-pointer hover:bg-slate-100/60 transition-all group" 
                   : ""
               }`}
               onClick={() => {
-                if (!isEditingMetadata && selectedLedger && selectedLedgerId !== "all") {
+                if (!isEditingMetadata && selectedLedger && selectedLedgerId !== "all" && action !== "delete") {
                   startEditingMetadata();
                 }
               }}
             >
-              {!isEditingMetadata && selectedLedger && selectedLedgerId !== "all" && (
+              {!isEditingMetadata && selectedLedger && selectedLedgerId !== "all" && action !== "delete" && (
                 <span className="hidden group-hover:inline-block absolute right-4 top-3 bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest animate-pulse select-none z-10">
                   ✏️ Click to Edit Details
                 </span>
+              )}
+              {!isEditingMetadata && selectedSiteId && selectedSiteId !== "all" && selectedLedgerId && selectedLedgerId !== "all" && action === "delete" && (
+                <div 
+                  className="absolute right-4 top-3 flex items-center gap-2.5 z-20"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={handleDeleteWholeLedger}
+                    className="bg-red-650 hover:bg-red-750 text-white border border-slate-950 font-black text-[11px] py-1.5 px-3 rounded shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none transition-all active:translate-y-0.5 uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                    <span>DELETE HEAD</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteLedgerData}
+                    className="bg-[#D97706] hover:bg-[#B45309] text-white border border-slate-950 font-black text-[11px] py-1.5 px-3 rounded shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none transition-all active:translate-y-0.5 uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Eraser className="h-3.5 w-3.5 shrink-0" />
+                    <span>DELETE DATA</span>
+                  </button>
+                </div>
               )}
               {isEditingMetadata ? (
                 <form onSubmit={handleSaveMetadataSubmit} onClick={(e) => e.stopPropagation()} className="space-y-4">

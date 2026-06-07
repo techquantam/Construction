@@ -321,6 +321,23 @@ function ReportsContent() {
         isVirtual: !dbLedger
       });
     });
+
+    // Add all registered database accounts
+    if (ledgers && ledgers.length > 0) {
+      ledgers.forEach((dbLedger: any) => {
+        const ledgerNameUpper = dbLedger.name.toUpperCase();
+        if (!names.has(ledgerNameUpper)) {
+          list.push({
+            id: dbLedger.id,
+            name: dbLedger.name.toUpperCase(),
+            phone: dbLedger.phone || "",
+            contactPerson: dbLedger.contactPerson || "",
+            isVirtual: false
+          });
+        }
+      });
+    }
+
     // Sort alphabetically by name
     return list.sort((a, b) => a.name.localeCompare(b.name));
   })();
@@ -348,13 +365,29 @@ function ReportsContent() {
         isVirtual: !dbLedger
       });
     });
+
+    // Add all registered database accounts
+    if (ledgers && ledgers.length > 0) {
+      ledgers.forEach((dbLedger: any) => {
+        const ledgerNameUpper = dbLedger.name.toUpperCase();
+        if (!names.has(ledgerNameUpper)) {
+          list.push({
+            id: dbLedger.id,
+            name: dbLedger.name.toUpperCase(),
+            phone: dbLedger.phone || "",
+            contactPerson: dbLedger.contactPerson || "",
+            isVirtual: false
+          });
+        }
+      });
+    }
+
     // Sort alphabetically by name
     return list.sort((a, b) => a.name.localeCompare(b.name));
   })();
 
   // Filter accounts suggestions list to display active site accounts only
   const filteredLgLedgers = (() => {
-    if (!activeSiteLedgers || activeSiteLedgers.length === 0) return [];
     const activeLedger = activeSiteLedgers.find((l) => String(l.id) === String(lgSelectedLedgerId));
     const isSearching = lgLedgerSearchVal.trim() !== "" && lgLedgerSearchVal.toUpperCase() !== activeLedger?.name?.toUpperCase();
     

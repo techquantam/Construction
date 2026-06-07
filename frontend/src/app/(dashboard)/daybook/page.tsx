@@ -584,10 +584,9 @@ function DayBookContent() {
       });
     }
     
-    // 2. Always ensure default standard ledgers (like CASH, SBI, etc. if they exist in existingLedgers) are available for all sites
-    const standardDefaults = ["CASH", "SBI", "BANK", "UPI", "CHEQUE"];
+    // 2. Ensure all registered database accounts (existingLedgers) are available for all sites
     existingLedgers.forEach((l: any) => {
-      if (l.name && standardDefaults.includes(l.name.toUpperCase())) {
+      if (l.name) {
         namesSet.add(l.name.toUpperCase());
       }
     });
@@ -616,10 +615,10 @@ function DayBookContent() {
     if (!isSearching) return allFilterLedgers;
 
     return allFilterLedgers.filter((ledger: any) => {
-      const dbLedger = existingLedgers.find((el: any) => el.name.toUpperCase() === ledger.name.toUpperCase());
-      const details = dbLedger ? parsePartyDetails(dbLedger.contactPerson) : null;
-      const address = details ? details.address : (dbLedger ? dbLedger.contactPerson : "");
-      const phone = details ? (details.mobileNo || details.phoneNo) : (dbLedger ? dbLedger.phone : "");
+      const dbLedger = existingLedgers.find((el: any) => el.name.toUpperCase() === ledger.name.toUpperCase()) || ledger;
+      const details = parsePartyDetails(dbLedger.contactPerson);
+      const address = details ? details.address : (dbLedger.contactPerson || "");
+      const phone = details ? (details.mobileNo || details.phoneNo) : (dbLedger.phone || "");
       return (
         matchesFuzzy(ledger.name, accountSearchVal) ||
         (address && matchesFuzzy(address, accountSearchVal)) ||
@@ -668,7 +667,19 @@ function DayBookContent() {
     const isSearching = s !== "" && s !== activeLedger?.name?.toUpperCase();
     
     if (!isSearching) return allLedgerNames;
-    return allLedgerNames.filter((ledger) => matchesFuzzy(ledger.name, particularText));
+
+    const searchSource = [...existingLedgers].map((l: any) => ({
+      id: l.id,
+      name: l.name.toUpperCase()
+    }));
+
+    allLedgerNames.forEach((l) => {
+      if (!searchSource.some((el) => el.name.toUpperCase() === l.name.toUpperCase())) {
+        searchSource.push(l);
+      }
+    });
+
+    return searchSource.filter((ledger) => matchesFuzzy(ledger.name, particularText));
   })();
 
   // Click outside listener for particular suggestions
@@ -691,7 +702,19 @@ function DayBookContent() {
     const isSearching = s !== "" && s !== activeLedger?.name?.toUpperCase();
     
     if (!isSearching) return allLedgerNames;
-    return allLedgerNames.filter((ledger) => matchesFuzzy(ledger.name, editParticularText));
+
+    const searchSource = [...existingLedgers].map((l: any) => ({
+      id: l.id,
+      name: l.name.toUpperCase()
+    }));
+
+    allLedgerNames.forEach((l) => {
+      if (!searchSource.some((el) => el.name.toUpperCase() === l.name.toUpperCase())) {
+        searchSource.push(l);
+      }
+    });
+
+    return searchSource.filter((ledger) => matchesFuzzy(ledger.name, editParticularText));
   })();
 
   // Click outside listener for edit particular suggestions

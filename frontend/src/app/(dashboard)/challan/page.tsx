@@ -485,11 +485,11 @@ export default function ChallanPage() {
 
     const list: any[] = [];
 
-    // Add registered company ledgers matching type "Company" that have transactions in this site
+    // Add all registered company ledgers matching type "Company"
     if (ledgers) {
       ledgers.forEach((l: any) => {
         const nameUpper = l.name.toUpperCase();
-        if (l.type === "Company" && names.has(nameUpper)) {
+        if (l.type === "Company") {
           list.push({
             id: l.id,
             name: nameUpper,
@@ -523,6 +523,7 @@ export default function ChallanPage() {
     const activeLedger = activeSiteCompanyLedgers.find((l) => String(l.id) === String(selectedLedgerId));
     const isSearching = ledgerSearchVal.trim() !== "" && ledgerSearchVal.toUpperCase() !== activeLedger?.name?.toUpperCase();
     if (!isSearching) return activeSiteCompanyLedgers;
+
     return activeSiteCompanyLedgers.filter((ledger) => {
       const details = parsePartyDetails(ledger.contactPerson);
       const address = details ? details.address : (ledger.contactPerson || "");

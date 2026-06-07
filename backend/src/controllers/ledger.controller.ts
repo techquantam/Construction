@@ -195,3 +195,47 @@ export const deleteLedger = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteLedgerData = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { siteId } = req.query;
+
+    const ledger = await prisma.ledger.findUnique({ where: { id } });
+    if (!ledger) {
+      return res.status(404).json({ success: false, message: 'Ledger not found' });
+    }
+
+    const name = ledger.name;
+
+    await prisma.$transaction(async (tx) => {
+      let dayBookWhereClause: any = {
+        OR: [
+          { expenseType: { startsWith: `To ${name}`, mode: 'insensitive' } },
+          { expenseType: { startsWith: `By ${name}`, mode: 'insensitive' } }
+        ]
+      };
+      if (siteId) {
+        dayBookWhereClause.siteId = String(siteId);
+      }
+
+      await tx.dayBook.deleteMany({
+        where: dayBookWhereClause
+      });
+
+      if (!siteId) {
+        await tx.ledgerTransaction.deleteMany({
+          where: { ledgerId: id }
+        });
+        await tx.ledger.update({
+          where: { id },
+          data: { outstandingBalance: 0 }
+        });
+      }
+    });
+
+    res.json({ success: true, message: 'Ledger data deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
