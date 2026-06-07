@@ -699,6 +699,11 @@ function LedgerContent() {
   useEffect(() => {
     if (selectedLedgerId === "all") {
       setAccountSearchVal(ledgerTypeTab === "COMPANY" ? "+ CREATE NEW ACCOUNT" : "ALL ACCOUNTS");
+      if (ledgerTypeTab === "COMPANY") {
+        setCompName("");
+        setCompAddress("");
+        setCompMobile("");
+      }
     } else if (selectedLedgerId) {
       const activeLedger = filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId);
       if (activeLedger) {
