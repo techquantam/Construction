@@ -152,6 +152,8 @@ function ReportsContent() {
   const [highlightedLgLedgerIndex, setHighlightedLgLedgerIndex] = useState<number>(-1);
   const lgLedgerSelectorRef = useRef<HTMLDivElement>(null);
   const [lgFilterDate, setLgFilterDate] = useState("");
+  const [lgSelectedRowIndex, setLgSelectedRowIndex] = useState<number>(-1);
+  const [dbSelectedRowIndex, setDbSelectedRowIndex] = useState<number>(-1);
 
   // SUMMARY STATES
   const [smSiteSearchVal, setSmSiteSearchVal] = useState("");
@@ -351,15 +353,15 @@ function ReportsContent() {
 
   // Filter accounts suggestions list to display active site accounts only
   const filteredLgLedgers = (() => {
-    const isAll = lgSelectedLedgerId === "all";
-    const activeLedger = isAll ? { name: "ALL ACCOUNTS" } : activeSiteLedgers.find((l) => String(l.id) === String(lgSelectedLedgerId));
+    if (!activeSiteLedgers || activeSiteLedgers.length === 0) return [];
+    const activeLedger = activeSiteLedgers.find((l) => String(l.id) === String(lgSelectedLedgerId));
     const isSearching = lgLedgerSearchVal.trim() !== "" && lgLedgerSearchVal.toUpperCase() !== activeLedger?.name?.toUpperCase();
     
     if (!isSearching) {
-      return [{ id: "all", name: "ALL ACCOUNTS" }, ...activeSiteLedgers];
+      return activeSiteLedgers;
     }
     
-    const matches = activeSiteLedgers.filter((ledger) => {
+    return activeSiteLedgers.filter((ledger) => {
       const details = parsePartyDetails(ledger.contactPerson);
       const address = details ? details.address : (ledger.contactPerson || "");
       const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
@@ -369,11 +371,6 @@ function ReportsContent() {
         (phone && matchesFuzzy(phone, lgLedgerSearchVal))
       );
     });
-
-    if (matchesFuzzy("ALL ACCOUNTS", lgLedgerSearchVal)) {
-      return [{ id: "all", name: "ALL ACCOUNTS" }, ...matches];
-    }
-    return matches;
   })();
 
   // Filter accounts suggestions list to display active site accounts only for Summary
@@ -1044,6 +1041,147 @@ function ReportsContent() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [reportType, processedDbData, processedLgData, dbSelectedSiteId, lgSelectedSiteId, lgSelectedLedgerId, smSelectedSiteId, smSelectedLedgerId, summaryLedgersList]);
+
+  // Auto-select first account in Print Ledger when site changes and activeSiteLedgers is populated
+  useEffect(() => {
+    if (lgSelectedSiteId && activeSiteLedgers.length > 0 && !lgSelectedLedgerId) {
+      const first = activeSiteLedgers[0];
+      setLgSelectedLedgerId(first.id);
+      setLgLedgerSearchVal(first.name.toUpperCase());
+    }
+  }, [lgSelectedSiteId, activeSiteLedgers, lgSelectedLedgerId]);
+
+  // Auto-select first row (index 0) in Print Ledger table when ledger data changes
+  useEffect(() => {
+    if (reportType === "ledger" && processedLgData.items.length > 0) {
+      setLgSelectedRowIndex(0);
+    } else {
+      setLgSelectedRowIndex(-1);
+    }
+  }, [lgSelectedLedgerId, processedLgData.items.length, reportType]);
+
+  // Auto-select first row (index 0) in Print Daybook table when daybook data changes
+  useEffect(() => {
+    if (reportType === "daybook" && processedDbData.items.length > 0) {
+      setDbSelectedRowIndex(0);
+    } else {
+      setDbSelectedRowIndex(-1);
+    }
+  }, [dbSelectedSiteId, processedDbData.items.length, reportType]);
+
+  // Global keydown handler for navigating ledger rows
+  useEffect(() => {
+    const handleLgTableKeyDown = (e: KeyboardEvent) => {
+      if (reportType !== "ledger") return;
+      if (
+        isLgSiteSuggestionsOpen || 
+        isLgLedgerSuggestionsOpen || 
+        isDbSiteSuggestionsOpen || 
+        isSmSiteSuggestionsOpen || 
+        isSmLedgerSuggestionsOpen
+      ) {
+        return;
+      }
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "SELECT"
+      ) {
+        return;
+      }
+
+      const itemsCount = processedLgData.items.length;
+      if (itemsCount === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setLgSelectedRowIndex((prev) => {
+          const next = prev + 1;
+          const target = next >= itemsCount ? itemsCount - 1 : next;
+          const el = document.getElementById(`lg-row-${target}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+          return target;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setLgSelectedRowIndex((prev) => {
+          const next = prev - 1;
+          const target = next < 0 ? 0 : next;
+          const el = document.getElementById(`lg-row-${target}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+          return target;
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleLgTableKeyDown);
+    return () => window.removeEventListener("keydown", handleLgTableKeyDown);
+  }, [
+    reportType, 
+    processedLgData.items.length, 
+    isLgSiteSuggestionsOpen, 
+    isLgLedgerSuggestionsOpen,
+    isDbSiteSuggestionsOpen,
+    isSmSiteSuggestionsOpen,
+    isSmLedgerSuggestionsOpen
+  ]);
+
+  // Global keydown handler for navigating daybook rows
+  useEffect(() => {
+    const handleDbTableKeyDown = (e: KeyboardEvent) => {
+      if (reportType !== "daybook") return;
+      if (
+        isDbSiteSuggestionsOpen || 
+        isLgSiteSuggestionsOpen || 
+        isLgLedgerSuggestionsOpen || 
+        isSmSiteSuggestionsOpen || 
+        isSmLedgerSuggestionsOpen
+      ) {
+        return;
+      }
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "SELECT"
+      ) {
+        return;
+      }
+
+      const itemsCount = processedDbData.items.length;
+      if (itemsCount === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setDbSelectedRowIndex((prev) => {
+          const next = prev + 1;
+          const target = next >= itemsCount ? itemsCount - 1 : next;
+          const el = document.getElementById(`db-row-${target}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+          return target;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setDbSelectedRowIndex((prev) => {
+          const next = prev - 1;
+          const target = next < 0 ? 0 : next;
+          const el = document.getElementById(`db-row-${target}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+          return target;
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleDbTableKeyDown);
+    return () => window.removeEventListener("keydown", handleDbTableKeyDown);
+  }, [
+    reportType, 
+    processedDbData.items.length, 
+    isDbSiteSuggestionsOpen,
+    isLgSiteSuggestionsOpen, 
+    isLgLedgerSuggestionsOpen,
+    isSmSiteSuggestionsOpen,
+    isSmLedgerSuggestionsOpen
+  ]);
 
 
   // VIEW RENDERS
@@ -1727,7 +1865,7 @@ function ReportsContent() {
                       ref={lgLedgerInputRef}
                       type="text"
                       value={lgLedgerSearchVal}
-                      placeholder="ALL ACCOUNTS"
+                      placeholder="SELECT ACCOUNT"
                       onChange={(e) => {
                         const val = e.target.value;
                         setLgLedgerSearchVal(val);
@@ -1735,8 +1873,8 @@ function ReportsContent() {
                         setHighlightedLgLedgerIndex(-1);
                         
                         const norm = val.trim().toUpperCase();
-                        if (norm === "ALL ACCOUNTS" || !norm) {
-                          setLgSelectedLedgerId("all");
+                        if (!norm) {
+                          setLgSelectedLedgerId(null);
                         } else {
                           const exact = activeSiteLedgers.find((l: any) => l.name.toUpperCase() === norm);
                           if (exact) {
@@ -1889,7 +2027,7 @@ function ReportsContent() {
                     ) : !lgSelectedLedgerId ? (
                       <tr>
                         <td colSpan={9} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
-                          Please select a specific Account Ledger or 'ALL ACCOUNTS' to view transactions.
+                          Please select a specific Account Ledger to view transactions.
                         </td>
                       </tr>
                     ) : processedLgData.items.length === 0 ? (
@@ -1914,12 +2052,21 @@ function ReportsContent() {
                       </>
                     ) : (
                       <>
-                        {processedLgData.items.map((item: any) => {
+                        {processedLgData.items.map((item: any, idx: number) => {
                           const rowDrCr = (item.debit > 0 || item.parsedType === "TO") ? "DR" : "CR";
                           const runningBalSign = item.runningBalance < 0 ? "CR " : item.runningBalance > 0 ? "DR " : "";
   
                           return (
-                            <tr key={item.id} className="border-b border-slate-400 font-black uppercase hover:bg-slate-100/60 text-slate-955 animate-in fade-in duration-100">
+                            <tr 
+                              key={item.id} 
+                              id={`lg-row-${idx}`}
+                              onClick={() => setLgSelectedRowIndex(idx)}
+                              className={`border-b border-slate-400 font-black uppercase text-slate-955 animate-in fade-in duration-100 ${
+                                lgSelectedRowIndex === idx 
+                                  ? "bg-[#FFE600] text-black font-extrabold" 
+                                  : "hover:bg-slate-100/60"
+                              }`}
+                            >
                               <td className="border-r border-slate-450 border-slate-400 px-4 py-2.5 text-center font-bold">
                                 {formatRenderDate(item.date)}
                               </td>
@@ -2236,12 +2383,21 @@ function ReportsContent() {
                       </tr>
                     ))}</>
                   ) : (
-                    <>{processedDbData.items.map((item: any) => {
+                    <>{processedDbData.items.map((item: any, idx: number) => {
                       const rowDrCr = (item.debit > 0 || item.parsedType === "TO") ? "DR" : "CR";
                       const runningBalSign = item.runningBalance < 0 ? "CR " : item.runningBalance > 0 ? "DR " : "";
   
                       return (
-                        <tr key={item.id} className="border-b border-slate-400 font-black uppercase hover:bg-slate-100/60 text-slate-955 animate-in fade-in duration-100">
+                        <tr 
+                          key={item.id} 
+                          id={`db-row-${idx}`}
+                          onClick={() => setDbSelectedRowIndex(idx)}
+                          className={`border-b border-slate-400 font-black uppercase text-slate-955 animate-in fade-in duration-100 ${
+                            dbSelectedRowIndex === idx 
+                              ? "bg-[#FFE600] text-black font-extrabold" 
+                              : "hover:bg-slate-100/60"
+                          }`}
+                        >
                           
                           {/* Type Column (TO/BY) */}
                           <td className="border-r border-slate-400 px-4 py-2.5 text-center font-black text-slate-700 w-16">
