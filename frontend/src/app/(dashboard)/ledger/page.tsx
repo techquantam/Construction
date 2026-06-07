@@ -1186,7 +1186,24 @@ function LedgerContent() {
       toast.error("Date is required");
       return;
     }
-    if (!compName.trim()) {
+
+    const activeLedgerDetails = (() => {
+      if (isParticularLedgerOpen && selectedLedger) {
+        const parsed = parsePartyDetails(selectedLedger.contactPerson);
+        return {
+          name: selectedLedger.name,
+          address: parsed ? (parsed.address || "") : (selectedLedger.contactPerson || ""),
+          mobile: parsed ? (parsed.mobileNo || "") : (selectedLedger.phone || "")
+        };
+      }
+      return {
+        name: compName,
+        address: compAddress,
+        mobile: compMobile
+      };
+    })();
+
+    if (!activeLedgerDetails.name || !activeLedgerDetails.name.trim()) {
       toast.error("Account name is required");
       return;
     }
@@ -1221,28 +1238,30 @@ function LedgerContent() {
 
     try {
       // 1. Check if ledger account exists
-      let ledgerId = "";
-      const existing = (ledgers || []).find((l: any) => l.name.toUpperCase() === compName.trim().toUpperCase() && l.type === "Company");
+      let ledgerId = isParticularLedgerOpen ? (selectedLedger?.id || "") : "";
+      const existing = ledgerId 
+        ? selectedLedger 
+        : (ledgers || []).find((l: any) => l.name.toUpperCase() === activeLedgerDetails.name.trim().toUpperCase() && l.type === "Company");
       
-      if (!existing) {
+      if (!existing && !isParticularLedgerOpen) {
         // Create the company ledger
         const ledgerRes = await api.post("/ledgers", {
           type: "Company",
-          name: compName.trim().toUpperCase(),
+          name: activeLedgerDetails.name.trim().toUpperCase(),
           contactPerson: JSON.stringify({
-            address: compAddress,
-            mobileNo: compMobile,
+            address: activeLedgerDetails.address,
+            mobileNo: activeLedgerDetails.mobile,
             customerExtra: "CUSTOMER",
             measurementType: "OTHER",
             plotUnit: compUnit
           }),
-          phone: compMobile,
+          phone: activeLedgerDetails.mobile,
           openingBalance: 0
         });
         
         if (ledgerRes.data && ledgerRes.data.data) {
           ledgerId = ledgerRes.data.data.id;
-          toast.success(`Created new Company Ledger Account "${compName.toUpperCase()}"`);
+          toast.success(`Created new Company Ledger Account "${activeLedgerDetails.name.toUpperCase()}"`);
         }
       } else {
         ledgerId = existing.id;
@@ -1250,12 +1269,12 @@ function LedgerContent() {
 
       // 2. Submit the Daybook entry
       const prefix = compType === "TO" ? "To " : "By ";
-      const combinedExpenseType = `${prefix}${compName.trim().toUpperCase()}`;
+      const combinedExpenseType = `${prefix}${activeLedgerDetails.name.trim().toUpperCase()}`;
 
       const serializedPaymentMode = JSON.stringify({
         type: "CompanyTransaction",
-        address: compAddress,
-        mobile: compMobile,
+        address: activeLedgerDetails.address,
+        mobile: activeLedgerDetails.mobile,
         material: compMaterial.trim().toUpperCase(),
         qty: qtyVal,
         unit: compUnit,
