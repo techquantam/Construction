@@ -56,6 +56,19 @@ function matchesFuzzy(name: string, query: string): boolean {
   return cleanName.includes(cleanQuery) || name.toLowerCase().includes(query.toLowerCase());
 }
 
+const parsePartyDetails = (contactPerson: string | null) => {
+  if (!contactPerson) return null;
+  const trimmed = contactPerson.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 function DayBookContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -84,6 +97,14 @@ function DayBookContent() {
   const [isSiteSuggestionsOpen, setIsSiteSuggestionsOpen] = useState(false);
   const [highlightedSiteIndex, setHighlightedSiteIndex] = useState<number>(-1);
   const siteSelectorRef = useRef<HTMLDivElement>(null);
+
+  // Search input and dropdown states for Select Account filter
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
+  const [accountSearchVal, setAccountSearchVal] = useState("ALL ACCOUNTS");
+  const [isAccountSuggestionsOpen, setIsAccountSuggestionsOpen] = useState(false);
+  const [highlightedAccountIndex, setHighlightedAccountIndex] = useState<number>(-1);
+  const accountSelectorRef = useRef<HTMLDivElement>(null);
+  const accountInputRef = useRef<HTMLInputElement>(null);
 
   // Ledger and Particular Autocomplete states
   const [isParticularSuggestionsOpen, setIsParticularSuggestionsOpen] = useState(false);
@@ -357,6 +378,16 @@ function DayBookContent() {
     }
   }, [highlightedSiteIndex, isSiteSuggestionsOpen]);
 
+  // Auto-scroll highlighted account suggestions into view
+  useEffect(() => {
+    if (highlightedAccountIndex >= 0 && isAccountSuggestionsOpen) {
+      const el = document.getElementById(`acct-opt-${highlightedAccountIndex}`);
+      if (el) {
+        el.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedAccountIndex, isAccountSuggestionsOpen]);
+
   // Query: Fetch all Ledgers for checking existence and Autocomplete
   const { data: ledgersData } = useQuery({
     queryKey: ["ledgers"],
@@ -570,6 +601,65 @@ function DayBookContent() {
       };
     });
   })();
+
+  // List of all account suggestions including ALL ACCOUNTS at the top
+  const allFilterLedgers = (() => {
+    return [{ id: "all", name: "ALL ACCOUNTS" }, ...allLedgerNames];
+  })();
+
+  // Filter account suggestions for Select Account header dropdown
+  const filteredAccountSuggestions = (() => {
+    const isAll = selectedAccountId === "all";
+    const selectedLedger = isAll ? { name: "ALL ACCOUNTS" } : allFilterLedgers.find((l: any) => l.id === selectedAccountId);
+    const isSearching = accountSearchVal.trim() !== "" && accountSearchVal.toUpperCase() !== selectedLedger?.name?.toUpperCase();
+
+    if (!isSearching) return allFilterLedgers;
+
+    return allFilterLedgers.filter((ledger: any) => {
+      const dbLedger = existingLedgers.find((el: any) => el.name.toUpperCase() === ledger.name.toUpperCase());
+      const details = dbLedger ? parsePartyDetails(dbLedger.contactPerson) : null;
+      const address = details ? details.address : (dbLedger ? dbLedger.contactPerson : "");
+      const phone = details ? (details.mobileNo || details.phoneNo) : (dbLedger ? dbLedger.phone : "");
+      return (
+        matchesFuzzy(ledger.name, accountSearchVal) ||
+        (address && matchesFuzzy(address, accountSearchVal)) ||
+        (phone && matchesFuzzy(phone, accountSearchVal))
+      );
+    });
+  })();
+
+  // Reset selected account and search text when the construction site changes
+  useEffect(() => {
+    setSelectedAccountId("all");
+    setAccountSearchVal("ALL ACCOUNTS");
+  }, [selectedSiteId]);
+
+  // Sync account autocomplete text with currently active selection
+  useEffect(() => {
+    if (selectedAccountId === "all") {
+      if (document.activeElement !== accountInputRef.current) {
+        setAccountSearchVal("ALL ACCOUNTS");
+      }
+    } else {
+      const activeLedger = allFilterLedgers.find((l: any) => l.id === selectedAccountId);
+      if (activeLedger) {
+        setAccountSearchVal(activeLedger.name.toUpperCase());
+      }
+    }
+  }, [selectedAccountId, allFilterLedgers]);
+
+  // Click outside listener for Select Account dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (accountSelectorRef.current && !accountSelectorRef.current.contains(event.target as Node)) {
+        setIsAccountSuggestionsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Filter particular ledger suggestions based on text input
   const filteredLedgerSuggestions = (() => {
@@ -943,8 +1033,16 @@ function DayBookContent() {
     // Filter out auto-debit transactions from daybook rendering & calculations
     const nonAutoDebitDaybooks = dayBooks.filter((item: any) => item.referenceNumber !== "AUTO_DEBIT");
 
+    // Filter by selectedAccountId first if not "all"
+    const accountFiltered = nonAutoDebitDaybooks.filter((item: any) => {
+      if (selectedAccountId === "all") return true;
+      const { particular } = parseEntry(item);
+      const selectedLedger = allFilterLedgers.find((l) => l.id === selectedAccountId);
+      return selectedLedger ? particular.trim().toUpperCase() === selectedLedger.name.toUpperCase() : true;
+    });
+
     // 1. Sort all daybook items chronologically: oldest first
-    const sorted = [...nonAutoDebitDaybooks].sort((a, b) => {
+    const sorted = [...accountFiltered].sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
       if (dateA !== dateB) return dateA - dateB;
@@ -1106,8 +1204,9 @@ function DayBookContent() {
                       if (e.key === "Enter") {
                         if (selectedSiteId && selectedSiteId !== "all") {
                           e.preventDefault();
-                          dateInputRef.current?.focus();
-                          dateInputRef.current?.select();
+                          accountInputRef.current?.focus();
+                          accountInputRef.current?.select();
+                          setIsAccountSuggestionsOpen(true);
                         }
                       }
                       return;
@@ -1133,6 +1232,11 @@ function DayBookContent() {
                         setSiteSearchVal(site.name.toUpperCase());
                         setIsSiteSuggestionsOpen(false);
                         setHighlightedSiteIndex(-1);
+                        setTimeout(() => {
+                          accountInputRef.current?.focus();
+                          accountInputRef.current?.select();
+                          setIsAccountSuggestionsOpen(true);
+                        }, 50);
                       } else if (filteredSiteSuggestions.length > 0) {
                         e.preventDefault();
                         const site = filteredSiteSuggestions[0];
@@ -1140,12 +1244,18 @@ function DayBookContent() {
                         setSiteSearchVal(site.name.toUpperCase());
                         setIsSiteSuggestionsOpen(false);
                         setHighlightedSiteIndex(-1);
+                        setTimeout(() => {
+                          accountInputRef.current?.focus();
+                          accountInputRef.current?.select();
+                          setIsAccountSuggestionsOpen(true);
+                        }, 50);
                       } else {
                         if (selectedSiteId && selectedSiteId !== "all") {
                           e.preventDefault();
                           setIsSiteSuggestionsOpen(false);
-                          dateInputRef.current?.focus();
-                          dateInputRef.current?.select();
+                          accountInputRef.current?.focus();
+                          accountInputRef.current?.select();
+                          setIsAccountSuggestionsOpen(true);
                         }
                       }
                     } else if (e.key === "Escape") {
@@ -1190,8 +1300,9 @@ function DayBookContent() {
                             setIsSiteSuggestionsOpen(false);
                             setHighlightedSiteIndex(-1);
                             setTimeout(() => {
-                              dateInputRef.current?.focus();
-                              dateInputRef.current?.select();
+                              accountInputRef.current?.focus();
+                              accountInputRef.current?.select();
+                              setIsAccountSuggestionsOpen(true);
                             }, 50);
                           }}
                           onMouseEnter={() => setHighlightedSiteIndex(index)}
@@ -1210,7 +1321,155 @@ function DayBookContent() {
               )}
             </div>
           </div>
-          {selectedSiteId && selectedSiteId !== "all" && action === "delete" && processedData.items.length > 0 && (
+
+          {/* ACCOUNT SELECTOR DROP-DOWN */}
+          {selectedSiteId && selectedSiteId !== "all" && (
+            <div className="flex items-center gap-3" ref={accountSelectorRef}>
+              <span className="font-bold text-xs uppercase text-slate-700 tracking-wider">Select Account :</span>
+              
+              <div className="relative w-[280px]">
+                <div className="relative flex items-center bg-white border border-slate-400 rounded overflow-hidden">
+                  <input 
+                    type="text"
+                    ref={accountInputRef}
+                    value={accountSearchVal}
+                    placeholder="TYPE TO SEARCH ACCOUNT..."
+                    onChange={(e) => {
+                      setAccountSearchVal(e.target.value);
+                      setIsAccountSuggestionsOpen(true);
+                      setHighlightedAccountIndex(-1);
+                    }}
+                    onFocus={() => {
+                      setIsAccountSuggestionsOpen(true);
+                      setHighlightedAccountIndex(-1);
+                    }}
+                    onKeyDown={(e) => {
+                      if (!isAccountSuggestionsOpen) {
+                        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                          setIsAccountSuggestionsOpen(true);
+                          e.preventDefault();
+                        }
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          dateInputRef.current?.focus();
+                          dateInputRef.current?.select();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          siteInputRef.current?.focus();
+                          siteInputRef.current?.select();
+                        }
+                        return;
+                      }
+
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setHighlightedAccountIndex((prev) => {
+                          const next = prev + 1;
+                          return next >= filteredAccountSuggestions.length ? 0 : next;
+                        });
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setHighlightedAccountIndex((prev) => {
+                          const next = prev - 1;
+                          return next < 0 ? filteredAccountSuggestions.length - 1 : next;
+                        });
+                      } else if (e.key === "Enter") {
+                        let targetIndex = highlightedAccountIndex;
+                        if (targetIndex === -1 && filteredAccountSuggestions.length > 0) {
+                          targetIndex = 0;
+                        }
+                        if (targetIndex >= 0 && targetIndex < filteredAccountSuggestions.length) {
+                          e.preventDefault();
+                          const ledger = filteredAccountSuggestions[targetIndex];
+                          setSelectedAccountId(ledger.id);
+                          setAccountSearchVal(ledger.name.toUpperCase());
+                          setIsAccountSuggestionsOpen(false);
+                          setHighlightedAccountIndex(-1);
+                          setTimeout(() => {
+                            dateInputRef.current?.focus();
+                            dateInputRef.current?.select();
+                          }, 50);
+                        }
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsAccountSuggestionsOpen(false);
+                        setHighlightedAccountIndex(-1);
+                        siteInputRef.current?.focus();
+                        siteInputRef.current?.select();
+                      }
+                    }}
+                    className="w-full px-3 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-400 uppercase tracking-wide"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsAccountSuggestionsOpen((prev) => !prev);
+                      setHighlightedAccountIndex(-1);
+                    }}
+                    className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* ABSOLUTE FLOATING SUGGESTIONS PANEL */}
+                {isAccountSuggestionsOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-50 max-h-48 overflow-y-auto font-mono text-xs uppercase animate-in fade-in duration-100">
+                    {filteredAccountSuggestions.length === 0 ? (
+                      <div className="p-3 text-slate-400 italic text-[11px]">
+                        No matching accounts found
+                      </div>
+                    ) : (
+                      filteredAccountSuggestions.map((ledger, index) => {
+                        const isActive = highlightedAccountIndex === index;
+                        const dbLedger = existingLedgers.find((el: any) => el.name.toUpperCase() === ledger.name.toUpperCase());
+                        const details = dbLedger ? parsePartyDetails(dbLedger.contactPerson) : null;
+                        const address = details ? details.address : (dbLedger ? dbLedger.contactPerson : "");
+                        const phone = details ? (details.mobileNo || details.phoneNo) : (dbLedger ? dbLedger.phone : "");
+                        return (
+                          <button
+                            key={ledger.id}
+                            id={`acct-opt-${index}`}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAccountId(ledger.id);
+                              setAccountSearchVal(ledger.name.toUpperCase());
+                              setIsAccountSuggestionsOpen(false);
+                              setHighlightedAccountIndex(-1);
+                              setTimeout(() => {
+                                dateInputRef.current?.focus();
+                                dateInputRef.current?.select();
+                              }, 50);
+                            }}
+                            onMouseEnter={() => setHighlightedAccountIndex(index)}
+                            className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-b-0 transition-colors font-black text-xs uppercase ${
+                              isActive 
+                                ? "bg-[#2B547E] text-white font-extrabold" 
+                                : "bg-white hover:bg-slate-200 text-slate-900"
+                            }`}
+                          >
+                            <div className="flex flex-col">
+                              <span className="truncate">{ledger.name.toUpperCase()}</span>
+                              {(ledger.id !== "all" && (phone || address)) && (
+                                <div className={`text-[9px] mt-0.5 font-normal normal-case flex flex-wrap gap-x-2 gap-y-0.5 ${isActive ? "text-slate-200" : "text-slate-500"}`}>
+                                  {phone && <span>📞 {phone}</span>}
+                                  {address && <span className="truncate max-w-[200px]">📍 {address}</span>}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        {selectedSiteId && selectedSiteId !== "all" && action === "delete" && processedData.items.length > 0 && (
             <button
               type="button"
               onClick={handleDeleteAllDayBooks}
@@ -1243,7 +1502,7 @@ function DayBookContent() {
                     </td>
                   </tr>
                 ) : (
-                  processedData.items.map((item: any) => {
+                  (action === "entry" ? processedData.items.slice(-2) : processedData.items).map((item: any) => {
                     const balanceSign = item.runningBalance < 0 ? "Cr" : "Dr";
                     const balanceAbs = Math.abs(item.runningBalance);
 
@@ -1478,8 +1737,8 @@ function DayBookContent() {
                           } else if (e.key === "Escape") {
                             e.preventDefault();
                             e.stopPropagation();
-                            siteInputRef.current?.focus();
-                            siteInputRef.current?.select();
+                            accountInputRef.current?.focus();
+                            accountInputRef.current?.select();
                           }
                         }}
                         className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold font-mono text-center focus:outline-none focus:border-slate-800"
@@ -2133,7 +2392,6 @@ function DayBookContent() {
         </div>
       )}
 
-    </div>
     </div>
   );
 }
