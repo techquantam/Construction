@@ -698,11 +698,27 @@ function LedgerContent() {
   // Sync account autocomplete text with currently active ledger
   useEffect(() => {
     if (selectedLedgerId === "all") {
+      const typedName = accountSearchVal.trim();
+      const hasTypedVal = typedName && 
+                          typedName.toUpperCase() !== "+ CREATE NEW ACCOUNT" && 
+                          typedName.toUpperCase() !== "ALL ACCOUNTS";
+                          
       setAccountSearchVal(ledgerTypeTab === "COMPANY" ? "+ CREATE NEW ACCOUNT" : "ALL ACCOUNTS");
+      
       if (ledgerTypeTab === "COMPANY") {
-        setCompName("");
+        if (hasTypedVal) {
+          setCompName(typedName.toUpperCase());
+        } else {
+          setCompName("");
+        }
         setCompAddress("");
         setCompMobile("");
+      } else {
+        if (hasTypedVal) {
+          setEntryAccountSearchVal(typedName.toUpperCase());
+        } else {
+          setEntryAccountSearchVal("");
+        }
       }
     } else if (selectedLedgerId) {
       const activeLedger = filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId);
@@ -1809,6 +1825,22 @@ function LedgerContent() {
     }
     
     // Fallback to selected ledger
+    if (selectedLedgerId === "all") {
+      if (ledgerTypeTab === "COMPANY") {
+        return {
+          name: compName ? compName.toUpperCase() : "+ CREATE NEW ACCOUNT",
+          address: compAddress ? compAddress.toUpperCase() : "N/A",
+          phone: compMobile ? compMobile : "N/A"
+        };
+      } else {
+        return {
+          name: entryAccountSearchVal ? entryAccountSearchVal.toUpperCase() : "ALL ACCOUNTS STATEMENT",
+          address: "CONSOLIDATED SITE VIEW",
+          phone: "N/A"
+        };
+      }
+    }
+
     const details = parsePartyDetails(selectedLedger?.contactPerson);
     const addr = details ? (details.address || "N/A") : (selectedLedger?.contactPerson || "N/A");
     const mob = details ? (details.mobileNo || "N/A") : (selectedLedger?.phone || "N/A");
@@ -2153,7 +2185,9 @@ function LedgerContent() {
                           e.preventDefault();
                           const ledger = filteredAccountSuggestions[targetIndex];
                           setSelectedLedgerId(ledger.id);
-                          setAccountSearchVal(ledger.name.toUpperCase());
+                          if (ledger.id !== "all") {
+                            setAccountSearchVal(ledger.name.toUpperCase());
+                          }
                           setIsAccountSuggestionsOpen(false);
                           setHighlightedAccountIndex(-1);
                           
@@ -2224,7 +2258,9 @@ function LedgerContent() {
                             type="button"
                             onClick={() => {
                               setSelectedLedgerId(ledger.id);
-                              setAccountSearchVal(ledger.name.toUpperCase());
+                              if (ledger.id !== "all") {
+                                setAccountSearchVal(ledger.name.toUpperCase());
+                              }
                               setIsAccountSuggestionsOpen(false);
                               setHighlightedAccountIndex(-1);
                               
@@ -3908,7 +3944,7 @@ function LedgerContent() {
                                 type="text"
                                 ref={compNameInputRef}
                                 value={compName}
-                                placeholder="Select Account"
+                                placeholder="ENTER ACCOUNT NAME"
                                 required
                                 onChange={(e) => {
                                   setCompName(e.target.value.toUpperCase());
@@ -4751,7 +4787,7 @@ function LedgerContent() {
                                     id="entry-inline-account"
                                     type="text"
                                     value={entryAccountSearchVal}
-                                    placeholder="Select Account"
+                                    placeholder="ENTER ACCOUNT NAME"
                                     required
                                     onChange={(e) => {
                                       setEntryAccountSearchVal(e.target.value);
