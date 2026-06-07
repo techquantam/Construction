@@ -219,7 +219,7 @@ function LedgerContent() {
       const input = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
       if (input) {
         input.focus();
-        input.select();
+        input.setSelectionRange(0, 2);
       }
     }
   }, [focusDateTrigger, ledgerTypeTab]);
@@ -1614,11 +1614,15 @@ function LedgerContent() {
     } else {
       setTimeout(() => {
         if (ledgerTypeTab === "COMPANY") {
-          compDateInputRef.current?.focus();
-          compDateInputRef.current?.select();
+          if (compDateInputRef.current) {
+            compDateInputRef.current.focus();
+            compDateInputRef.current.setSelectionRange(0, 2);
+          }
         } else {
-          dateInputRef.current?.focus();
-          dateInputRef.current?.select();
+          if (dateInputRef.current) {
+            dateInputRef.current.focus();
+            dateInputRef.current.setSelectionRange(0, 2);
+          }
         }
       }, 50);
     }
@@ -2151,9 +2155,10 @@ function LedgerContent() {
                           if (action === "entry") {
                             triggerNewEstimatePrompt(() => {
                               setTimeout(() => {
-                                if (dateInputRef.current) {
-                                  dateInputRef.current.focus();
-                                  dateInputRef.current.select();
+                                const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
+                                if (dateInput) {
+                                  dateInput.focus();
+                                  dateInput.setSelectionRange(0, 2);
                                 }
                               }, 50);
                             });
@@ -2172,9 +2177,10 @@ function LedgerContent() {
                         siteInputRef.current?.select();
                       } else if (e.key === "ArrowRight") {
                         e.preventDefault();
-                        if (action === "entry" && dateInputRef.current) {
-                          dateInputRef.current.focus();
-                          dateInputRef.current.select();
+                        const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
+                        if (action === "entry" && dateInput) {
+                          dateInput.focus();
+                          dateInput.setSelectionRange(0, 2);
                         } else {
                           focusFirstTransactionRow();
                         }
@@ -2220,9 +2226,10 @@ function LedgerContent() {
                               if (action === "entry") {
                                 triggerNewEstimatePrompt(() => {
                                   setTimeout(() => {
-                                    if (dateInputRef.current) {
-                                      dateInputRef.current.focus();
-                                      dateInputRef.current.select();
+                                    const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
+                                    if (dateInput) {
+                                      dateInput.focus();
+                                      dateInput.setSelectionRange(0, 2);
                                     }
                                   }, 50);
                                 });
@@ -3831,6 +3838,7 @@ function LedgerContent() {
                             ref={compDateInputRef}
                             value={compDate}
                             onChange={(e) => setCompDate(e.target.value)}
+                            onFocus={(e) => e.target.setSelectionRange(0, 2)}
                             placeholder="Date"
                             required
                             onKeyDown={(e) => {
@@ -3876,7 +3884,12 @@ function LedgerContent() {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   setCompActiveStep("DATE");
-                                  setTimeout(() => compDateInputRef.current?.focus(), 50);
+                                  setTimeout(() => {
+                                    if (compDateInputRef.current) {
+                                      compDateInputRef.current.focus();
+                                      compDateInputRef.current.setSelectionRange(0, 2);
+                                    }
+                                  }, 50);
                                 }
                               }}
                               className="bg-white border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
@@ -4664,6 +4677,7 @@ function LedgerContent() {
                             ref={dateInputRef}
                             value={entryDate}
                             onChange={(e) => setEntryDate(e.target.value)}
+                            onFocus={(e) => e.target.setSelectionRange(0, 2)}
                             placeholder="Date"
                             required
                             onKeyDown={(e) => {
@@ -4714,8 +4728,10 @@ function LedgerContent() {
                                   } else if (e.key === "Escape") {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    dateInputRef.current?.focus();
-                                    dateInputRef.current?.select();
+                                    if (dateInputRef.current) {
+                                      dateInputRef.current.focus();
+                                      dateInputRef.current.setSelectionRange(0, 2);
+                                    }
                                   }
                                 }}
                                 className="bg-white border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"

@@ -153,14 +153,31 @@ function ReportsContent() {
   const lgLedgerSelectorRef = useRef<HTMLDivElement>(null);
   const [lgFilterDate, setLgFilterDate] = useState("");
 
+  // SUMMARY STATES
+  const [smSiteSearchVal, setSmSiteSearchVal] = useState("");
+  const [smSelectedSiteId, setSmSelectedSiteId] = useState<string | null>(null);
+  const [isSmSiteSuggestionsOpen, setIsSmSiteSuggestionsOpen] = useState(false);
+  const [highlightedSmSiteIndex, setHighlightedSmSiteIndex] = useState<number>(-1);
+  const smSiteSelectorRef = useRef<HTMLDivElement>(null);
+
+  const [smLedgerSearchVal, setSmLedgerSearchVal] = useState("");
+  const [smSelectedLedgerId, setSmSelectedLedgerId] = useState<string | null>(null);
+  const [isSmLedgerSuggestionsOpen, setIsSmLedgerSuggestionsOpen] = useState(false);
+  const [highlightedSmLedgerIndex, setHighlightedSmLedgerIndex] = useState<number>(-1);
+  const smLedgerSelectorRef = useRef<HTMLDivElement>(null);
+
   // Focus tracking states for premium yellow style transitions
   const [isLgSiteFocused, setIsLgSiteFocused] = useState(false);
   const [isLgLedgerFocused, setIsLgLedgerFocused] = useState(false);
+  const [isSmSiteFocused, setIsSmSiteFocused] = useState(false);
+  const [isSmLedgerFocused, setIsSmLedgerFocused] = useState(false);
 
   // Autofocus input refs
   const lgSiteInputRef = useRef<HTMLInputElement>(null);
   const dbSiteInputRef = useRef<HTMLInputElement>(null);
   const lgLedgerInputRef = useRef<HTMLInputElement>(null);
+  const smSiteInputRef = useRef<HTMLInputElement>(null);
+  const smLedgerInputRef = useRef<HTMLInputElement>(null);
 
   // Daybook data query
   const { data: daybookData } = useQuery({
@@ -184,6 +201,17 @@ function ReportsContent() {
     enabled: !!lgSelectedSiteId,
   });
 
+  // Summary transactions statements query
+  const { data: summaryDaybookData } = useQuery({
+    queryKey: ["summaryReportDaybooks", smSelectedSiteId],
+    queryFn: async () => {
+      if (!smSelectedSiteId) return [];
+      const res = await api.get(`/daybooks?siteId=${smSelectedSiteId}`);
+      return res.data.data;
+    },
+    enabled: !!smSelectedSiteId,
+  });
+
   // Sync state values on site changes or inputs click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -195,6 +223,12 @@ function ReportsContent() {
       }
       if (lgLedgerSelectorRef.current && !lgLedgerSelectorRef.current.contains(event.target as Node)) {
         setIsLgLedgerSuggestionsOpen(false);
+      }
+      if (smSiteSelectorRef.current && !smSiteSelectorRef.current.contains(event.target as Node)) {
+        setIsSmSiteSuggestionsOpen(false);
+      }
+      if (smLedgerSelectorRef.current && !smLedgerSelectorRef.current.contains(event.target as Node)) {
+        setIsSmLedgerSuggestionsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -211,6 +245,10 @@ function ReportsContent() {
       setTimeout(() => {
         dbSiteInputRef.current?.focus();
       }, 100);
+    } else if (reportType === "summary") {
+      setTimeout(() => {
+        smSiteInputRef.current?.focus();
+      }, 100);
     }
   }, [reportType]);
 
@@ -223,6 +261,11 @@ function ReportsContent() {
     setLgFilterDate("");
     setDbSelectedSiteId(null);
     setDbSiteSearchVal("");
+    // Also reset summary states
+    setSmSelectedSiteId(null);
+    setSmSiteSearchVal("");
+    setSmSelectedLedgerId(null);
+    setSmLedgerSearchVal("");
   }, []);
 
   // Filter site list for Daybook Autocomplete
@@ -243,11 +286,47 @@ function ReportsContent() {
     return sites.filter((site: any) => matchesFuzzy(site.name, lgSiteSearchVal));
   })();
 
+  // Filter site list for Summary Autocomplete
+  const filteredSmSites = (() => {
+    if (!sites) return [];
+    const activeSite = sites.find((s: any) => s.id === smSelectedSiteId);
+    const isSearching = smSiteSearchVal.trim() !== "" && smSiteSearchVal.toUpperCase() !== activeSite?.name?.toUpperCase();
+    if (!isSearching) return sites;
+    return sites.filter((site: any) => matchesFuzzy(site.name, smSiteSearchVal));
+  })();
+
   // List of active accounts used in that site's transactions
   const activeSiteLedgers = (() => {
     if (!lgSelectedSiteId || !ledgerDaybookData) return [];
     const names = new Set<string>();
     ledgerDaybookData.forEach((item: any) => {
+      const text = item.expenseType || "";
+      let name = "";
+      if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
+      else if (text.toUpperCase().startsWith("BY ")) name = text.substring(3).trim().toUpperCase();
+      if (name) names.add(name);
+    });
+
+    const list: any[] = [];
+    names.forEach((name) => {
+      const dbLedger = ledgers ? ledgers.find((l: any) => l.name.toUpperCase() === name) : null;
+      list.push({
+        id: dbLedger ? dbLedger.id : name,
+        name: name,
+        phone: dbLedger ? dbLedger.phone || "" : "",
+        contactPerson: dbLedger ? dbLedger.contactPerson || "" : "",
+        isVirtual: !dbLedger
+      });
+    });
+    // Sort alphabetically by name
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
+  // List of active accounts used in that site's transactions for Summary
+  const summaryActiveSiteLedgers = (() => {
+    if (!smSelectedSiteId || !summaryDaybookData) return [];
+    const names = new Set<string>();
+    summaryDaybookData.forEach((item: any) => {
       const text = item.expenseType || "";
       let name = "";
       if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
@@ -295,6 +374,86 @@ function ReportsContent() {
       return [{ id: "all", name: "ALL ACCOUNTS" }, ...matches];
     }
     return matches;
+  })();
+
+  // Filter accounts suggestions list to display active site accounts only for Summary
+  const filteredSmLedgers = (() => {
+    const isAll = smSelectedLedgerId === "all";
+    const activeLedger = isAll ? { name: "ALL ACCOUNTS" } : summaryActiveSiteLedgers.find((l) => String(l.id) === String(smSelectedLedgerId));
+    const isSearching = smLedgerSearchVal.trim() !== "" && smLedgerSearchVal.toUpperCase() !== activeLedger?.name?.toUpperCase();
+    
+    if (!isSearching) {
+      return [{ id: "all", name: "ALL ACCOUNTS" }, ...summaryActiveSiteLedgers];
+    }
+    
+    const matches = summaryActiveSiteLedgers.filter((ledger) => {
+      const details = parsePartyDetails(ledger.contactPerson);
+      const address = details ? details.address : (ledger.contactPerson || "");
+      const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
+      return (
+        matchesFuzzy(ledger.name, smLedgerSearchVal) ||
+        (address && matchesFuzzy(address, smLedgerSearchVal)) ||
+        (phone && matchesFuzzy(phone, smLedgerSearchVal))
+      );
+    });
+
+    if (matchesFuzzy("ALL ACCOUNTS", smLedgerSearchVal)) {
+      return [{ id: "all", name: "ALL ACCOUNTS" }, ...matches];
+    }
+    return matches;
+  })();
+
+  // Summary list of balances calculation
+  const summaryLedgersList = (() => {
+    if (!smSelectedSiteId || !summaryDaybookData) return [];
+
+    return summaryActiveSiteLedgers.map((ledger) => {
+      const details = parsePartyDetails(ledger.contactPerson);
+      const address = details ? details.address : (ledger.contactPerson || "");
+      const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
+
+      let totalDebit = 0;
+      let totalCredit = 0;
+
+      summaryDaybookData.forEach((item: any) => {
+        const text = item.expenseType || "";
+        let name = "";
+        if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
+        else if (text.toUpperCase().startsWith("BY ")) name = text.substring(3).trim().toUpperCase();
+        
+        if (name === ledger.name.toUpperCase()) {
+          let isDebit = text.toUpperCase().startsWith("TO ");
+          const compDetails = item.paymentMode && item.paymentMode.trim().startsWith("{") && item.paymentMode.trim().endsWith("}")
+            ? (() => {
+                try { return JSON.parse(item.paymentMode); } catch { return null; }
+              })()
+            : null;
+
+          if (compDetails && compDetails.crDr) {
+            isDebit = compDetails.crDr === "DR";
+          }
+
+          if (isDebit) {
+            totalDebit += item.amount;
+          } else {
+            totalCredit += item.amount;
+          }
+        }
+      });
+
+      const balance = totalDebit - totalCredit;
+      const status = balance > 0 ? "DR" : balance < 0 ? "CR" : "NIL";
+
+      return {
+        ...ledger,
+        address,
+        phone,
+        totalDebit,
+        totalCredit,
+        balance: Math.abs(balance),
+        status
+      };
+    });
   })();
 
   // Keyboard controls for site dropdown in PRINT DAYBOOK
@@ -433,6 +592,105 @@ function ReportsContent() {
       e.stopPropagation();
       setIsLgLedgerSuggestionsOpen(false);
       setHighlightedLgLedgerIndex(-1);
+    }
+  };
+
+  // Keyboard controls for site dropdown in PRINT SUMMARY
+  const handleSmSiteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isSmSiteSuggestionsOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setIsSmSiteSuggestionsOpen(true);
+        e.preventDefault();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        smLedgerInputRef.current?.focus();
+        smLedgerInputRef.current?.select();
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedSmSiteIndex((prev) => {
+        const next = prev + 1;
+        return next >= filteredSmSites.length ? 0 : next;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedSmSiteIndex((prev) => {
+        const next = prev - 1;
+        return next < 0 ? filteredSmSites.length - 1 : next;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      let idx = highlightedSmSiteIndex;
+      if (idx === -1 && filteredSmSites.length > 0) idx = 0;
+      if (idx >= 0 && idx < filteredSmSites.length) {
+        const site = filteredSmSites[idx];
+        setSmSelectedSiteId(site.id);
+        setSmSiteSearchVal(site.name.toUpperCase());
+        setIsSmSiteSuggestionsOpen(false);
+        setHighlightedSmSiteIndex(-1);
+        
+        // reset ledger selection when site changes
+        setSmSelectedLedgerId(null);
+        setSmLedgerSearchVal("");
+
+        setTimeout(() => {
+          smLedgerInputRef.current?.focus();
+          smLedgerInputRef.current?.select();
+        }, 100);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsSmSiteSuggestionsOpen(false);
+      setHighlightedSmSiteIndex(-1);
+    }
+  };
+
+  // Keyboard controls for account dropdown in PRINT SUMMARY
+  const handleSmLedgerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isSmLedgerSuggestionsOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setIsSmLedgerSuggestionsOpen(true);
+        e.preventDefault();
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedSmLedgerIndex((prev) => {
+        const next = prev + 1;
+        const index = next >= filteredSmLedgers.length ? 0 : next;
+        const ledger = filteredSmLedgers[index];
+        if (ledger) {
+          setSmSelectedLedgerId(ledger.id);
+          setSmLedgerSearchVal(ledger.name.toUpperCase());
+        }
+        return index;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedSmLedgerIndex((prev) => {
+        const next = prev - 1;
+        const index = next < 0 ? filteredSmLedgers.length - 1 : next;
+        const ledger = filteredSmLedgers[index];
+        if (ledger) {
+          setSmSelectedLedgerId(ledger.id);
+          setSmLedgerSearchVal(ledger.name.toUpperCase());
+        }
+        return index;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      setIsSmLedgerSuggestionsOpen(false);
+      setHighlightedSmLedgerIndex(-1);
+      smLedgerInputRef.current?.blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsSmLedgerSuggestionsOpen(false);
+      setHighlightedSmLedgerIndex(-1);
     }
   };
 
@@ -730,6 +988,42 @@ function ReportsContent() {
     toast.success("Excel CSV file downloaded successfully");
   };
 
+  const handleExportSmExcel = () => {
+    const dataToExport = smSelectedLedgerId && smSelectedLedgerId !== "all"
+      ? summaryLedgersList.filter(l => String(l.id) === String(smSelectedLedgerId))
+      : summaryLedgersList;
+
+    if (!dataToExport.length) {
+      toast.error("No data to export");
+      return;
+    }
+
+    const headers = ["Account Name", "Address", "Mobile No.", "Debit", "Credit", "Dr/Cr", "Balance"];
+    const rows = dataToExport.map((item: any) => {
+      return [
+        item.name.toUpperCase(),
+        item.address ? item.address.toUpperCase() : "-",
+        item.phone || "-",
+        item.totalDebit,
+        item.totalCredit,
+        item.status,
+        item.balance
+      ];
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+      + [headers.join(","), ...rows.map(e => e.map(val => `"${val}"`).join(","))].join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `summary_report_${smSelectedSiteId || "site"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Excel CSV file downloaded successfully");
+  };
+
   // Keyboard shortcut listeners (F2 for PDF, F3 for Excel)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -742,21 +1036,43 @@ function ReportsContent() {
           handleExportDbExcel();
         } else if (reportType === "ledger") {
           handleExportLgExcel();
+        } else if (reportType === "summary") {
+          handleExportSmExcel();
         }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [reportType, processedDbData, processedLgData, dbSelectedSiteId, lgSelectedSiteId, lgSelectedLedgerId]);
+  }, [reportType, processedDbData, processedLgData, dbSelectedSiteId, lgSelectedSiteId, lgSelectedLedgerId, smSelectedSiteId, smSelectedLedgerId, summaryLedgersList]);
 
 
   // VIEW RENDERS
   if (reportType === "summary") {
+    const selectedLedgerObj = smSelectedLedgerId === "all" || !smSelectedLedgerId
+      ? null
+      : summaryLedgersList.find((l: any) => String(l.id) === String(smSelectedLedgerId));
+
+    const selectedLedgerName = selectedLedgerObj ? selectedLedgerObj.name : "";
+    const selectedLedgerPhone = selectedLedgerObj ? selectedLedgerObj.phone : "";
+    const selectedLedgerAddress = selectedLedgerObj ? selectedLedgerObj.address : "";
+
+    const smFillerCount = Math.max(0, 10 - summaryLedgersList.length);
+    const smFillers = Array.from({ length: smFillerCount });
+
+    // Net balance details if single account is selected
+    const singleAccountBalance = selectedLedgerObj ? selectedLedgerObj.balance : 0;
+    const singleAccountStatus = selectedLedgerObj ? selectedLedgerObj.status : "NIL";
+    const singleAccountDebit = selectedLedgerObj ? selectedLedgerObj.totalDebit : 0;
+    const singleAccountCredit = selectedLedgerObj ? selectedLedgerObj.totalCredit : 0;
+
     return (
-      <div className="flex flex-col items-center justify-center p-8 min-h-[450px] font-mono">
-        <div className="bg-[#E5ECF4] border border-slate-350 rounded shadow-md overflow-hidden w-full max-w-2xl">
+      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
+        
+        {/* PRINT SUMMARY PANEL */}
+        <div className="bg-white border-2 border-slate-800 rounded shadow-lg overflow-hidden">
+
           {/* Windows retro window frame title bar */}
-          <div className="flex items-center justify-between bg-[#2B547E] text-white px-3 py-1 font-mono text-xs font-black shadow-inner select-none">
+          <div className="flex items-center justify-between bg-[#2B547E] text-white px-3 py-1.5 font-mono text-xs font-black shadow-inner select-none no-print">
             <div className="flex items-center gap-2">
               <Printer className="h-3.5 w-3.5" />
               <span>Print_Summary</span>
@@ -767,18 +1083,510 @@ function ReportsContent() {
               <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-red-650 text-[9px] flex items-center justify-center font-black font-sans shadow-sm select-none">X</span>
             </div>
           </div>
-          {/* Window Content */}
-          <div className="p-12 text-center bg-white space-y-6">
-            <h3 className="text-xl font-black text-slate-800 tracking-wider">2.1. PRINT SUMMARY</h3>
-            <div className="h-[2px] bg-slate-200 max-w-sm mx-auto" />
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-              ⚠️ UNDER MAINTENANCE / COMING SOON
-            </p>
-            <p className="text-[10px] text-slate-400 leading-relaxed max-w-xs mx-auto">
-              THE FINANCIAL YEAR SUMMARY REPORT SECTION IS TEMPORARILY DISABLED. PLEASE ACCESS LEDGER AND DAYBOOK REPORTS.
-            </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 font-mono">
+            
+            {/* LEFT SIDEBAR (Col span 1) */}
+            <div className="lg:col-span-1 bg-[#E5ECF4] border-r border-slate-300 p-4 space-y-4 no-print flex flex-col h-full min-h-[550px]">
+              
+              {/* Top Label */}
+              <div className="bg-[#2B547E] text-white px-3 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-t-sm shadow-sm">
+                Account Summary : (ALL RECORD)
+              </div>
+ 
+              {/* SITE SELECTOR */}
+              <div className="space-y-1.5" ref={smSiteSelectorRef}>
+                <span className="font-bold text-[10px] uppercase text-slate-700 tracking-wider block">Select Site / Company :</span>
+                <div className="relative">
+                  <div className="relative flex items-center bg-white border border-slate-400 rounded overflow-hidden">
+                    <input 
+                      ref={smSiteInputRef}
+                      type="text"
+                      value={smSiteSearchVal}
+                      placeholder="TYPE TO SEARCH SITE..."
+                      onChange={(e) => {
+                        setSmSiteSearchVal(e.target.value);
+                        setIsSmSiteSuggestionsOpen(true);
+                        setHighlightedSmSiteIndex(-1);
+                      }}
+                      onFocus={() => {
+                        setIsSmSiteSuggestionsOpen(true);
+                        setHighlightedSmSiteIndex(-1);
+                        setIsSmSiteFocused(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setIsSmSiteFocused(false), 200);
+                      }}
+                      onKeyDown={handleSmSiteKeyDown}
+                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-400 uppercase font-mono tracking-wide transition-colors ${
+                        isSmSiteFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
+                      }`}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsSmSiteSuggestionsOpen((prev) => !prev);
+                        setHighlightedSmSiteIndex(-1);
+                      }}
+                      className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+ 
+                  {isSmSiteSuggestionsOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-50 max-h-40 overflow-y-auto font-mono text-[11px] uppercase">
+                      {filteredSmSites.length === 0 ? (
+                        <div className="p-2.5 text-slate-400 italic">No matching sites found</div>
+                      ) : (
+                        filteredSmSites.map((site: any, index: number) => {
+                          const isActive = highlightedSmSiteIndex === index;
+                          return (
+                            <button
+                              key={site.id}
+                              type="button"
+                              onClick={() => {
+                                setSmSelectedSiteId(site.id);
+                                setSmSiteSearchVal(site.name.toUpperCase());
+                                setIsSmSiteSuggestionsOpen(false);
+                                setHighlightedSmSiteIndex(-1);
+                                setSmSelectedLedgerId(null);
+                                setSmLedgerSearchVal("");
+                                setTimeout(() => {
+                                  smLedgerInputRef.current?.focus();
+                                  smLedgerInputRef.current?.select();
+                                }, 80);
+                              }}
+                              onMouseEnter={() => setHighlightedSmSiteIndex(index)}
+                              className={`w-full text-left px-2.5 py-1.5 border-b border-slate-100 last:border-b-0 font-black uppercase text-[11px] ${
+                                isActive ? "bg-[#2B547E] text-white" : "bg-white hover:bg-slate-200 text-slate-900"
+                              }`}
+                            >
+                              {site.name.toUpperCase()}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+ 
+              {/* ACCOUNT SELECTOR */}
+              <div className="space-y-1.5 animate-in fade-in duration-200" ref={smLedgerSelectorRef}>
+                <span className="font-bold text-[10px] uppercase text-slate-700 tracking-wider block">Select Account :</span>
+                <div className="relative">
+                  <div className="relative flex items-center bg-white border border-slate-400 rounded overflow-hidden">
+                    <input 
+                      ref={smLedgerInputRef}
+                      type="text"
+                      value={smLedgerSearchVal}
+                      placeholder="ALL ACCOUNTS"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSmLedgerSearchVal(val);
+                        setIsSmLedgerSuggestionsOpen(true);
+                        setHighlightedSmLedgerIndex(-1);
+                        
+                        const norm = val.trim().toUpperCase();
+                        if (norm === "ALL ACCOUNTS" || !norm) {
+                          setSmSelectedLedgerId("all");
+                        } else {
+                          const exact = summaryActiveSiteLedgers.find((l: any) => l.name.toUpperCase() === norm);
+                          if (exact) {
+                            setSmSelectedLedgerId(exact.id);
+                          } else {
+                            setSmSelectedLedgerId(null);
+                          }
+                        }
+                      }}
+                      onFocus={() => {
+                        setIsSmLedgerSuggestionsOpen(true);
+                        setHighlightedSmLedgerIndex(-1);
+                        setIsSmLedgerFocused(true);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setIsSmLedgerFocused(false), 200);
+                      }}
+                      onKeyDown={handleSmLedgerKeyDown}
+                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-450 uppercase font-mono tracking-wide transition-colors ${
+                        isSmLedgerFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
+                      }`}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsSmLedgerSuggestionsOpen((prev) => !prev);
+                        setHighlightedSmLedgerIndex(-1);
+                      }}
+                      className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+ 
+                  {isSmLedgerSuggestionsOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-50 max-h-40 overflow-y-auto font-mono text-[11px] uppercase">
+                      {filteredSmLedgers.length === 0 ? (
+                        <div className="p-2.5 text-slate-400 italic">No matching accounts found</div>
+                      ) : (
+                        filteredSmLedgers.map((ledger: any, index: number) => {
+                          const isActive = highlightedSmLedgerIndex === index;
+                          const details = parsePartyDetails(ledger.contactPerson);
+                          const address = details ? details.address : (ledger.contactPerson || "");
+                          const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
+ 
+                          return (
+                            <button
+                              key={ledger.id}
+                              type="button"
+                              onClick={() => {
+                                setSmSelectedLedgerId(ledger.id);
+                                setSmLedgerSearchVal(ledger.name.toUpperCase());
+                                setIsSmLedgerSuggestionsOpen(false);
+                                setHighlightedSmLedgerIndex(-1);
+                              }}
+                              onMouseEnter={() => setHighlightedSmLedgerIndex(index)}
+                              className={`w-full text-left px-2.5 py-1.5 border-b border-slate-100 last:border-b-0 font-black uppercase text-[11px] ${
+                                isActive ? "bg-[#2B547E] text-white" : "bg-white hover:bg-slate-200 text-slate-900"
+                              }`}
+                            >
+                              <div className="flex flex-col">
+                                <span className="truncate">{ledger.name.toUpperCase()}</span>
+                                {(!ledger.isVirtual && ledger.id !== "all" && (phone || address)) && (
+                                  <div className={`text-[9px] mt-0.5 font-normal normal-case flex flex-wrap gap-x-2 gap-y-0.5 ${isActive ? "text-slate-200" : "text-slate-500"}`}>
+                                    {phone && <span>📞 {phone}</span>}
+                                    {address && <span className="truncate max-w-[250px]">📍 {address}</span>}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+ 
+            </div>
+ 
+            {/* RIGHT STATEMENT AREA (Col span 3) */}
+            <div className="lg:col-span-3 bg-white p-1 flex flex-col justify-between print-full-width">
+              
+              <div className="space-y-1">
+                {!smSelectedSiteId ? (
+                  <div className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
+                    Please select a Site location to view summary records.
+                  </div>
+                ) : (
+                  <>
+                    {smSelectedLedgerId && smSelectedLedgerId !== "all" && selectedLedgerObj ? (
+                      // 1. SINGLE ACCOUNT SUMMARY VIEW
+                      <div className="p-4 bg-white font-mono text-slate-900 space-y-6">
+                        <div className="border-b-2 border-slate-800 pb-4">
+                          <h4 className="text-sm font-black text-[#2B547E] uppercase tracking-wider mb-3">ACCOUNT DETAILS</h4>
+                          <div className="space-y-2 text-xs font-bold">
+                            <div className="flex">
+                              <span className="w-24 text-slate-500 uppercase">Name :</span>
+                              <span className="font-black uppercase text-slate-900">
+                                {selectedLedgerName.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex">
+                              <span className="w-24 text-slate-500 uppercase">Address :</span>
+                              <span className="font-black uppercase text-slate-900">
+                                {selectedLedgerAddress ? selectedLedgerAddress.toUpperCase() : "NOT SPECIFIED"}
+                              </span>
+                            </div>
+                            <div className="flex">
+                              <span className="w-24 text-slate-500 uppercase">Mobile No :</span>
+                              <span className="font-black text-slate-900">
+                                {selectedLedgerPhone || "NOT SPECIFIED"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Balance Details Box */}
+                        <div className="bg-slate-50 border border-slate-350 p-4 rounded space-y-4">
+                          <h5 className="font-black text-xs uppercase tracking-wider text-slate-700">Financial Summary</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                            
+                            <div className="bg-white border border-slate-200 p-3 rounded shadow-sm">
+                              <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Debit</div>
+                              <div className="text-base font-black text-blue-750">
+                                {singleAccountDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </div>
+                            </div>
+
+                            <div className="bg-white border border-slate-200 p-3 rounded shadow-sm">
+                              <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Credit</div>
+                              <div className="text-base font-black text-amber-700">
+                                {singleAccountCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </div>
+                            </div>
+
+                            <div className={`border p-3 rounded shadow-sm ${
+                              singleAccountStatus === "DR" 
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
+                                : singleAccountStatus === "CR" 
+                                  ? "bg-rose-50 border-rose-200 text-rose-800" 
+                                  : "bg-slate-100 border-slate-200 text-slate-800"
+                            }`}>
+                              <div className="text-[10px] uppercase font-bold mb-1">Net Balance</div>
+                              <div className="text-base font-black flex items-center justify-center gap-1">
+                                <span>{singleAccountBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                <span className="text-xs px-1.5 py-0.5 bg-black/10 rounded font-black">{singleAccountStatus}</span>
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+
+                        <div className="bg-[#FFE600]/10 border border-[#FFE600] p-4 rounded text-[11px] font-black uppercase tracking-wider text-slate-800 flex justify-between items-center">
+                          <span>Balance Status:</span>
+                          <span className={`px-2.5 py-1 text-xs rounded-sm text-white font-black ${
+                            singleAccountStatus === "DR" ? "bg-emerald-600" : singleAccountStatus === "CR" ? "bg-rose-600" : "bg-slate-500"
+                          }`}>
+                            {singleAccountStatus === "DR" ? "IN DEBIT (DR)" : singleAccountStatus === "CR" ? "IN CREDIT (CR)" : "NIL / BALANCED"}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      // 2. ALL ACCOUNTS SUMMARY LIST (TABLE VIEW)
+                      <table className="w-full border-collapse border-2 border-slate-800 font-mono text-[13px] sm:text-sm text-slate-900">
+                        <thead>
+                          <tr className="bg-slate-100 text-black border-b-2 border-slate-800 font-black uppercase text-[12px]">
+                            <th className="border border-slate-800 py-3 px-2 text-center w-12 text-black font-black">S.N.</th>
+                            <th className="border border-slate-800 py-3 px-3 text-left text-black font-black">Account Name</th>
+                            <th className="border border-slate-800 py-3 px-3 text-left text-black font-black">Address</th>
+                            <th className="border border-slate-800 py-3 px-3 text-center w-28 text-black font-black">Mobile No.</th>
+                            <th className="border border-slate-800 py-3 px-3 text-right w-28 text-black font-black">Debit</th>
+                            <th className="border border-slate-800 py-3 px-3 text-right w-28 text-black font-black">Credit</th>
+                            <th className="border border-slate-800 py-3 px-3 text-center w-16 text-black font-black">Dr/Cr</th>
+                            <th className="border border-slate-800 py-3 px-3 text-right w-36 text-black font-black">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {summaryLedgersList.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
+                                No accounts or transactions found for this site.
+                              </td>
+                            </tr>
+                          ) : (
+                            <>
+                              {summaryLedgersList.map((item: any, idx: number) => {
+                                return (
+                                  <tr key={item.id || item.name} className="border-b border-slate-400 font-black uppercase hover:bg-slate-100/60 text-slate-955 animate-in fade-in duration-100">
+                                    <td className="border-r border-slate-400 px-2 py-2 text-center font-bold text-slate-500">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="border-r border-slate-400 px-3 py-2 font-black">
+                                      {item.name.toUpperCase()}
+                                    </td>
+                                    <td className="border-r border-slate-400 px-3 py-2 font-bold text-slate-700 text-xs">
+                                      {item.address ? item.address.toUpperCase() : "-"}
+                                    </td>
+                                    <td className="border-r border-slate-400 px-3 py-2 text-center font-bold text-slate-700 text-xs">
+                                      {item.phone || "-"}
+                                    </td>
+                                    <td className="border-r border-slate-400 px-3 py-2 text-right text-slate-900 font-black">
+                                      {item.totalDebit > 0 ? item.totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                                    </td>
+                                    <td className="border-r border-slate-400 px-3 py-2 text-right text-slate-900 font-black">
+                                      {item.totalCredit > 0 ? item.totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                                    </td>
+                                    <td className={`border-r border-slate-400 px-3 py-2 text-center font-black ${
+                                      item.status === "DR" ? "text-emerald-700" : item.status === "CR" ? "text-rose-700" : "text-slate-650"
+                                    }`}>
+                                      {item.status}
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-black text-slate-955">
+                                      {item.balance === 0 ? "NILL" : item.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              
+                              {/* Fillers to maintain layout height */}
+                              {smFillers.map((_, i) => (
+                                <tr key={`filler-${i}`} className="h-8 border-b border-slate-350 select-none bg-white/40">
+                                  <td className="border-r border-slate-350 px-2 py-2"></td>
+                                  <td className="border-r border-slate-350 px-3 py-2"></td>
+                                  <td className="border-r border-slate-350 px-3 py-2"></td>
+                                  <td className="border-r border-slate-350 px-3 py-2"></td>
+                                  <td className="border-r border-slate-350 px-3 py-2"></td>
+                                  <td className="border-r border-slate-350 px-3 py-2"></td>
+                                  <td className="border-r border-slate-350 px-3 py-2"></td>
+                                  <td className="px-3 py-2"></td>
+                                </tr>
+                              ))}
+ 
+                              {/* Table Totals Row */}
+                              <tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[12px] text-slate-955">
+                                <td colSpan={4} className="border-r border-slate-400 px-3 py-2.5 text-right font-black">TOTALS:</td>
+                                <td className="border-r border-slate-400 px-3 py-2.5 text-right text-slate-955 font-black">
+                                  {summaryLedgersList.reduce((acc, curr) => acc + curr.totalDebit, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="border-r border-slate-400 px-3 py-2.5 text-right text-slate-955 font-black">
+                                  {summaryLedgersList.reduce((acc, curr) => acc + curr.totalCredit, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="border-r border-slate-400 px-3 py-2.5 text-center text-slate-955 font-black">
+                                  -
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-slate-955 font-black">
+                                  {/* Net sum of balances */}
+                                  {(() => {
+                                    const drSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "DR" ? curr.balance : 0), 0);
+                                    const crSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "CR" ? curr.balance : 0), 0);
+                                    const diff = drSum - crSum;
+                                    const status = diff > 0 ? "DR" : diff < 0 ? "CR" : "NIL";
+                                    return diff === 0 ? "NILL" : `${status} ${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+                                  })()}
+                                </td>
+                              </tr>
+                            </>
+                          )}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                )}
+              </div>
+ 
+              {/* RETRO ACTION BUTTONS BAR */}
+              {smSelectedSiteId && (
+                <div className="p-3 bg-[#E5ECF4] border-t border-slate-300 flex items-center justify-end gap-3 print-toolbar no-print mt-4">
+                  <button
+                    type="button"
+                    onClick={handlePrintPDF}
+                    className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
+                  >
+                    <span>[F2] PRINT PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportSmExcel}
+                    className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
+                  >
+                    <span>[F3] PRINT EXCEL</span>
+                  </button>
+                </div>
+              )}
+ 
+            </div>
+ 
           </div>
+ 
         </div>
+ 
+        <style>{`
+          @media print {
+            body {
+              background: white !important;
+              color: black !important;
+            }
+            aside, nav, header, .no-print, .print-filter-panel, .print-toolbar {
+              display: none !important;
+            }
+            main {
+              padding: 0 !important;
+              margin: 0 !important;
+              background: transparent !important;
+            }
+            /* Neutralize layout flex and screen height wrappers in print */
+            .flex.h-screen, .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden {
+              height: auto !important;
+              min-height: 0 !important;
+              display: block !important;
+              overflow: visible !important;
+              position: static !important;
+              width: 100% !important;
+            }
+            /* Neutralize absolute modal backdrop and flex centering */
+            .absolute.inset-0.bg-slate-900\\/40 {
+              position: static !important;
+              display: block !important;
+              background: transparent !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              height: auto !important;
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+            /* Strip modal borders, shadows, backgrounds, and viewports in print */
+            .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+              border: none !important;
+              box-shadow: none !important;
+              background: transparent !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+            }
+            /* Hide the yellow modal header bar completely */
+            .bg-amber-400 {
+              display: none !important;
+            }
+            /* Hide the left sidebar/selectors completely */
+            .lg\\:col-span-1 {
+              display: none !important;
+            }
+            .max-w-\\[96\\%\\], .max-w-7xl, .print-full-width, .bg-white.border-2.border-slate-800 {
+              max-width: 100% !important;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              box-shadow: none !important;
+              border-radius: 0 !important;
+              border: none !important;
+            }
+            .bg-\\[\\#E5ECF4\\] {
+              background: transparent !important;
+              border: none !important;
+              box-shadow: none !important;
+            }
+            .bg-\\[\\#2B547E\\] {
+              background: #000000 !important;
+              color: #ffffff !important;
+            }
+            table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              table-layout: auto !important;
+            }
+            th, td {
+              border: 1.5px solid #000 !important;
+              padding: 7px 6px !important;
+              font-size: 13px !important;
+              width: auto !important;
+              max-width: none !important;
+            }
+            th {
+              font-weight: 900 !important;
+              background-color: #f1f5f9 !important;
+              color: #000000 !important;
+              -webkit-print-color-adjust: exact !important;
+            }
+            .print-full-width {
+              width: 100% !important;
+              max-width: 100% !important;
+              display: block !important;
+            }
+            .grid, .grid-cols-1, .lg\\:grid-cols-4 {
+              display: block !important;
+            }
+            .lg\\:col-span-3 {
+              width: 100% !important;
+              display: block !important;
+            }
+          }
+        `}</style>
       </div>
     );
   }
