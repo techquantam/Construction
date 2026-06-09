@@ -3,8 +3,10 @@ import { prisma } from '../server';
 
 export const getLedgers = async (req: Request, res: Response) => {
   try {
-    const { type } = req.query; // Party, Supplier, Contractor
-    let whereClause = type ? { type: String(type) } : {};
+    const { type, siteId } = req.query; // Party, Supplier, Contractor, siteId
+    let whereClause: any = {};
+    if (type) whereClause.type = String(type);
+    if (siteId) whereClause.siteId = String(siteId);
 
     const ledgers = await prisma.ledger.findMany({
       where: whereClause,
@@ -40,7 +42,7 @@ export const getLedgerById = async (req: Request, res: Response) => {
 
 export const createLedger = async (req: Request, res: Response) => {
   try {
-    const { type, name, contactPerson, phone, openingBalance } = req.body;
+    const { type, name, contactPerson, phone, openingBalance, siteId } = req.body;
 
     const ledger = await prisma.ledger.create({
       data: {
@@ -48,7 +50,8 @@ export const createLedger = async (req: Request, res: Response) => {
         name,
         contactPerson,
         phone,
-        outstandingBalance: parseFloat(openingBalance) || 0
+        outstandingBalance: parseFloat(openingBalance) || 0,
+        siteId
       }
     });
 

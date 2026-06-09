@@ -123,15 +123,6 @@ function ReportsContent() {
     },
   });
 
-  // Ledgers query
-  const { data: ledgers } = useQuery({
-    queryKey: ["ledgers"],
-    queryFn: async () => {
-      const response = await api.get("/ledgers");
-      return response.data.data;
-    },
-  });
-
   // DAYBOOK STATES
   const [dbSiteSearchVal, setDbSiteSearchVal] = useState("");
   const [dbSelectedSiteId, setDbSelectedSiteId] = useState<string | null>(null);
@@ -174,6 +165,18 @@ function ReportsContent() {
   const [isLgLedgerFocused, setIsLgLedgerFocused] = useState(false);
   const [isSmSiteFocused, setIsSmSiteFocused] = useState(false);
   const [isSmLedgerFocused, setIsSmLedgerFocused] = useState(false);
+
+  // Ledgers query
+  const { data: ledgers } = useQuery({
+    queryKey: ["ledgers", lgSelectedSiteId, smSelectedSiteId],
+    queryFn: async () => {
+      const activeSiteId = lgSelectedSiteId || smSelectedSiteId;
+      if (!activeSiteId) return [];
+      const response = await api.get(`/ledgers?siteId=${activeSiteId}`);
+      return response.data.data;
+    },
+    enabled: !!(lgSelectedSiteId || smSelectedSiteId)
+  });
 
   // Autofocus input refs
   const lgSiteInputRef = useRef<HTMLInputElement>(null);
@@ -741,7 +744,14 @@ function ReportsContent() {
   const processedDbData = (() => {
     if (!daybookData) return { items: [], totalDebit: 0, totalCredit: 0, finalBalance: 0 };
 
-    const sorted = [...daybookData].sort((a: any, b: any) => {
+    // Filter out auto-debit, ledger direct entries, and company ledger entries from daybook rendering & calculations
+    const filteredDbData = daybookData.filter((item: any) => 
+      item.referenceNumber !== "AUTO_DEBIT" && 
+      item.description !== "LEDGER DIRECT ENTRY" &&
+      item.description !== "COMPANY_LEDGER_ENTRY"
+    );
+
+    const sorted = [...filteredDbData].sort((a: any, b: any) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
       if (dateA !== dateB) return dateA - dateB;

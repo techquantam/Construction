@@ -31,6 +31,7 @@ model Site {
 
   dayBooks            DayBook[]
   materialTransactions MaterialTransaction[]
+  ledgers             Ledger[]
 }
 
 model DayBook {
@@ -56,7 +57,9 @@ model Ledger {
   contactPerson      String?
   phone              String?
   outstandingBalance Float    @default(0) // Positive means we owe them, Negative means they owe us
+  siteId             String?
   
+  site               Site?    @relation(fields: [siteId], references: [id], onDelete: Cascade)
   transactions       LedgerTransaction[]
   
   createdAt          DateTime @default(now())

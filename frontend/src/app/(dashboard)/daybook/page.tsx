@@ -181,7 +181,8 @@ function DayBookContent() {
       type: "Party",
       contactPerson: JSON.stringify(partyFormData),
       phone: partyFormData.phoneNo || partyFormData.mobileNo || "",
-      openingBalance: 0
+      openingBalance: 0,
+      siteId: selectedSiteId
     });
   };
 
@@ -390,11 +391,13 @@ function DayBookContent() {
 
   // Query: Fetch all Ledgers for checking existence and Autocomplete
   const { data: ledgersData } = useQuery({
-    queryKey: ["ledgers"],
+    queryKey: ["ledgers", selectedSiteId],
     queryFn: async () => {
-      const response = await api.get("/ledgers");
+      if (!selectedSiteId || selectedSiteId === "all") return [];
+      const response = await api.get(`/ledgers?siteId=${selectedSiteId}`);
       return response.data.data;
     },
+    enabled: !!selectedSiteId && selectedSiteId !== "all",
   });
   const existingLedgers: any[] = ledgersData || [];
 
@@ -1053,8 +1056,12 @@ function DayBookContent() {
   const processedData = (() => {
     if (!dayBooks) return { items: [], totalDebit: 0, totalCredit: 0, finalBalance: 0 };
 
-    // Filter out auto-debit transactions from daybook rendering & calculations
-    const nonAutoDebitDaybooks = dayBooks.filter((item: any) => item.referenceNumber !== "AUTO_DEBIT");
+    // Filter out auto-debit, ledger direct entries, and company ledger entries from daybook rendering & calculations
+    const nonAutoDebitDaybooks = dayBooks.filter((item: any) => 
+      item.referenceNumber !== "AUTO_DEBIT" && 
+      item.description !== "LEDGER DIRECT ENTRY" &&
+      item.description !== "COMPANY_LEDGER_ENTRY"
+    );
 
     // Filter by selectedAccountId first if not "all"
     const accountFiltered = nonAutoDebitDaybooks.filter((item: any) => {
@@ -1495,7 +1502,7 @@ function DayBookContent() {
             <button
               type="button"
               onClick={handleDeleteAllDayBooks}
-              className="bg-red-600 hover:bg-red-750 bg-red-700 text-white border border-slate-950 font-black text-[10px] px-3 py-1.5 rounded shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none transition-all active:translate-y-0.5 uppercase tracking-widest cursor-pointer flex items-center gap-1.5 shrink-0"
+              className="bg-red-600 hover:bg-red-700 text-white border border-slate-950 font-black text-[10px] px-3 py-1.5 rounded shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none transition-all active:translate-y-0.5 uppercase tracking-widest cursor-pointer flex items-center gap-1.5 shrink-0"
             >
               <Trash2 className="h-3.5 w-3.5" />
               <span>DELETE ALL ENTRIES</span>
@@ -1728,7 +1735,7 @@ function DayBookContent() {
                                   deleteMutation.mutate(item.id);
                                 }
                               }}
-                              className="bg-red-600 hover:bg-red-750 bg-red-700 text-white font-black text-xs w-6 h-6 rounded flex items-center justify-center transition-all shadow-sm border border-red-700 mx-auto"
+                              className="bg-red-600 hover:bg-red-700 text-white font-black text-xs w-6 h-6 rounded flex items-center justify-center transition-all shadow-sm border border-red-600 hover:border-red-700 mx-auto"
                             >
                               X
                             </button>

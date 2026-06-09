@@ -598,11 +598,13 @@ function LedgerContent() {
 
   // Query: Fetch all ledgers
   const { data: ledgers, isLoading: isLoadingLedgers } = useQuery({
-    queryKey: ["ledgers"],
+    queryKey: ["ledgers", selectedSiteId],
     queryFn: async () => {
-      const response = await api.get("/ledgers");
+      if (!selectedSiteId || selectedSiteId === "all") return [];
+      const response = await api.get(`/ledgers?siteId=${selectedSiteId}`);
       return response.data.data;
     },
+    enabled: !!selectedSiteId && selectedSiteId !== "all",
   });
   const existingLedgers: any[] = ledgers || [];
 
@@ -1281,7 +1283,7 @@ function LedgerContent() {
       
       if (!existing && !isParticularLedgerOpen) {
         // Create the company ledger
-        const ledgerRes = await api.post("/ledgers", {
+         const ledgerRes = await api.post("/ledgers", {
           type: "Company",
           name: activeLedgerDetails.name.trim().toUpperCase(),
           contactPerson: JSON.stringify({
@@ -1292,7 +1294,8 @@ function LedgerContent() {
             plotUnit: compUnit
           }),
           phone: activeLedgerDetails.mobile,
-          openingBalance: 0
+          openingBalance: 0,
+          siteId: selectedSiteId
         });
         
         if (ledgerRes.data && ledgerRes.data.data) {
@@ -2430,7 +2433,7 @@ function LedgerContent() {
                   <button
                     type="button"
                     onClick={handleDeleteWholeLedger}
-                    className="bg-red-650 hover:bg-red-750 text-white border border-slate-950 font-black text-[11px] py-1.5 px-3 rounded shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none transition-all active:translate-y-0.5 uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5"
+                    className="bg-red-600 hover:bg-red-700 text-white border border-slate-950 font-black text-[11px] py-1.5 px-3 rounded shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none transition-all active:translate-y-0.5 uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <Trash2 className="h-3.5 w-3.5 shrink-0" />
                     <span>DELETE HEAD</span>

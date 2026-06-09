@@ -209,7 +209,7 @@ function SitesContent() {
                               }}
                               disabled={deleteMutation.isPending}
                               className={`font-black text-[10px] px-3 py-1.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none border border-slate-950 uppercase tracking-widest active:translate-y-0.5 flex items-center gap-1.5 ml-auto cursor-pointer ${isHighlighted
-                                ? "bg-red-650 bg-red-700 text-white"
+                                ? "bg-red-700 text-white"
                                 : "bg-red-600 text-white hover:bg-red-700"
                                 }`}
                             >

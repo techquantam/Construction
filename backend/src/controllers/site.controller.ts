@@ -116,38 +116,26 @@ export const deleteSite = async (req: Request, res: Response) => {
     await prisma.dayBook.deleteMany({ where: { siteId: id } });
     await prisma.materialTransaction.deleteMany({ where: { siteId: id } });
 
-    // For each unique ledger name, check if it's referenced in any other DayBook entries (for other sites).
-    // If not, delete it from the Ledger table.
+    // For each unique ledger name, delete it and its transactions permanently.
     for (const name of ledgerNames) {
-      const otherUsage = await prisma.dayBook.findFirst({
+      // Find the ledger record in database
+      const ledger = await prisma.ledger.findFirst({
         where: {
-          OR: [
-            { expenseType: { startsWith: `To ${name}`, mode: 'insensitive' } },
-            { expenseType: { startsWith: `By ${name}`, mode: 'insensitive' } }
-          ]
+          name: {
+            equals: name,
+            mode: 'insensitive'
+          }
         }
       });
 
-      if (!otherUsage) {
-        // Find the ledger record in database
-        const ledger = await prisma.ledger.findFirst({
-          where: {
-            name: {
-              equals: name,
-              mode: 'insensitive'
-            }
-          }
+      if (ledger) {
+        // Delete its transactions first, then the ledger itself
+        await prisma.ledgerTransaction.deleteMany({
+          where: { ledgerId: ledger.id }
         });
-
-        if (ledger) {
-          // Delete its transactions first, then the ledger itself
-          await prisma.ledgerTransaction.deleteMany({
-            where: { ledgerId: ledger.id }
-          });
-          await prisma.ledger.delete({
-            where: { id: ledger.id }
-          });
-        }
+        await prisma.ledger.delete({
+          where: { id: ledger.id }
+        });
       }
     }
 

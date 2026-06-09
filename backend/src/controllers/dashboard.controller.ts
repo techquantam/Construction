@@ -13,7 +13,14 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
 
     const monthDayBooks = await prisma.dayBook.aggregate({
       _sum: { amount: true },
-      where: { date: { gte: startOfMonth } }
+      where: {
+        date: { gte: startOfMonth },
+        OR: [
+          { description: null },
+          { description: { notIn: ['LEDGER DIRECT ENTRY', 'COMPANY_LEDGER_ENTRY', 'AUTO-DEBIT NEW PARTY PLOT ENTRY'] } }
+        ],
+        referenceNumber: { not: 'AUTO_DEBIT' }
+      }
     });
     const monthlyExpenses = monthDayBooks._sum.amount || 0;
 
