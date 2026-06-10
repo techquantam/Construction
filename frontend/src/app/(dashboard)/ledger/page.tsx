@@ -1693,12 +1693,18 @@ function LedgerContent() {
     }
   }, [selectedLedgerId, selectedSiteId]);
 
-  // Auto-initialize next challan number when site daybooks load/change
+  // Track last initialized site to prevent overriding active user session on daybook mutation
+  const lastInitializedSiteRef = useRef("");
+
+  // Auto-initialize next challan number when site daybooks load/change (only once per site)
   useEffect(() => {
     if (selectedSiteId && selectedSiteId !== "all" && siteDaybooks) {
-      const targetDate = getTargetDateStr();
-      const nextNo = getNextChallanNoForDate(targetDate, siteDaybooks);
-      updateChallanNo(nextNo);
+      if (selectedSiteId !== lastInitializedSiteRef.current) {
+        lastInitializedSiteRef.current = selectedSiteId;
+        const targetDate = getTargetDateStr();
+        const nextNo = getNextChallanNoForDate(targetDate, siteDaybooks);
+        updateChallanNo(nextNo);
+      }
     }
   }, [selectedSiteId, siteDaybooks]);
 
