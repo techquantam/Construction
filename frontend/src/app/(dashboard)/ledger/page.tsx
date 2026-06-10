@@ -1918,6 +1918,23 @@ function LedgerContent() {
       return;
     }
 
+    const name = selectedLedger ? selectedLedger.name : (compName || "");
+    if (!name) {
+      callback();
+      return;
+    }
+
+    const lastCh = getLastChallanNoForLedger(name, siteDaybooks);
+    const targetDate = getTargetDateStr();
+    const nextNo = getNextChallanNoForDate(targetDate, siteDaybooks);
+
+    // Skip prompt if no previous challan exists or if the previous challan is identical to the next global one
+    if (!lastCh || lastCh === nextNo) {
+      updateChallanNo(nextNo);
+      callback();
+      return;
+    }
+
     setPendingEstimateCallback(() => callback);
     setShowNewEstimatePrompt(true);
   };
