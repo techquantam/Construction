@@ -1918,23 +1918,6 @@ function LedgerContent() {
       return;
     }
 
-    const name = selectedLedger ? selectedLedger.name : (compName || "");
-    if (!name) {
-      callback();
-      return;
-    }
-
-    const lastCh = getLastChallanNoForLedger(name, siteDaybooks);
-    const targetDate = getTargetDateStr();
-    const nextNo = getNextChallanNoForDate(targetDate, siteDaybooks);
-
-    // Skip prompt if no previous challan exists or if the previous challan is identical to the next global one
-    if (!lastCh || lastCh === nextNo) {
-      updateChallanNo(nextNo);
-      callback();
-      return;
-    }
-
     setPendingEstimateCallback(() => callback);
     setShowNewEstimatePrompt(true);
   };
@@ -2383,16 +2366,22 @@ function LedgerContent() {
                           setIsAccountSuggestionsOpen(false);
                           setHighlightedAccountIndex(-1);
                           
-                          if (action === "entry") {
-                            triggerNewEstimatePrompt(() => {
+                           if (action === "entry") {
+                            if (ledger.id === "all") {
                               setTimeout(() => {
-                                const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
-                                if (dateInput) {
-                                  dateInput.focus();
-                                  dateInput.setSelectionRange(0, 2);
-                                }
+                                compNameInputRef.current?.focus();
                               }, 50);
-                            });
+                            } else {
+                              triggerNewEstimatePrompt(() => {
+                                setTimeout(() => {
+                                  const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
+                                  if (dateInput) {
+                                    dateInput.focus();
+                                    dateInput.setSelectionRange(0, 2);
+                                  }
+                                }, 50);
+                              });
+                            }
                           } else {
                             setTimeout(() => {
                               focusFirstTransactionRow();
@@ -2452,16 +2441,22 @@ function LedgerContent() {
                               setIsAccountSuggestionsOpen(false);
                               setHighlightedAccountIndex(-1);
                               
-                              if (action === "entry") {
-                                triggerNewEstimatePrompt(() => {
+                               if (action === "entry") {
+                                if (ledger.id === "all") {
                                   setTimeout(() => {
-                                    const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
-                                    if (dateInput) {
-                                      dateInput.focus();
-                                      dateInput.setSelectionRange(0, 2);
-                                    }
+                                    compNameInputRef.current?.focus();
                                   }, 50);
-                                });
+                                } else {
+                                  triggerNewEstimatePrompt(() => {
+                                    setTimeout(() => {
+                                      const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
+                                      if (dateInput) {
+                                        dateInput.focus();
+                                        dateInput.setSelectionRange(0, 2);
+                                      }
+                                    }, 50);
+                                  });
+                                }
                               } else {
                                 setTimeout(() => {
                                   focusFirstTransactionRow();
