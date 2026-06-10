@@ -93,6 +93,49 @@ const parseCompanyTransactionPaymentMode = (paymentMode: string | null) => {
   return null;
 };
 
+const getNextChallanNoForDate = (dateStr: string, daybooks: any[]): string => {
+  if (!daybooks || daybooks.length === 0) {
+    return `${dateStr}/1`;
+  }
+  
+  let maxN = 0;
+  daybooks.forEach((item: any) => {
+    const ref = item.referenceNumber;
+    if (ref && typeof ref === "string" && ref.startsWith(dateStr + "/")) {
+      const parts = ref.split("/");
+      if (parts.length === 2) {
+        const num = parseInt(parts[1], 10);
+        if (!isNaN(num) && num > maxN) {
+          maxN = num;
+        }
+      }
+    }
+  });
+  
+  return `${dateStr}/${maxN + 1}`;
+};
+
+const getLastChallanNoForLedger = (ledgerName: string, daybooks: any[]): string | null => {
+  if (!daybooks || daybooks.length === 0) return null;
+  const ledgerUpper = ledgerName.toUpperCase();
+  
+  let latestTx: any = null;
+  daybooks.forEach((item: any) => {
+    const text = item.expenseType || "";
+    let name = "";
+    if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
+    else if (text.toUpperCase().startsWith("BY ")) name = text.substring(3).trim().toUpperCase();
+    
+    if (name === ledgerUpper && item.referenceNumber && item.referenceNumber !== "AUTO_DEBIT") {
+      if (!latestTx || new Date(item.createdAt).getTime() > new Date(latestTx.createdAt).getTime()) {
+        latestTx = item;
+      }
+    }
+  });
+  
+  return latestTx ? latestTx.referenceNumber : null;
+};
+
 function LedgerContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -251,9 +294,14 @@ function LedgerContent() {
   const [compRate, setCompRate] = useState("");
   const [challanNo, setChallanNo] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("current_challan_no") || "1001";
+      const stored = localStorage.getItem("current_challan_no");
+      if (stored) return stored;
     }
-    return "1001";
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = String(d.getFullYear()).substring(2);
+    return `${day}.${month}.${year}/1`;
   });
 
   const updateChallanNo = (val: string) => {
@@ -261,6 +309,17 @@ function LedgerContent() {
     if (typeof window !== "undefined") {
       localStorage.setItem("current_challan_no", val);
     }
+  };
+
+  const getTargetDateStr = () => {
+    if (compDate && compDate.includes(".") && compDate.split(".").length === 3) {
+      return compDate;
+    }
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = String(d.getFullYear()).substring(2);
+    return `${day}.${month}.${year}`;
   };
 
   useEffect(() => {
@@ -282,57 +341,7 @@ function LedgerContent() {
   const [showNewEstimatePrompt, setShowNewEstimatePrompt] = useState(false);
   const [pendingEstimateCallback, setPendingEstimateCallback] = useState<(() => void) | null>(null);
 
-  const triggerNewEstimatePrompt = (callback: () => void) => {
-    if (ledgerTypeTab !== "COMPANY") {
-      callback();
-      return;
-    }
-    setPendingEstimateCallback(() => callback);
-    setShowNewEstimatePrompt(true);
-  };
 
-  const handleConfirmNewEstimate = () => {
-    const num = parseInt(challanNo);
-    if (!isNaN(num)) {
-      updateChallanNo(String(num + 1));
-    } else {
-      updateChallanNo("1002");
-    }
-    setShowNewEstimatePrompt(false);
-  };
-
-  const handleCancelNewEstimate = () => {
-    setShowNewEstimatePrompt(false);
-  };
-
-  useEffect(() => {
-    if (showNewEstimatePrompt === false && pendingEstimateCallback) {
-      pendingEstimateCallback();
-      setPendingEstimateCallback(null);
-    }
-  }, [showNewEstimatePrompt, pendingEstimateCallback]);
-
-  // Keypress listener for New Estimate Prompt Modal
-  useEffect(() => {
-    if (!showNewEstimatePrompt) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        e.stopPropagation();
-        handleConfirmNewEstimate();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        handleCancelNewEstimate();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [showNewEstimatePrompt, challanNo]);
 
   const [hoveredOrFocusedTx, setHoveredOrFocusedTx] = useState<any>(null);
   const [filterDateVal, setFilterDateVal] = useState("");
@@ -1684,6 +1693,31 @@ function LedgerContent() {
     }
   }, [selectedLedgerId, selectedSiteId]);
 
+  // Auto-initialize next challan number when site daybooks load/change
+  useEffect(() => {
+    if (selectedSiteId && selectedSiteId !== "all" && siteDaybooks) {
+      const targetDate = getTargetDateStr();
+      const nextNo = getNextChallanNoForDate(targetDate, siteDaybooks);
+      updateChallanNo(nextNo);
+    }
+  }, [selectedSiteId, siteDaybooks]);
+
+  // Track last seen compDate to only auto-update on active date changes
+  const lastCompDateRef = useRef("");
+
+  // Auto-update challan number prefix when the direct entry date input changes
+  useEffect(() => {
+    if (selectedSiteId && selectedSiteId !== "all" && siteDaybooks && compDate) {
+      if (compDate.includes(".") && compDate.split(".").length === 3) {
+        if (compDate !== lastCompDateRef.current) {
+          lastCompDateRef.current = compDate;
+          const nextNo = getNextChallanNoForDate(compDate, siteDaybooks);
+          updateChallanNo(nextNo);
+        }
+      }
+    }
+  }, [compDate, selectedSiteId, siteDaybooks]);
+
   const focusFirstTransactionRow = () => {
     if (statementData && statementData.transactions && statementData.transactions.length > 0) {
       setFocusedRowIndex(0);
@@ -1871,6 +1905,63 @@ function LedgerContent() {
         : { name: "ALL ACCOUNTS STATEMENT", contactPerson: "CONSOLIDATED SITE VIEW", phone: "N/A" }
       )
     : (filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
+
+  const triggerNewEstimatePrompt = (callback: () => void) => {
+    if (ledgerTypeTab !== "COMPANY" || !selectedSiteId || selectedSiteId === "all") {
+      callback();
+      return;
+    }
+
+    setPendingEstimateCallback(() => callback);
+    setShowNewEstimatePrompt(true);
+  };
+
+  const handleConfirmNewEstimate = () => {
+    const targetDate = getTargetDateStr();
+    const nextNo = getNextChallanNoForDate(targetDate, siteDaybooks);
+    updateChallanNo(nextNo);
+    setShowNewEstimatePrompt(false);
+  };
+
+  const handleCancelNewEstimate = () => {
+    const name = selectedLedger?.name || compName;
+    if (name) {
+      const lastCh = getLastChallanNoForLedger(name, siteDaybooks);
+      if (lastCh) {
+        updateChallanNo(lastCh);
+      }
+    }
+    setShowNewEstimatePrompt(false);
+  };
+
+  useEffect(() => {
+    if (showNewEstimatePrompt === false && pendingEstimateCallback) {
+      pendingEstimateCallback();
+      setPendingEstimateCallback(null);
+    }
+  }, [showNewEstimatePrompt, pendingEstimateCallback]);
+
+  // Keypress listener for New Estimate Prompt Modal
+  useEffect(() => {
+    if (!showNewEstimatePrompt) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        handleConfirmNewEstimate();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCancelNewEstimate();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showNewEstimatePrompt, challanNo, selectedLedger, compName, compDate, siteDaybooks]);
 
   // Find name, address, phone for active display (live details)
   const activeDisplayDetails = (() => {
@@ -2384,11 +2475,22 @@ function LedgerContent() {
                   <button
                     type="button"
                     onClick={() => {
-                      const num = parseInt(challanNo);
+                      if (challanNo.includes("/")) {
+                        const parts = challanNo.split("/");
+                        if (parts.length === 2) {
+                          const n = parseInt(parts[1], 10);
+                          if (!isNaN(n)) {
+                            updateChallanNo(`${parts[0]}/${n + 1}`);
+                            return;
+                          }
+                        }
+                      }
+                      const num = parseInt(challanNo, 10);
                       if (!isNaN(num)) {
                         updateChallanNo(String(num + 1));
                       } else {
-                        updateChallanNo("1001");
+                        const targetDate = getTargetDateStr();
+                        updateChallanNo(`${targetDate}/1`);
                       }
                     }}
                     className="bg-[#2B547E] hover:bg-[#1E3E64] text-white text-xs font-black px-2.5 py-1.5 rounded transition-all shadow active:translate-y-0.5 h-7.5 shrink-0"
@@ -5220,53 +5322,59 @@ function LedgerContent() {
 
       {showNewEstimatePrompt && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-200">
-          <div className="bg-[#D3DFEE] border-2 border-slate-950 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[420px] font-mono select-none flex flex-col">
+          <div className="bg-[#D3DFEE] border-2 border-slate-950 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[450px] font-mono select-none flex flex-col">
             {/* Title Bar */}
             <div className="bg-[#2B547E] border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0">
-              <span className="text-xs font-black uppercase tracking-wider font-mono">Estimate / Challan Session</span>
-              <span className="text-[10px] bg-[#ECC30B] text-slate-950 font-black px-1.5 py-0.5 rounded-xs animate-pulse">NEW ESTIMATE?</span>
+              <span className="text-xs font-black uppercase tracking-wider font-mono">Challan Session / चालान सत्र</span>
+              <span className="text-[10px] bg-[#ECC30B] text-slate-950 font-black px-1.5 py-0.5 rounded-xs animate-pulse">CHALLAN SELECT?</span>
             </div>
 
             {/* Content */}
             <div className="p-6 bg-[#E5ECF4] space-y-4 text-slate-950 text-center">
               <p className="text-xs text-slate-700 font-bold uppercase leading-normal">
-                You have selected/created an account.
+                Customer Has Returned / ग्राहक दुबारा आया है
               </p>
-              <h3 className="text-sm font-black text-slate-950 uppercase tracking-wide">
-                Start a new Estimate / Challan session?
+              <h3 className="text-xs font-black text-slate-950 uppercase tracking-wide leading-relaxed">
+                Do you want to start a new challan or continue the previous session?<br/>
+                क्या आप नया चालान शुरू करना चाहते हैं या पुराना जारी रखना चाहते हैं?
               </h3>
-              <p className="text-[11px] text-slate-650 font-bold uppercase">
-                Current Challan No: <span className="font-mono bg-white border border-slate-350 px-1 py-0.5 rounded text-slate-900 font-black">{challanNo}</span>
-                {" → "}
-                New Challan No: <span className="font-mono bg-[#ECC30B] border border-slate-950 px-1 py-0.5 rounded text-slate-950 font-black">
-                  {(() => {
-                    const num = parseInt(challanNo);
-                    return isNaN(num) ? "1002" : String(num + 1);
-                  })()}
-                </span>
-              </p>
+              <div className="flex justify-center gap-4 text-[11px] text-slate-650 font-bold uppercase bg-white/40 p-2.5 border border-slate-300 rounded">
+                <div>
+                  <span className="block text-[9px] text-slate-500 font-extrabold">Continue / पुराना:</span>
+                  <span className="font-mono bg-white border border-slate-350 px-1.5 py-0.5 rounded text-slate-900 font-black text-xs block mt-1">
+                    {selectedLedger ? getLastChallanNoForLedger(selectedLedger.name, siteDaybooks) || challanNo : (compName ? getLastChallanNoForLedger(compName, siteDaybooks) || challanNo : challanNo)}
+                  </span>
+                </div>
+                <div className="flex items-center text-slate-400 font-black text-lg">→</div>
+                <div>
+                  <span className="block text-[9px] text-slate-500 font-extrabold">New Challan / नया:</span>
+                  <span className="font-mono bg-[#ECC30B] border border-slate-950 px-1.5 py-0.5 rounded text-slate-950 font-black text-xs block mt-1">
+                    {getNextChallanNoForDate(getTargetDateStr(), siteDaybooks)}
+                  </span>
+                </div>
+              </div>
 
               <div className="text-[10px] text-[#2B547E] font-bold bg-white/70 py-2 px-3 border border-slate-300 rounded uppercase">
-                💡 Press <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Enter</span> for Yes (New Estimate), or <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Esc</span> for No (Keep Current)
+                💡 Press <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Enter</span> to Start New, or <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Esc</span> to Continue Previous
               </div>
             </div>
 
             {/* Buttons */}
-            <div className="bg-white border-t border-slate-300 p-4 flex justify-center gap-4">
+            <div className="bg-white border-t border-slate-300 p-4 flex justify-center gap-3">
               <button
                 type="button"
                 onClick={handleConfirmNewEstimate}
-                className="bg-[#2B547E] hover:bg-[#1E3E64] text-white font-extrabold text-xs px-6 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase flex items-center gap-2 border border-slate-700 cursor-pointer"
+                className="bg-[#2B547E] hover:bg-[#1E3E64] text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-700 cursor-pointer flex-1"
               >
-                Yes, New Estimate
+                Start New Challan / नया चालान
               </button>
               
               <button
                 type="button"
                 onClick={handleCancelNewEstimate}
-                className="bg-slate-500 hover:bg-slate-600 text-white font-extrabold text-xs px-6 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase flex items-center gap-2 border border-slate-600 cursor-pointer"
+                className="bg-slate-500 hover:bg-slate-600 text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-600 cursor-pointer flex-1"
               >
-                No, Keep Current
+                Continue Previous / पुराना रखें
               </button>
             </div>
           </div>

@@ -199,6 +199,7 @@ function ReportsContent() {
   const lgLedgerInputRef = useRef<HTMLInputElement>(null);
   const smSiteInputRef = useRef<HTMLInputElement>(null);
   const smLedgerInputRef = useRef<HTMLInputElement>(null);
+  const printStartDateRef = useRef<HTMLInputElement>(null);
 
   // Daybook data query
   const { data: daybookData } = useQuery({
@@ -266,6 +267,27 @@ function ReportsContent() {
     window.addEventListener("afterprint", handleAfterPrint);
     return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
+
+  // Trigger window.print() once the print layout is fully rendered in DOM
+  useEffect(() => {
+    if (printLayoutMode) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 300); // 300ms ensures DOM has repainted and is ready
+      return () => clearTimeout(timer);
+    }
+  }, [printLayoutMode]);
+
+  // Autofocus the print date selection modal start date input
+  useEffect(() => {
+    if (showDateRangeModal) {
+      const timer = setTimeout(() => {
+        printStartDateRef.current?.focus();
+        printStartDateRef.current?.select();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [showDateRangeModal]);
 
   // Sync state values on site changes or inputs click outside
   useEffect(() => {
@@ -570,6 +592,7 @@ function ReportsContent() {
         setDbSiteSearchVal(site.name.toUpperCase());
         setIsDbSiteSuggestionsOpen(false);
         setHighlightedDbSiteIndex(-1);
+        dbSiteInputRef.current?.blur();
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -1304,6 +1327,16 @@ function ReportsContent() {
       toast.error("Please select a Site location first");
       return;
     }
+    if (target === "ledger") {
+      setPrintStartDate("");
+      setPrintEndDate("");
+      setPrintTargetType("ledger");
+      setPrintLayoutMode("ledger");
+      setTimeout(() => {
+        window.print();
+      }, 150);
+      return;
+    }
     setPrintTargetType(target);
     setShowDateRangeModal(true);
   };
@@ -1312,9 +1345,6 @@ function ReportsContent() {
     if (!printTargetType) return;
     setPrintLayoutMode(printTargetType);
     setShowDateRangeModal(false);
-    setTimeout(() => {
-      window.print();
-    }, 150);
   };
 
   // EXPORT EXCEL & PDF HANDLERS
@@ -2730,6 +2760,7 @@ function ReportsContent() {
                               setDbSiteSearchVal(site.name.toUpperCase());
                               setIsDbSiteSuggestionsOpen(false);
                               setHighlightedDbSiteIndex(-1);
+                              dbSiteInputRef.current?.blur();
                             }}
                             onMouseEnter={() => setHighlightedDbSiteIndex(index)}
                             className={`w-full text-left px-3 py-2 border-b border-slate-900/10 last:border-b-0 transition-colors font-black text-xs uppercase ${
@@ -2912,7 +2943,7 @@ function ReportsContent() {
             {printLayoutMode === "ledger" && (
               <div className="ledger-print-wrapper p-4 bg-white">
                 <div className="text-center font-bold text-base uppercase mb-4">
-                  LEDGER UP TO ( {formatTitleDate(printEndDate)} )
+                  {printEndDate ? `LEDGER UP TO ( ${formatTitleDate(printEndDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
                 </div>
                 {ledgerPrintData.map((group: any) => (
                   <div key={group.name} className="ledger-group-block mb-6">
@@ -2997,7 +3028,10 @@ function ReportsContent() {
 
         {/* DIALOG MODAL */}
         <Dialog open={showDateRangeModal} onOpenChange={setShowDateRangeModal}>
-          <DialogContent className="max-w-md bg-white border-2 border-slate-900 font-mono text-slate-900 rounded p-0 shadow-2xl no-print">
+          <DialogContent aria-describedby={undefined} className="max-w-md bg-white border-2 border-slate-900 font-mono text-slate-900 rounded p-0 shadow-2xl no-print">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Select Print Date Range</DialogTitle>
+            </DialogHeader>
             <div className="flex items-center justify-between bg-[#2B547E] text-white px-3 py-1.5 text-xs font-black shadow-inner select-none">
               <span className="uppercase">Select Print Date Range</span>
               <button
@@ -3014,10 +3048,20 @@ function ReportsContent() {
                     From Date:
                   </Label>
                   <Input
+                    ref={printStartDateRef}
                     id="print-start-date"
                     type="date"
                     value={printStartDate}
                     onChange={(e) => setPrintStartDate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleExecutePrint();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        setShowDateRangeModal(false);
+                      }
+                    }}
                     className="w-full bg-white border border-slate-400 font-black text-slate-800 text-xs px-2 py-1 focus:outline-none focus:bg-[#FFE600] focus:text-black rounded-none"
                   />
                 </div>
@@ -3030,6 +3074,15 @@ function ReportsContent() {
                     type="date"
                     value={printEndDate}
                     onChange={(e) => setPrintEndDate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleExecutePrint();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        setShowDateRangeModal(false);
+                      }
+                    }}
                     className="w-full bg-white border border-slate-400 font-black text-slate-800 text-xs px-2 py-1 focus:outline-none focus:bg-[#FFE600] focus:text-black rounded-none"
                   />
                 </div>
@@ -3089,7 +3142,7 @@ function ReportsContent() {
               max-width: 100% !important;
             }
             /* Strip modal borders, shadows, backgrounds, and viewports in print */
-            .w-\\/[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+            .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
               border: none !important;
               box-shadow: none !important;
               background: transparent !important;

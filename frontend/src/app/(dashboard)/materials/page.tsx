@@ -139,7 +139,7 @@ export default function MaterialsPage() {
               <Plus className="mr-2 h-4 w-4" /> Add Material
             </Button>
           </DialogTrigger>
-          <DialogContent onEscapeKeyDown={(e) => e.stopPropagation()}>
+          <DialogContent aria-describedby={undefined} onEscapeKeyDown={(e) => e.stopPropagation()}>
             <DialogHeader>
               <DialogTitle>Add New Material</DialogTitle>
             </DialogHeader>
@@ -285,7 +285,7 @@ export default function MaterialsPage() {
       </Card>
 
       <Dialog open={isStockDialogOpen} onOpenChange={setIsStockDialogOpen}>
-        <DialogContent onEscapeKeyDown={(e) => e.stopPropagation()}>
+        <DialogContent aria-describedby={undefined} onEscapeKeyDown={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>
               {stockFormData.type === "StockIn" ? "Add Stock (Purchase)" : "Issue Stock (Usage)"} - {selectedMaterial?.name}

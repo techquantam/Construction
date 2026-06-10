@@ -651,18 +651,13 @@ export default function ChallanPage() {
 
     const ledgerNameUpper = selectedLedgerObj.name.toUpperCase();
 
-    const todayStr = formatRenderDate(new Date().toISOString());
-
-    // Filter daybook transactions matching the selected supplier ledger and on the current date
+    // Filter daybook transactions matching the selected supplier ledger across all dates
     const filtered = siteDaybookData.filter((item: any) => {
       const text = item.expenseType || "";
       let name = "";
       if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
       else if (text.toUpperCase().startsWith("BY ")) name = text.substring(3).trim().toUpperCase();
-      if (name !== ledgerNameUpper) return false;
-
-      // Only include items of the current date
-      return formatRenderDate(item.date) === todayStr;
+      return name === ledgerNameUpper;
     });
 
     // Group transactions by referenceNumber (Challan No)
@@ -784,7 +779,9 @@ export default function ChallanPage() {
   // Generate stable deterministic Challan Serial Number based on latest challan batch No
   const challanSerial = challanData.challanNo || "1001";
 
-  const challanDateStr = formatRenderDate(new Date().toISOString());
+  const challanDateStr = challanData.items.length > 0
+    ? formatRenderDate(challanData.items[0].date)
+    : formatRenderDate(new Date().toISOString());
 
   // Export to Excel CSV utility
   const handleExportExcel = () => {
