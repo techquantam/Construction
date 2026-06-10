@@ -78,6 +78,7 @@ function DayBookContent() {
 
   // Daybook edit states
   const isSubmittingRef = useRef(false);
+  const hasAutoFocusedRef = useRef(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editType, setEditType] = useState<"TO" | "BY">("BY");
@@ -86,6 +87,7 @@ function DayBookContent() {
   const [editAmountText, setEditAmountText] = useState("");
   const [editChallanNo, setEditChallanNo] = useState("");
   const editingRowRef = useRef<HTMLTableRowElement>(null);
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
 
   // Edit particular autocomplete suggestions states
   const [isEditParticularSuggestionsOpen, setIsEditParticularSuggestionsOpen] = useState(false);
@@ -1123,6 +1125,96 @@ function DayBookContent() {
     };
   })();
 
+  // Reset auto-focused state and selection on site change
+  useEffect(() => {
+    hasAutoFocusedRef.current = false;
+    if (selectedSiteId && selectedSiteId !== "all" && processedData.items.length > 0) {
+      setSelectedRowIndex(0);
+    } else {
+      setSelectedRowIndex(-1);
+    }
+  }, [selectedSiteId, processedData.items.length]);
+
+  // Auto-focus first row on site selection in correction or delete modes
+  useEffect(() => {
+    if (!selectedSiteId || selectedSiteId === "all") return;
+    if (!dayBooks || dayBooks.length === 0) return;
+    if (hasAutoFocusedRef.current) return;
+
+    if (action === "correction" || action === "delete") {
+      hasAutoFocusedRef.current = true;
+      setSelectedRowIndex(0);
+      siteInputRef.current?.blur();
+    }
+  }, [selectedSiteId, dayBooks, action, processedData.items]);
+
+  // Auto-scroll selected row into view
+  useEffect(() => {
+    if (selectedRowIndex >= 0) {
+      const el = document.getElementById(`row-${selectedRowIndex}`);
+      if (el) {
+        el.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [selectedRowIndex]);
+
+  // Keyboard navigation for Daybook table rows
+  useEffect(() => {
+    if (action !== "correction" && action !== "delete") return;
+    if (!selectedSiteId || selectedSiteId === "all") return;
+    if (editingEntryId !== null) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // If user is focused inside an input element, ignore global shortcut
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT")) {
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedRowIndex((prev) => {
+          const next = prev + 1;
+          return next >= processedData.items.length ? prev : next;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedRowIndex((prev) => {
+          const next = prev - 1;
+          return next < 0 ? 0 : next;
+        });
+      } else if (e.key === "Enter") {
+        if (selectedRowIndex >= 0 && selectedRowIndex < processedData.items.length) {
+          e.preventDefault();
+          const targetItem = processedData.items[selectedRowIndex];
+          if (action === "correction") {
+            handleEditClick(targetItem);
+          } else if (action === "delete") {
+            if (window.confirm("Are you sure you want to delete this entry?")) {
+              deleteMutation.mutate(targetItem.id);
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [action, selectedSiteId, editingEntryId, selectedRowIndex, processedData.items]);
+
+  // Auto-focus the first input of the inline editing row when edit starts
+  useEffect(() => {
+    if (editingEntryId && editingRowRef.current) {
+      const firstInput = editingRowRef.current.querySelector("input");
+      if (firstInput) {
+        firstInput.focus();
+        firstInput.select();
+      }
+    }
+  }, [editingEntryId]);
+
   // Handle Add Entry action
   const handleAddEntrySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1234,9 +1326,13 @@ function DayBookContent() {
                       if (e.key === "Enter") {
                         if (selectedSiteId && selectedSiteId !== "all") {
                           e.preventDefault();
-                          accountInputRef.current?.focus();
-                          accountInputRef.current?.select();
-                          setIsAccountSuggestionsOpen(true);
+                          if (action !== "correction" && action !== "delete") {
+                            accountInputRef.current?.focus();
+                            accountInputRef.current?.select();
+                            setIsAccountSuggestionsOpen(true);
+                          } else {
+                            siteInputRef.current?.blur();
+                          }
                         }
                       }
                       return;
@@ -1262,11 +1358,15 @@ function DayBookContent() {
                         setSiteSearchVal(site.name.toUpperCase());
                         setIsSiteSuggestionsOpen(false);
                         setHighlightedSiteIndex(-1);
-                        setTimeout(() => {
-                          accountInputRef.current?.focus();
-                          accountInputRef.current?.select();
-                          setIsAccountSuggestionsOpen(true);
-                        }, 50);
+                        if (action !== "correction" && action !== "delete") {
+                          setTimeout(() => {
+                            accountInputRef.current?.focus();
+                            accountInputRef.current?.select();
+                            setIsAccountSuggestionsOpen(true);
+                          }, 50);
+                        } else {
+                          siteInputRef.current?.blur();
+                        }
                       } else if (filteredSiteSuggestions.length > 0) {
                         e.preventDefault();
                         const site = filteredSiteSuggestions[0];
@@ -1274,18 +1374,26 @@ function DayBookContent() {
                         setSiteSearchVal(site.name.toUpperCase());
                         setIsSiteSuggestionsOpen(false);
                         setHighlightedSiteIndex(-1);
-                        setTimeout(() => {
-                          accountInputRef.current?.focus();
-                          accountInputRef.current?.select();
-                          setIsAccountSuggestionsOpen(true);
-                        }, 50);
+                        if (action !== "correction" && action !== "delete") {
+                          setTimeout(() => {
+                            accountInputRef.current?.focus();
+                            accountInputRef.current?.select();
+                            setIsAccountSuggestionsOpen(true);
+                          }, 50);
+                        } else {
+                          siteInputRef.current?.blur();
+                        }
                       } else {
                         if (selectedSiteId && selectedSiteId !== "all") {
                           e.preventDefault();
                           setIsSiteSuggestionsOpen(false);
-                          accountInputRef.current?.focus();
-                          accountInputRef.current?.select();
-                          setIsAccountSuggestionsOpen(true);
+                          if (action !== "correction" && action !== "delete") {
+                            accountInputRef.current?.focus();
+                            accountInputRef.current?.select();
+                            setIsAccountSuggestionsOpen(true);
+                          } else {
+                            siteInputRef.current?.blur();
+                          }
                         }
                       }
                     } else if (e.key === "Escape") {
@@ -1329,11 +1437,15 @@ function DayBookContent() {
                             setSiteSearchVal(site.name.toUpperCase());
                             setIsSiteSuggestionsOpen(false);
                             setHighlightedSiteIndex(-1);
-                            setTimeout(() => {
-                              accountInputRef.current?.focus();
-                              accountInputRef.current?.select();
-                              setIsAccountSuggestionsOpen(true);
-                            }, 50);
+                            if (action !== "correction" && action !== "delete") {
+                              setTimeout(() => {
+                                accountInputRef.current?.focus();
+                                accountInputRef.current?.select();
+                                setIsAccountSuggestionsOpen(true);
+                              }, 50);
+                            } else {
+                              siteInputRef.current?.blur();
+                            }
                           }}
                           onMouseEnter={() => setHighlightedSiteIndex(index)}
                           className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-b-0 transition-colors font-black text-xs uppercase ${
@@ -1353,7 +1465,7 @@ function DayBookContent() {
           </div>
 
           {/* ACCOUNT SELECTOR DROP-DOWN */}
-          {selectedSiteId && selectedSiteId !== "all" && (
+          {selectedSiteId && selectedSiteId !== "all" && action !== "correction" && action !== "delete" && (
             <div className="flex items-center gap-3" ref={accountSelectorRef}>
               <span className="font-bold text-xs uppercase text-slate-700 tracking-wider">Select Account :</span>
               
@@ -1531,7 +1643,7 @@ function DayBookContent() {
                     </td>
                   </tr>
                 ) : (
-                  (action === "entry" ? processedData.items.slice(-2) : processedData.items).map((item: any) => {
+                  (action === "entry" ? processedData.items.slice(-2) : processedData.items).map((item: any, index: number) => {
                     const balanceSign = item.runningBalance < 0 ? "Cr" : "Dr";
                     const balanceAbs = Math.abs(item.runningBalance);
 
@@ -1701,18 +1813,24 @@ function DayBookContent() {
                       );
                     }
 
+                    const isSelected = selectedRowIndex === index;
+
                     return (
                       <tr 
                         key={item.id} 
+                        id={`row-${index}`}
                         onClick={() => {
+                          setSelectedRowIndex(index);
                           if (action === "correction") {
                             handleEditClick(item);
                           }
                         }}
                         className={`font-black uppercase border-b border-slate-400 transition-colors ${
-                          action === "correction" 
-                            ? "hover:bg-amber-50 cursor-pointer bg-amber-50/10 text-slate-950" 
-                            : "hover:bg-[#D0E5F5]/40 text-slate-950"
+                          isSelected
+                            ? "bg-[#ECC30B] hover:bg-[#ECC30B] text-slate-950 font-black border-2 border-slate-950"
+                            : action === "correction" 
+                              ? "hover:bg-amber-50 cursor-pointer bg-amber-50/10 text-slate-950" 
+                              : "hover:bg-[#D0E5F5]/40 text-slate-950"
                         }`}
                       >
                         <td className="border border-slate-400 py-3 px-4 text-slate-700">{formatRenderDate(item.date)}</td>
