@@ -2953,12 +2953,12 @@ function ReportsContent() {
                     <table className="ledger-print-table w-full border-collapse font-mono text-xs">
                       <thead>
                         <tr className="border-t border-b border-black">
-                          <th className="py-1 px-1 border-r border-black text-center w-20">Date</th>
-                          <th className="py-1 px-1 border-r border-black text-left">Particulars</th>
-                          <th className="py-1 px-1 border-r border-black text-right w-24">Debit</th>
-                          <th className="py-1 px-1 border-r border-black text-right w-24">Credit</th>
-                          <th className="py-1 px-1 border-r border-black text-center w-14">Dr/Cr</th>
-                          <th className="py-1 px-1 text-right w-28">Amount</th>
+                          <th className="py-1 px-1 border-r border-black text-center w-20">DATE</th>
+                          <th className="py-1 px-1 border-r border-black text-left">PARTICULARS</th>
+                          <th className="py-1 px-1 border-r border-black text-right w-24">DEBIT</th>
+                          <th className="py-1 px-1 border-r border-black text-right w-24">CREDIT</th>
+                          <th className="py-1 px-1 border-r border-black text-center w-14">DR/CR</th>
+                          <th className="py-1 px-1 text-right w-28">AMOUNT</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2994,12 +2994,12 @@ function ReportsContent() {
                 <table className="daybook-print-table w-full border-collapse font-mono text-xs">
                   <thead>
                     <tr className="border-t border-b border-black">
-                      <th className="py-1 px-1.5 border-r border-black text-center w-24">Date</th>
-                      <th className="py-1 px-1.5 border-r border-black text-left">Particulars</th>
-                      <th className="py-1 px-1.5 border-r border-black text-right w-28">Debit</th>
-                      <th className="py-1 px-1.5 border-r border-black text-right w-28">Credit</th>
-                      <th className="py-1 px-1.5 border-r border-black text-center w-14">DrCr</th>
-                      <th className="py-1 px-1.5 text-right w-28">RTotals</th>
+                      <th className="py-1 px-1.5 border-r border-black text-center w-24">DATE</th>
+                      <th className="py-1 px-1.5 border-r border-black text-left">PARTICULARS</th>
+                      <th className="py-1 px-1.5 border-r border-black text-right w-28">DEBIT</th>
+                      <th className="py-1 px-1.5 border-r border-black text-right w-28">CREDIT</th>
+                      <th className="py-1 px-1.5 border-r border-black text-center w-14">DR/CR</th>
+                      <th className="py-1 px-1.5 text-right w-28">R-TOTALS</th>
                     </tr>
                   </thead>
                   <tbody>
