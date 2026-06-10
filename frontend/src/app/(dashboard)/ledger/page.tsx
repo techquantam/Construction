@@ -1598,9 +1598,10 @@ function LedgerContent() {
         : activeLedger;
       const rowDetails = rowLedger ? parsePartyDetails(rowLedger.contactPerson) : null;
 
-      const qtyValForPlot = (isDebit && rowDetails) ? parseFloat(rowDetails.plotMeasurement) || null : null;
-      const unitValForPlot = (isDebit && rowDetails) ? rowDetails.plotUnit || null : null;
-      const rateValForPlot = (isDebit && rowDetails) ? parseFloat(rowDetails.rate) || null : null;
+      const isAutoDebit = item.referenceNumber === "AUTO_DEBIT";
+      const qtyValForPlot = (isDebit && isAutoDebit && rowDetails) ? parseFloat(rowDetails.plotMeasurement) || null : null;
+      const unitValForPlot = (isDebit && isAutoDebit && rowDetails) ? rowDetails.plotUnit || null : null;
+      const rateValForPlot = (isDebit && isAutoDebit && rowDetails) ? parseFloat(rowDetails.rate) || null : null;
 
       return {
         id: item.id,
