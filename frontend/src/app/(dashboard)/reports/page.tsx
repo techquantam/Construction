@@ -6,6 +6,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Printer, Building2, Wallet, ArrowDown } from "lucide-react";
 import api from "@/lib/axios";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 // Fuzzy search utility matching standard inputs across the app
 function matchesFuzzy(name: string, query: string): boolean {
@@ -166,6 +175,12 @@ function ReportsContent() {
   const [isSmSiteFocused, setIsSmSiteFocused] = useState(false);
   const [isSmLedgerFocused, setIsSmLedgerFocused] = useState(false);
 
+  // PRINT DAYBOOK/LEDGER CUSTOM STATES
+  const [showDateRangeModal, setShowDateRangeModal] = useState(false);
+  const [printStartDate, setPrintStartDate] = useState("");
+  const [printEndDate, setPrintEndDate] = useState("");
+  const [printTargetType, setPrintTargetType] = useState<"daybook" | "ledger" | null>(null);
+  const [printLayoutMode, setPrintLayoutMode] = useState<"daybook" | "ledger" | null>(null);
   // Ledgers query
   const { data: ledgers } = useQuery({
     queryKey: ["ledgers", lgSelectedSiteId, smSelectedSiteId],
@@ -217,6 +232,40 @@ function ReportsContent() {
     },
     enabled: !!smSelectedSiteId,
   });
+  // Auto-populate print date range when print modal opens
+  useEffect(() => {
+    if (showDateRangeModal && daybookData && daybookData.length > 0) {
+      const dates = daybookData
+        .map((item: any) => new Date(item.date).getTime())
+        .filter((t: number) => !isNaN(t));
+      if (dates.length > 0) {
+        const minTime = Math.min(...dates);
+        const maxTime = Math.max(...dates);
+        
+        const formatISO = (d: Date) => {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          return `${y}-${m}-${day}`;
+        };
+        
+        setPrintStartDate(formatISO(new Date(minTime)));
+        setPrintEndDate(formatISO(new Date(maxTime)));
+      } else {
+        setPrintStartDate("");
+        setPrintEndDate("");
+      }
+    }
+  }, [showDateRangeModal, daybookData]);
+
+  // Clean up printLayoutMode after printing
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setPrintLayoutMode(null);
+    };
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
 
   // Sync state values on site changes or inputs click outside
   useEffect(() => {
@@ -952,9 +1001,329 @@ function ReportsContent() {
     };
   })();
 
+  // CUSTOM PRINT HELPERS & HANDLERS
+  const parseInputDate = (str: string): Date | null => {
+    if (!str) return null;
+    const cleaned = str.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+      const d = new Date(cleaned);
+      if (!isNaN(d.getTime())) return d;
+    }
+    const dotParts = cleaned.split(".");
+    if (dotParts.length === 3) {
+      const day = parseInt(dotParts[0], 10);
+      const month = parseInt(dotParts[1], 10) - 1;
+      let year = parseInt(dotParts[2], 10);
+      if (dotParts[2].length === 2) {
+        year = year < 50 ? 2000 + year : 1900 + year;
+      }
+      const d = new Date(year, month, day);
+      if (!isNaN(d.getTime())) return d;
+    }
+    const slashParts = cleaned.split("/");
+    if (slashParts.length === 3) {
+      const day = parseInt(slashParts[0], 10);
+      const month = parseInt(slashParts[1], 10) - 1;
+      let year = parseInt(slashParts[2], 10);
+      if (slashParts[2].length === 2) {
+        year = year < 50 ? 2000 + year : 1900 + year;
+      }
+      const d = new Date(year, month, day);
+      if (!isNaN(d.getTime())) return d;
+    }
+    const d = new Date(cleaned);
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  };
+
+  const stripTime = (d: Date): Date => {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
+
+  const formatPrintDateLedger = (dateInput: Date | string): string => {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = String(d.getFullYear()).substring(2);
+    return `${day}.${month}.${year}`;
+  };
+
+  const formatPrintDateDaybook = (dateInput: Date | string): string => {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatTitleDate = (dateStr: string): string => {
+    const d = parseInputDate(dateStr);
+    if (!d) return dateStr;
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = String(d.getFullYear()).substring(2);
+    return `${day}.${month}.${year}`;
+  };
+
+  const getAccountName = (expenseType: string): string => {
+    const text = (expenseType || "").trim().toUpperCase();
+    if (text.startsWith("TO ")) return text.substring(3).trim();
+    if (text.startsWith("BY ")) return text.substring(3).trim();
+    return text;
+  };
+
+  const getPrintParticulars = (item: any): string => {
+    const mode = item.paymentMode || "CASH";
+    const clean = mode.trim();
+    if (clean.startsWith("{") && clean.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(clean);
+        if (parsed.qty && parsed.rate) {
+          const unitStr = parsed.unit ? ` ${parsed.unit}` : "";
+          return `${parsed.qty}${unitStr} @ ${parsed.rate}/=`;
+        }
+        if (parsed.material) {
+          return parsed.material.toUpperCase();
+        }
+      } catch {
+        // fallback
+      }
+    }
+    return clean.toUpperCase();
+  };
+
+  const getDaybookPrintParticulars = (item: any): string => {
+    const type = item.parsedType || "TO";
+    const cleanName = getAccountName(item.expenseType || "");
+    const prefix = type === "TO" ? "To" : "By";
+    return `${prefix} ${cleanName}`;
+  };
+
+  const getGroupedLedgersData = () => {
+    if (!daybookData) return [];
+    const groups: { [name: string]: any[] } = {};
+    daybookData.forEach((item: any) => {
+      const text = item.expenseType || "";
+      const name = getAccountName(text);
+      if (!name) return;
+      if (!groups[name]) {
+        groups[name] = [];
+      }
+      groups[name].push(item);
+    });
+
+    const startDate = parseInputDate(printStartDate);
+    const endDate = parseInputDate(printEndDate);
+    const groupedList: { name: string; rows: any[] }[] = [];
+
+    Object.keys(groups).forEach((name) => {
+      const sorted = [...groups[name]].sort((a: any, b: any) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+
+      let cumulativeBalance = 0.0;
+      let openingBalance = 0.0;
+      const filteredRows: any[] = [];
+
+      sorted.forEach((item: any) => {
+        const text = item.expenseType || "";
+        let isDebit = text.toUpperCase().startsWith("TO ");
+        
+        const compDetails = item.paymentMode && item.paymentMode.trim().startsWith("{") && item.paymentMode.trim().endsWith("}")
+          ? (() => {
+              try { return JSON.parse(item.paymentMode); } catch { return null; }
+            })()
+          : null;
+
+        if (compDetails && compDetails.crDr) {
+          isDebit = compDetails.crDr === "DR";
+        }
+
+        const debitVal = isDebit ? item.amount : 0.0;
+        const creditVal = !isDebit ? item.amount : 0.0;
+        const txDate = stripTime(new Date(item.date));
+
+        if (startDate && txDate < stripTime(startDate)) {
+          openingBalance = openingBalance + debitVal - creditVal;
+        } else if ((!startDate || txDate >= stripTime(startDate)) && (!endDate || txDate <= stripTime(endDate))) {
+          if (startDate && filteredRows.length === 0 && openingBalance !== 0) {
+            filteredRows.push({
+              isOpening: true,
+              date: startDate,
+              particulars: "OPENING BALANCE",
+              debit: openingBalance > 0 ? openingBalance : 0,
+              credit: openingBalance < 0 ? Math.abs(openingBalance) : 0,
+              drCr: openingBalance > 0 ? "Dr" : "Cr",
+              amount: Math.abs(openingBalance)
+            });
+            cumulativeBalance = openingBalance;
+          }
+
+          cumulativeBalance = cumulativeBalance + debitVal - creditVal;
+          const status = cumulativeBalance > 0 ? "Dr" : cumulativeBalance < 0 ? "Cr" : "Nil";
+
+          filteredRows.push({
+            isOpening: false,
+            date: new Date(item.date),
+            particulars: getPrintParticulars(item),
+            debit: debitVal,
+            credit: creditVal,
+            drCr: status,
+            amount: Math.abs(cumulativeBalance)
+          });
+        }
+      });
+
+      if (startDate && filteredRows.length === 0 && openingBalance !== 0) {
+        filteredRows.push({
+          isOpening: true,
+          date: startDate,
+          particulars: "OPENING BALANCE",
+          debit: openingBalance > 0 ? openingBalance : 0,
+          credit: openingBalance < 0 ? Math.abs(openingBalance) : 0,
+          drCr: openingBalance > 0 ? "Dr" : "Cr",
+          amount: Math.abs(openingBalance)
+        });
+      }
+
+      if (filteredRows.length > 0) {
+        groupedList.push({
+          name: name.toUpperCase(),
+          rows: filteredRows
+        });
+      }
+    });
+
+    return groupedList.sort((a: any, b: any) => a.name.localeCompare(b.name));
+  };
+
+  const getPrintDaybookItems = () => {
+    if (!daybookData) return { items: [], openingBalance: 0 };
+    const filteredDbData = daybookData.filter((item: any) => 
+      item.referenceNumber !== "AUTO_DEBIT" && 
+      item.description !== "LEDGER DIRECT ENTRY" &&
+      item.description !== "COMPANY_LEDGER_ENTRY"
+    );
+
+    const sorted = [...filteredDbData].sort((a: any, b: any) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const startDate = parseInputDate(printStartDate);
+    const endDate = parseInputDate(printEndDate);
+
+    let cumulativeBalance = 0.0;
+    let openingBalance = 0.0;
+    const items: any[] = [];
+
+    sorted.forEach((item: any) => {
+      const text = item.expenseType || "";
+      let isDebit = text.toUpperCase().startsWith("TO ");
+      
+      const compDetails = item.paymentMode && item.paymentMode.trim().startsWith("{") && item.paymentMode.trim().endsWith("}")
+        ? (() => {
+            try { return JSON.parse(item.paymentMode); } catch { return null; }
+          })()
+        : null;
+
+      if (compDetails && compDetails.crDr) {
+        isDebit = compDetails.crDr === "DR";
+      }
+
+      const debitVal = isDebit ? item.amount : 0.0;
+      const creditVal = !isDebit ? item.amount : 0.0;
+      const txDate = stripTime(new Date(item.date));
+
+      if (startDate && txDate < stripTime(startDate)) {
+        openingBalance = openingBalance + debitVal - creditVal;
+      } else if ((!startDate || txDate >= stripTime(startDate)) && (!endDate || txDate <= stripTime(endDate))) {
+        if (startDate && items.length === 0 && openingBalance !== 0) {
+          items.push({
+            isOpening: true,
+            date: startDate,
+            parsedType: openingBalance > 0 ? "TO" : "BY",
+            particulars: "OPENING BALANCE",
+            displayParticular: "OPENING BALANCE",
+            debit: openingBalance > 0 ? openingBalance : 0,
+            credit: openingBalance < 0 ? Math.abs(openingBalance) : 0,
+            drCr: openingBalance > 0 ? "Dr" : (openingBalance < 0 ? "Cr" : "Nil"),
+            runningBalance: openingBalance
+          });
+          cumulativeBalance = openingBalance;
+        }
+
+        cumulativeBalance = cumulativeBalance + debitVal - creditVal;
+        const status = cumulativeBalance > 0 ? "Dr" : (cumulativeBalance < 0 ? "Cr" : "Nil");
+
+        items.push({
+          isOpening: false,
+          date: new Date(item.date),
+          parsedType: isDebit ? "TO" : "BY",
+          particulars: getDaybookPrintParticulars(item),
+          displayParticular: getDaybookPrintParticulars(item),
+          debit: debitVal,
+          credit: creditVal,
+          drCr: status,
+          runningBalance: cumulativeBalance
+        });
+      }
+    });
+
+    if (startDate && items.length === 0 && openingBalance !== 0) {
+      items.push({
+        isOpening: true,
+        date: startDate,
+        parsedType: openingBalance > 0 ? "TO" : "BY",
+        particulars: "OPENING BALANCE",
+        displayParticular: "OPENING BALANCE",
+        debit: openingBalance > 0 ? openingBalance : 0,
+        credit: openingBalance < 0 ? Math.abs(openingBalance) : 0,
+        drCr: openingBalance > 0 ? "Dr" : (openingBalance < 0 ? "Cr" : "Nil"),
+        runningBalance: openingBalance
+      });
+    }
+
+    return { items, openingBalance };
+  };
+
+  const formatPrintAmount = (val: number): string => {
+    if (val === undefined || val === null || isNaN(val)) return "0.00";
+    return val.toFixed(2);
+  };
+
+  const handleOpenPrintModal = (target: "ledger" | "daybook") => {
+    if (!dbSelectedSiteId) {
+      toast.error("Please select a Site location first");
+      return;
+    }
+    setPrintTargetType(target);
+    setShowDateRangeModal(true);
+  };
+
+  const handleExecutePrint = () => {
+    if (!printTargetType) return;
+    setPrintLayoutMode(printTargetType);
+    setShowDateRangeModal(false);
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
   // EXPORT EXCEL & PDF HANDLERS
   const handlePrintPDF = () => {
-    window.print();
+    if (!dbSelectedSiteId) {
+      toast.error("Please select a Site location first");
+      return;
+    }
+    handleOpenPrintModal("daybook");
   };
 
   const handleExportDbExcel = () => {
@@ -1075,24 +1444,39 @@ function ReportsContent() {
     toast.success("Excel CSV file downloaded successfully");
   };
 
-  // Keyboard shortcut listeners (1 for PDF, F3 for Excel)
+  // Keyboard shortcut listeners (1 for PDF, F3 for Excel, L for Ledger Print, D for Daybook Print)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "1") {
-        const activeEl = document.activeElement;
-        if (activeEl) {
-          const tagName = activeEl.tagName.toUpperCase();
-          if (
-            tagName === "INPUT" ||
-            tagName === "TEXTAREA" ||
-            tagName === "SELECT" ||
-            (activeEl as HTMLElement).isContentEditable
-          ) {
-            return;
-          }
+      const activeEl = document.activeElement;
+      if (activeEl) {
+        const tagName = activeEl.tagName.toUpperCase();
+        if (
+          tagName === "INPUT" ||
+          tagName === "TEXTAREA" ||
+          tagName === "SELECT" ||
+          (activeEl as HTMLElement).isContentEditable
+        ) {
+          return;
         }
+      }
+
+      if (e.key === "1") {
         e.preventDefault();
-        window.print();
+        if (reportType === "daybook") {
+          handleOpenPrintModal("daybook");
+        } else {
+          window.print();
+        }
+      } else if (e.key.toUpperCase() === "L") {
+        if (reportType === "daybook") {
+          e.preventDefault();
+          handleOpenPrintModal("ledger");
+        }
+      } else if (e.key.toUpperCase() === "D") {
+        if (reportType === "daybook") {
+          e.preventDefault();
+          handleOpenPrintModal("daybook");
+        }
       } else if (e.key === "F3") {
         e.preventDefault();
         if (reportType === "daybook") {
@@ -1106,7 +1490,7 @@ function ReportsContent() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [reportType, processedDbData, processedLgData, dbSelectedSiteId, lgSelectedSiteId, lgSelectedLedgerId, smSelectedSiteId, smSelectedLedgerId, summaryLedgersList]);
+  }, [reportType, processedDbData, processedLgData, dbSelectedSiteId, lgSelectedSiteId, lgSelectedLedgerId, smSelectedSiteId, smSelectedLedgerId, summaryLedgersList, printStartDate, printEndDate]);
 
 
   // Auto-select first row (index 0) in Print Ledger table when ledger data changes
@@ -2277,232 +2661,399 @@ function ReportsContent() {
       </div>
     );
   }
-
   if (reportType === "daybook") {
     const fillerCount = Math.max(0, 10 - processedDbData.items.length);
     const fillers = Array.from({ length: fillerCount });
 
+    const daybookPrintData = getPrintDaybookItems();
+    const ledgerPrintData = getGroupedLedgersData();
+
     return (
       <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
         
-        {/* PRINT DAYBOOK PANEL */}
-        <div className="bg-white border-2 border-slate-800 rounded shadow-lg overflow-hidden">
+        <div className={printLayoutMode ? "no-print" : ""}>
+          {/* PRINT DAYBOOK PANEL */}
+          <div className="bg-white border-2 border-slate-800 rounded shadow-lg overflow-hidden">
 
-          {/* SITE SELECT PANEL WITH AUTO-SUGGEST (YELLOW STYLED BOX) */}
-          <div className="flex items-center gap-3 p-4 border-b border-slate-300 bg-[#E5ECF4] print-filter-panel" ref={dbSiteSelectorRef}>
-            <span className="font-bold text-xs uppercase text-slate-700 tracking-wider">Site name :</span>
-            
-            <div className="relative w-[340px]">
-              <div className="relative flex items-center bg-[#FFE600] border-2 border-slate-900 overflow-hidden shadow-sm">
-                <input 
-                  ref={dbSiteInputRef}
-                  type="text"
-                  value={dbSiteSearchVal}
-                  placeholder="TYPE SITE NAME..."
-                  onChange={(e) => {
-                    setDbSiteSearchVal(e.target.value);
-                    setIsDbSiteSuggestionsOpen(true);
-                    setHighlightedDbSiteIndex(-1);
-                  }}
-                  onFocus={() => {
-                    setIsDbSiteSuggestionsOpen(true);
-                    setHighlightedDbSiteIndex(-1);
-                  }}
-                  onKeyDown={handleDbSiteKeyDown}
-                  className="w-full px-3 py-1.5 text-xs font-black bg-[#FFE600] text-slate-955 focus:outline-none placeholder:text-slate-700/60 uppercase font-mono tracking-wider h-8.5"
-                />
-                <button 
-                  type="button"
-                  onClick={() => {
-                    setIsDbSiteSuggestionsOpen((prev) => !prev);
-                    setHighlightedDbSiteIndex(-1);
-                  }}
-                  className="px-2 border-l border-slate-900 text-slate-950 hover:bg-[#E5C300] transition-colors focus:outline-none flex items-center justify-center h-full text-xs font-bold font-sans"
-                >
-                  v
-                </button>
-              </div>
-
-              {/* ABSOLUTE FLOATING SUGGESTIONS PANEL (YELLOW STYLED OPTIONS LIST) */}
-              {isDbSiteSuggestionsOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-[#FFE600] border-2 border-slate-900 shadow-lg z-50 max-h-48 overflow-y-auto font-mono text-xs uppercase animate-in fade-in duration-100">
-                  {filteredDbSites.length === 0 ? (
-                    <div className="p-3 text-slate-800 italic text-[11px]">
-                      NO MATCHING LOCATIONS
-                    </div>
-                  ) : (
-                    filteredDbSites.map((site: any, index: number) => {
-                      const isActive = highlightedDbSiteIndex === index;
-                      return (
-                        <button
-                          key={site.id}
-                          id={`site-opt-${index}`}
-                          type="button"
-                          onClick={() => {
-                            setDbSelectedSiteId(site.id);
-                            setDbSiteSearchVal(site.name.toUpperCase());
-                            setIsDbSiteSuggestionsOpen(false);
-                            setHighlightedDbSiteIndex(-1);
-                          }}
-                          onMouseEnter={() => setHighlightedDbSiteIndex(index)}
-                          className={`w-full text-left px-3 py-2 border-b border-slate-900/10 last:border-b-0 transition-colors font-black text-xs uppercase ${
-                            isActive 
-                              ? "bg-slate-950 text-[#FFE600]" 
-                              : "bg-[#FFE600] text-slate-950 hover:bg-[#E5C300]"
-                          }`}
-                        >
-                          {site.name.toUpperCase()}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* DAYBOOK SPREADSHEET (WITH DATE COLUMN) */}
-          <div className="bg-white p-1">
-            <table className="w-full border-collapse border-2 border-slate-800 font-mono text-[13px] sm:text-sm text-slate-900">
+            {/* SITE SELECT PANEL WITH AUTO-SUGGEST (YELLOW STYLED BOX) */}
+            <div className="flex items-center gap-3 p-4 border-b border-slate-300 bg-[#E5ECF4] print-filter-panel" ref={dbSiteSelectorRef}>
+              <span className="font-bold text-xs uppercase text-slate-700 tracking-wider">Site name :</span>
               
-              {/* TABLE HEADERS */}
-              <thead>
-                <tr className="bg-slate-100 text-black border-b-2 border-slate-800 font-black uppercase text-[12px]">
-                  <th className="border border-slate-800 py-3 px-4 text-center w-28 text-black font-black">Date</th>
-                  <th className="border border-slate-800 py-3 px-4 text-center w-16 text-black font-black">Type</th>
-                  <th className="border border-slate-800 py-3 px-4 text-left text-black font-black">Particulars</th>
-                  <th className="border border-slate-800 py-3 px-4 text-right w-36 text-black font-black">Debit</th>
-                  <th className="border border-slate-800 py-3 px-4 text-right w-36 text-black font-black">Credit</th>
-                  <th className="border border-slate-800 py-3 px-4 text-center w-20 text-black font-black">Dr/Cr</th>
-                  <th className="border border-slate-800 py-3 px-4 text-right w-44 text-black font-black">Amount</th>
-                </tr>
-              </thead>
- 
-              <tbody>{!dbSelectedSiteId ? (
+              <div className="relative w-[340px]">
+                <div className="relative flex items-center bg-[#FFE600] border-2 border-slate-900 overflow-hidden shadow-sm">
+                  <input 
+                    ref={dbSiteInputRef}
+                    type="text"
+                    value={dbSiteSearchVal}
+                    placeholder="TYPE SITE NAME..."
+                    onChange={(e) => {
+                      setDbSiteSearchVal(e.target.value);
+                      setIsDbSiteSuggestionsOpen(true);
+                      setHighlightedDbSiteIndex(-1);
+                    }}
+                    onFocus={() => {
+                      setIsDbSiteSuggestionsOpen(true);
+                      setHighlightedDbSiteIndex(-1);
+                    }}
+                    onKeyDown={handleDbSiteKeyDown}
+                    className="w-full px-3 py-1.5 text-xs font-black bg-[#FFE600] text-slate-955 focus:outline-none placeholder:text-slate-700/60 uppercase font-mono tracking-wider h-8.5"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsDbSiteSuggestionsOpen((prev) => !prev);
+                      setHighlightedDbSiteIndex(-1);
+                    }}
+                    className="px-2 border-l border-slate-900 text-slate-955 hover:bg-[#E5C300] transition-colors focus:outline-none flex items-center justify-center h-full text-xs font-bold font-sans"
+                  >
+                    v
+                  </button>
+                </div>
+
+                {/* ABSOLUTE FLOATING SUGGESTIONS PANEL (YELLOW STYLED OPTIONS LIST) */}
+                {isDbSiteSuggestionsOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#FFE600] border-2 border-slate-900 shadow-lg z-50 max-h-48 overflow-y-auto font-mono text-xs uppercase animate-in fade-in duration-100">
+                    {filteredDbSites.length === 0 ? (
+                      <div className="p-3 text-slate-800 italic text-[11px]">
+                        NO MATCHING LOCATIONS
+                      </div>
+                    ) : (
+                      filteredDbSites.map((site: any, index: number) => {
+                        const isActive = highlightedDbSiteIndex === index;
+                        return (
+                          <button
+                            key={site.id}
+                            id={`site-opt-${index}`}
+                            type="button"
+                            onClick={() => {
+                              setDbSelectedSiteId(site.id);
+                              setDbSiteSearchVal(site.name.toUpperCase());
+                              setIsDbSiteSuggestionsOpen(false);
+                              setHighlightedDbSiteIndex(-1);
+                            }}
+                            onMouseEnter={() => setHighlightedDbSiteIndex(index)}
+                            className={`w-full text-left px-3 py-2 border-b border-slate-900/10 last:border-b-0 transition-colors font-black text-xs uppercase ${
+                              isActive 
+                                ? "bg-slate-950 text-[#FFE600]" 
+                                : "bg-[#FFE600] text-slate-955 hover:bg-[#E5C300]"
+                            }`}
+                          >
+                            {site.name.toUpperCase()}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* DAYBOOK SPREADSHEET (WITH DATE COLUMN) */}
+            <div className="bg-white p-1">
+              <table className="w-full border-collapse border-2 border-slate-800 font-mono text-[13px] sm:text-sm text-slate-900">
+                
+                {/* TABLE HEADERS */}
+                <thead>
+                  <tr className="bg-slate-100 text-black border-b-2 border-slate-800 font-black uppercase text-[12px]">
+                    <th className="border border-slate-800 py-3 px-4 text-center w-28 text-black font-black">Date</th>
+                    <th className="border border-slate-800 py-3 px-4 text-center w-16 text-black font-black">Type</th>
+                    <th className="border border-slate-800 py-3 px-4 text-left text-black font-black">Particulars</th>
+                    <th className="border border-slate-800 py-3 px-4 text-right w-36 text-black font-black">Debit</th>
+                    <th className="border border-slate-800 py-3 px-4 text-right w-36 text-black font-black">Credit</th>
+                    <th className="border border-slate-800 py-3 px-4 text-center w-20 text-black font-black">Dr/Cr</th>
+                    <th className="border border-slate-800 py-3 px-4 text-right w-44 text-black font-black">Amount</th>
+                  </tr>
+                </thead>
+   
+                <tbody>
+                  {!dbSelectedSiteId ? (
                     <tr key="no-site">
                       <td colSpan={7} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
                         Please select a Site name to view daybook transaction tables.
                       </td>
                     </tr>
                   ) : processedDbData.items.length === 0 ? (
-                    <><tr key="no-records">
-                      <td colSpan={7} className="text-center py-12 bg-slate-50 text-slate-400 italic">
-                        No transactions registered for this site.
-                      </td>
-                    </tr>{fillers.map((_, i) => (
-                      <tr key={`filler-${i}`} className="h-8.5 border-b border-slate-350 select-none bg-white/40">
-                        <td className="border-r border-slate-350 px-4 py-2.5"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5 text-right"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5 text-right"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5 text-center"></td>
-                        <td className="px-4 py-2.5 text-right"></td>
+                    <>
+                      <tr key="no-records">
+                        <td colSpan={7} className="text-center py-12 bg-slate-50 text-slate-400 italic">
+                          No transactions registered for this site.
+                        </td>
                       </tr>
-                    ))}</>
-                  ) : (
-                    <>{processedDbData.items.map((item: any, idx: number) => {
-                      const rowDrCr = (item.debit > 0 || item.parsedType === "TO") ? "DR" : "CR";
-                      const runningBalSign = item.runningBalance < 0 ? "CR " : item.runningBalance > 0 ? "DR " : "";
-  
-                      return (
-                        <tr 
-                          key={item.id} 
-                          id={`db-row-${idx}`}
-                          onClick={() => setDbSelectedRowIndex(idx)}
-                          className={`border-b border-slate-400 font-black uppercase text-slate-955 animate-in fade-in duration-100 ${
-                            dbSelectedRowIndex === idx 
-                              ? "bg-[#FFE600] text-black font-extrabold" 
-                              : "hover:bg-slate-100/60"
-                          }`}
-                        >
-                          
-                          {/* Date Column */}
-                          <td className="border-r border-slate-400 px-4 py-2.5 text-center font-bold w-28">
-                            {formatRenderDate(item.date)}
-                          </td>
-
-                          {/* Type Column (TO/BY) */}
-                          <td className="border-r border-slate-400 px-4 py-2.5 text-center font-black text-slate-700 w-16">
-                            {item.parsedType}
-                          </td>
- 
-                          {/* Particular Description (Expense / Payment Mode) */}
-                          <td className="border-r border-slate-400 px-4 py-2.5 text-slate-955 font-black">
-                            {item.displayParticular}
-                          </td>
- 
-                          {/* Debit Value */}
-                          <td className="border-r border-slate-400 px-4 py-2.5 text-right text-slate-900 w-36 font-black">
-                            {item.debit > 0 ? item.debit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                          </td>
- 
-                          {/* Credit Value */}
-                          <td className="border-r border-slate-400 px-4 py-2.5 text-right text-slate-900 w-36 font-black">
-                            {item.credit > 0 ? item.credit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                          </td>
- 
-                          {/* Dr / Cr indicator */}
-                          <td className="border-r border-slate-400 px-4 py-2.5 text-center w-20 font-black text-slate-650">
-                            {rowDrCr}
-                          </td>
- 
-                          {/* Running Balance Amount */}
-                          <td className="px-4 py-2.5 text-right font-black text-slate-955 w-44">
-                            {item.runningBalance === 0 ? "NILL" : `${runningBalSign}${Math.abs(item.runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                          </td>
+                      {fillers.map((_, i) => (
+                        <tr key={`filler-${i}`} className="h-8.5 border-b border-slate-350 select-none bg-white/40">
+                          <td className="border-r border-slate-350 px-4 py-2.5"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5 text-right"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5 text-right"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5 text-center"></td>
+                          <td className="px-4 py-2.5 text-right"></td>
                         </tr>
-                      );
-                    })}{fillers.map((_, i) => (
-                      <tr key={`filler-${i}`} className="h-8.5 border-b border-slate-350 select-none bg-white/40">
-                        <td className="border-r border-slate-350 px-4 py-2.5"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5 text-right"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5 text-right"></td>
-                        <td className="border-r border-slate-350 px-4 py-2.5 text-center"></td>
-                        <td className="px-4 py-2.5 text-right"></td>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      {processedDbData.items.map((item: any, idx: number) => {
+                        const rowDrCr = (item.debit > 0 || item.parsedType === "TO") ? "DR" : "CR";
+                        const runningBalSign = item.runningBalance < 0 ? "CR " : item.runningBalance > 0 ? "DR " : "";
+    
+                        return (
+                          <tr 
+                            key={item.id} 
+                            id={`db-row-${idx}`}
+                            onClick={() => setDbSelectedRowIndex(idx)}
+                            className={`border-b border-slate-400 font-black uppercase text-slate-955 animate-in fade-in duration-100 ${
+                              dbSelectedRowIndex === idx 
+                                ? "bg-[#FFE600] text-black font-extrabold" 
+                                : "hover:bg-slate-100/60"
+                            }`}
+                          >
+                            
+                            {/* Date Column */}
+                            <td className="border-r border-slate-400 px-4 py-2.5 text-center font-bold w-28">
+                              {formatRenderDate(item.date)}
+                            </td>
+
+                            {/* Type Column (TO/BY) */}
+                            <td className="border-r border-slate-400 px-4 py-2.5 text-center font-black text-slate-700 w-16">
+                              {item.parsedType}
+                            </td>
+    
+                            {/* Particular Description (Expense / Payment Mode) */}
+                            <td className="border-r border-slate-400 px-4 py-2.5 text-slate-955 font-black">
+                              {item.displayParticular}
+                            </td>
+    
+                            {/* Debit Value */}
+                            <td className="border-r border-slate-400 px-4 py-2.5 text-right text-slate-900 w-36 font-black">
+                              {item.debit > 0 ? item.debit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                            </td>
+    
+                            {/* Credit Value */}
+                            <td className="border-r border-slate-400 px-4 py-2.5 text-right text-slate-900 w-36 font-black">
+                              {item.credit > 0 ? item.credit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                            </td>
+    
+                            {/* Dr / Cr indicator */}
+                            <td className="border-r border-slate-400 px-4 py-2.5 text-center w-20 font-black text-slate-650">
+                              {rowDrCr}
+                            </td>
+    
+                            {/* Running Balance Amount */}
+                            <td className="px-4 py-2.5 text-right font-black text-slate-955 w-44">
+                              {item.runningBalance === 0 ? "NILL" : `${runningBalSign}${Math.abs(item.runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {fillers.map((_, i) => (
+                        <tr key={`filler-${i}`} className="h-8.5 border-b border-slate-350 select-none bg-white/40">
+                          <td className="border-r border-slate-350 px-4 py-2.5"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5 text-right"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5 text-right"></td>
+                          <td className="border-r border-slate-350 px-4 py-2.5 text-center"></td>
+                          <td className="px-4 py-2.5 text-right"></td>
+                        </tr>
+                      ))}
+                      <tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[12px] text-slate-955">
+                        <td colSpan={3} className="border-r border-slate-400 px-4 py-3 text-right font-black">TOTAL:</td>
+                        <td className="border-r border-slate-400 px-4 py-3 text-right text-slate-955 font-black">
+                          {processedDbData.totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="border-r border-slate-400 px-4 py-3 text-right text-slate-955 font-black">
+                          {processedDbData.totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="border-r border-slate-400 px-4 py-3 text-center text-slate-955 font-black">
+                          {processedDbData.finalBalance === 0 ? "NIL" : (processedDbData.finalBalance < 0 ? "CR" : "DR")}
+                        </td>
+                        <td className="px-4 py-3 text-right text-slate-955 font-black">
+                          {processedDbData.finalBalance === 0 ? "NILL" : `${processedDbData.finalBalance < 0 ? "CR " : "DR "}${Math.abs(processedDbData.finalBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                        </td>
                       </tr>
-                    ))}<tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[12px] text-slate-955">
-                      <td colSpan={3} className="border-r border-slate-400 px-4 py-3 text-right font-black">TOTAL:</td>
-                      <td className="border-r border-slate-400 px-4 py-3 text-right text-slate-955 font-black">
-                        {processedDbData.totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="border-r border-slate-400 px-4 py-3 text-right text-slate-955 font-black">
-                        {processedDbData.totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="border-r border-slate-400 px-4 py-3 text-center text-slate-955 font-black">
-                        {processedDbData.finalBalance === 0 ? "NIL" : (processedDbData.finalBalance < 0 ? "CR" : "DR")}
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-955 font-black">
-                        {processedDbData.finalBalance === 0 ? "NILL" : `${processedDbData.finalBalance < 0 ? "CR " : "DR "}${Math.abs(processedDbData.finalBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                      </td>
-                    </tr>
-                  </>
-                )}
-                  </tbody>
-            </table>
-          </div>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          {/* RETRO ACTION BUTTONS BAR */}
-          <div className="p-3 bg-[#E5ECF4] border-t border-slate-300 flex items-center justify-end gap-3 print-toolbar no-print">
-            <button
-              type="button"
-              onClick={handlePrintPDF}
-              className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
-            >
-              <span>[1] PRINT PDF</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleExportDbExcel}
-              className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
-            >
-              <span>[F3] PRINT EXCEL</span>
-            </button>
-          </div>
+            {/* RETRO ACTION BUTTONS BAR */}
+            <div className="p-3 bg-[#E5ECF4] border-t border-slate-300 flex items-center justify-end gap-3 print-toolbar no-print">
+              <button
+                type="button"
+                onClick={() => handleOpenPrintModal("ledger")}
+                className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-450 border-b-slate-450 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
+              >
+                <span>[L] PRINT LEDGER</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOpenPrintModal("daybook")}
+                className="px-4 py-2 bg-[#FFE600] border-2 border-white border-r-slate-900 border-b-slate-900 hover:bg-[#E5C300] text-black font-black font-mono text-[11px] shadow-sm active:border-slate-800 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
+              >
+                <span>[D] PRINT DAYBOOK</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExportDbExcel}
+                className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-450 border-b-slate-450 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
+              >
+                <span>[F3] PRINT EXCEL</span>
+              </button>
+            </div>
 
+          </div>
         </div>
+
+        {/* PRINT ONLY SECTION */}
+        {printLayoutMode && (
+          <div className="print-only-container">
+            {printLayoutMode === "ledger" && (
+              <div className="ledger-print-wrapper p-4 bg-white">
+                <div className="text-center font-bold text-base uppercase mb-4">
+                  LEDGER UP TO ( {formatTitleDate(printEndDate)} )
+                </div>
+                {ledgerPrintData.map((group: any) => (
+                  <div key={group.name} className="ledger-group-block mb-6">
+                    <div className="font-bold text-xs uppercase mb-1">
+                      Name: <span className="underline">{group.name}</span>
+                    </div>
+                    <table className="ledger-print-table w-full border-collapse font-mono text-xs">
+                      <thead>
+                        <tr className="border-t border-b border-black">
+                          <th className="py-1 px-1 border-r border-black text-center w-20">Date</th>
+                          <th className="py-1 px-1 border-r border-black text-left">Particulars</th>
+                          <th className="py-1 px-1 border-r border-black text-right w-24">Debit</th>
+                          <th className="py-1 px-1 border-r border-black text-right w-24">Credit</th>
+                          <th className="py-1 px-1 border-r border-black text-center w-14">Dr/Cr</th>
+                          <th className="py-1 px-1 text-right w-28">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.rows.map((row: any, idx: number) => (
+                          <tr key={idx} className="border-b border-black last:border-b-0">
+                            <td className="py-1 px-1 border-r border-black text-center">
+                              {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateLedger(row.date)}
+                            </td>
+                            <td className="py-1 px-1 border-r border-black text-left uppercase">{row.particulars}</td>
+                            <td className="py-1 px-1 border-r border-black text-right">
+                              {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
+                            </td>
+                            <td className="py-1 px-1 border-r border-black text-right">
+                              {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
+                            </td>
+                            <td className="py-1 px-1 border-r border-black text-center">{row.drCr}</td>
+                            <td className="py-1 px-1 text-right">{formatPrintAmount(row.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {printLayoutMode === "daybook" && (
+              <div className="daybook-print-wrapper p-4 bg-white">
+                <div className="text-center font-bold text-base uppercase mb-1">
+                  DAY BOOK {formatTitleDate(printStartDate)} TO {formatTitleDate(printEndDate)}
+                </div>
+                <div className="text-right text-[10px] font-bold mb-2">Page 1 of 1</div>
+                <table className="daybook-print-table w-full border-collapse font-mono text-xs">
+                  <thead>
+                    <tr className="border-t border-b border-black">
+                      <th className="py-1 px-1.5 border-r border-black text-center w-24">Date</th>
+                      <th className="py-1 px-1.5 border-r border-black text-left">Particulars</th>
+                      <th className="py-1 px-1.5 border-r border-black text-right w-28">Debit</th>
+                      <th className="py-1 px-1.5 border-r border-black text-right w-28">Credit</th>
+                      <th className="py-1 px-1.5 border-r border-black text-center w-14">DrCr</th>
+                      <th className="py-1 px-1.5 text-right w-28">RTotals</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {daybookPrintData.items.map((row: any, idx: number) => (
+                      <tr key={idx} className="border-b border-black last:border-b-0">
+                        <td className="py-1 px-1.5 border-r border-black text-center">
+                          {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateDaybook(row.date)}
+                        </td>
+                        <td className="py-1 px-1.5 border-r border-black text-left uppercase">{row.particulars}</td>
+                        <td className="py-1 px-1.5 border-r border-black text-right">
+                          {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
+                        </td>
+                        <td className="py-1 px-1.5 border-r border-black text-right">
+                          {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
+                        </td>
+                        <td className="py-1 px-1.5 border-r border-black text-center">{row.drCr}</td>
+                        <td className="py-1 px-1.5 text-right">{row.runningBalance.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DIALOG MODAL */}
+        <Dialog open={showDateRangeModal} onOpenChange={setShowDateRangeModal}>
+          <DialogContent className="max-w-md bg-white border-2 border-slate-900 font-mono text-slate-900 rounded p-0 shadow-2xl no-print">
+            <div className="flex items-center justify-between bg-[#2B547E] text-white px-3 py-1.5 text-xs font-black shadow-inner select-none">
+              <span className="uppercase">Select Print Date Range</span>
+              <button
+                onClick={() => setShowDateRangeModal(false)}
+                className="w-4 h-4 bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs border border-slate-400 shadow-sm"
+              >
+                X
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="print-start-date" className="text-[10px] font-black uppercase text-slate-650 tracking-wider">
+                    From Date:
+                  </Label>
+                  <Input
+                    id="print-start-date"
+                    type="date"
+                    value={printStartDate}
+                    onChange={(e) => setPrintStartDate(e.target.value)}
+                    className="w-full bg-white border border-slate-400 font-black text-slate-800 text-xs px-2 py-1 focus:outline-none focus:bg-[#FFE600] focus:text-black rounded-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="print-end-date" className="text-[10px] font-black uppercase text-slate-650 tracking-wider">
+                    To Date:
+                  </Label>
+                  <Input
+                    id="print-end-date"
+                    type="date"
+                    value={printEndDate}
+                    onChange={(e) => setPrintEndDate(e.target.value)}
+                    className="w-full bg-white border border-slate-400 font-black text-slate-800 text-xs px-2 py-1 focus:outline-none focus:bg-[#FFE600] focus:text-black rounded-none"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDateRangeModal(false)}
+                  className="px-4 py-2 bg-slate-100 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-200 text-slate-900 font-black text-xs uppercase shadow-sm active:border-slate-400 active:border-r-white active:border-b-white select-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecutePrint}
+                  className="px-5 py-2 bg-[#FFE600] border-2 border-white border-r-slate-900 border-b-slate-900 hover:bg-[#E5C300] text-black font-black text-xs uppercase shadow-sm active:border-slate-800 active:border-r-white active:border-b-white select-none"
+                >
+                  Print
+                </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <style>{`
           @media print {
@@ -2538,7 +3089,7 @@ function ReportsContent() {
               max-width: 100% !important;
             }
             /* Strip modal borders, shadows, backgrounds, and viewports in print */
-            .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+            .w-\\/[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
               border: none !important;
               box-shadow: none !important;
               background: transparent !important;
@@ -2590,6 +3141,33 @@ function ReportsContent() {
               color: #000000 !important;
               -webkit-print-color-adjust: exact !important;
             }
+            .print-only-container {
+              display: block !important;
+            }
+            .ledger-print-table, .daybook-print-table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              margin-top: 10px !important;
+              margin-bottom: 20px !important;
+            }
+            .ledger-print-table th, .ledger-print-table td,
+            .daybook-print-table th, .daybook-print-table td {
+              border: 1px solid #000000 !important;
+              padding: 4px 6px !important;
+              font-family: monospace !important;
+              font-size: 12px !important;
+            }
+            .ledger-print-table th, .daybook-print-table th {
+              font-weight: bold !important;
+              background-color: transparent !important;
+            }
+            .ledger-group-block {
+              page-break-inside: avoid !important;
+              margin-bottom: 25px !important;
+            }
+          }
+          .print-only-container {
+            display: none;
           }
         `}</style>
       </div>
