@@ -341,6 +341,20 @@ function LedgerContent() {
   const [showNewEstimatePrompt, setShowNewEstimatePrompt] = useState(false);
   const [pendingEstimateCallback, setPendingEstimateCallback] = useState<(() => void) | null>(null);
 
+  const startNewButtonRef = useRef<HTMLButtonElement>(null);
+  const continueButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (showNewEstimatePrompt) {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      setTimeout(() => {
+        startNewButtonRef.current?.focus();
+      }, 50);
+    }
+  }, [showNewEstimatePrompt]);
+
 
 
   const [hoveredOrFocusedTx, setHoveredOrFocusedTx] = useState<any>(null);
@@ -1953,6 +1967,9 @@ function LedgerContent() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
+        if (document.activeElement === continueButtonRef.current) {
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         handleConfirmNewEstimate();
@@ -5380,17 +5397,19 @@ function LedgerContent() {
             {/* Buttons */}
             <div className="bg-white border-t border-slate-300 p-4 flex justify-center gap-3">
               <button
+                ref={startNewButtonRef}
                 type="button"
                 onClick={handleConfirmNewEstimate}
-                className="bg-[#2B547E] hover:bg-[#1E3E64] text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-700 cursor-pointer flex-1"
+                className="bg-[#2B547E] hover:bg-[#1E3E64] text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-700 cursor-pointer flex-1 focus:ring-2 focus:ring-slate-950 focus:outline-none"
               >
                 Start New Challan / नया चालान
               </button>
               
               <button
+                ref={continueButtonRef}
                 type="button"
                 onClick={handleCancelNewEstimate}
-                className="bg-slate-500 hover:bg-slate-600 text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-600 cursor-pointer flex-1"
+                className="bg-slate-500 hover:bg-slate-600 text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-600 cursor-pointer flex-1 focus:ring-2 focus:ring-slate-950 focus:outline-none"
               >
                 Continue Previous / पुराना रखें
               </button>
