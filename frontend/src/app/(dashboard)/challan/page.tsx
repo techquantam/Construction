@@ -417,6 +417,15 @@ export default function ChallanPage() {
     },
   });
 
+  // Query: Fetch all materials
+  const { data: existingMaterials = [] } = useQuery({
+    queryKey: ["materials"],
+    queryFn: async () => {
+      const response = await api.get("/materials");
+      return response.data.data || [];
+    },
+  });
+
   // States for Site Autocomplete Selection
   const [siteSearchVal, setSiteSearchVal] = useState("");
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
@@ -482,21 +491,26 @@ export default function ChallanPage() {
   } | null>(null);
 
   const [directDate, setDirectDate] = useState("");
-  const [directCustomer, setDirectCustomer] = useState("DIRECT CLIENT");
+  const [directCustomer, setDirectCustomer] = useState("");
   const [directMaterial, setDirectMaterial] = useState("");
   const [directQty, setDirectQty] = useState("");
   const [directUnit, setDirectUnit] = useState("CFT");
   const [directRate, setDirectRate] = useState("");
   const [directAmount, setDirectAmount] = useState("");
 
+  const [isMaterialSuggestionsOpen, setIsMaterialSuggestionsOpen] = useState(false);
+  const [highlightedMaterialIndex, setHighlightedMaterialIndex] = useState(-1);
+
+  const filteredDirectMaterialSuggestions = (() => {
+    const q = directMaterial.trim().toUpperCase();
+    if (!existingMaterials) return [];
+    if (!q) return existingMaterials;
+    return existingMaterials.filter((m: any) => matchesFuzzy(m.name, q));
+  })();
+
   const openDirectChallanModal = () => {
-    if (!selectedSiteId) {
-      toast.error("Please select a Construction Site first!");
-      setTimeout(() => siteInputRef.current?.focus(), 50);
-      return;
-    }
     setDirectDate(getTodayDateStr());
-    setDirectCustomer("DIRECT CLIENT");
+    setDirectCustomer("");
     setDirectMaterial("");
     setDirectQty("");
     setDirectUnit("CFT");
@@ -1078,7 +1092,7 @@ export default function ChallanPage() {
       } else if (e.key === "F3") {
         e.preventDefault();
         handleExportExcel();
-      } else if (e.key === "c" || e.key === "C") {
+      } else if (e.key === "d" || e.key === "D") {
         e.preventDefault();
         openDirectChallanModal();
       }
@@ -1101,7 +1115,7 @@ export default function ChallanPage() {
             onClick={openDirectChallanModal}
             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
           >
-            Direct Challan / डायरेक्ट चालान (C)
+            Direct Challan / डायरेक्ट चालान (D)
           </button>
         </div>
 
@@ -1279,7 +1293,7 @@ export default function ChallanPage() {
       </div>
 
       {/* Main Delivery Challan View Panel */}
-      {selectedSiteId && (selectedLedgerId || directChallan) ? (
+      {(selectedSiteId && selectedLedgerId) || directChallan ? (
         <>
           <div className="print-container bg-white border-2 border-slate-850 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden print:border-2 print:border-black print:shadow-none animate-in fade-in zoom-in-95 duration-200">
 
@@ -1595,25 +1609,58 @@ export default function ChallanPage() {
                   <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Customer Name / ग्राहक का नाम:</label>
                   <input
                     type="text"
-                    required
                     value={directCustomer}
                     onChange={(e) => setDirectCustomer(e.target.value.toUpperCase())}
-                    placeholder="e.g. DIRECT CLIENT"
+                    placeholder="ENTER CUSTOMER NAME (OPTIONAL)"
                     className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
                   />
                 </div>
 
                 {/* Material Name */}
-                <div>
+                <div className="relative">
                   <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Material Name / सामग्री का नाम:</label>
                   <input
                     type="text"
                     required
                     value={directMaterial}
-                    onChange={(e) => setDirectMaterial(e.target.value.toUpperCase())}
-                    placeholder="e.g. CEMENT, BALU GANGA"
+                    onChange={(e) => {
+                      setDirectMaterial(e.target.value.toUpperCase());
+                      setIsMaterialSuggestionsOpen(true);
+                      setHighlightedMaterialIndex(-1);
+                    }}
+                    onFocus={() => {
+                      setIsMaterialSuggestionsOpen(true);
+                      setHighlightedMaterialIndex(-1);
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setIsMaterialSuggestionsOpen(false), 200);
+                    }}
+                    placeholder="ENTER MATERIAL NAME"
                     className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
                   />
+                  {isMaterialSuggestionsOpen && filteredDirectMaterialSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-950 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-40 overflow-y-auto">
+                      {filteredDirectMaterialSuggestions.map((mat: any, idx: number) => {
+                        const isHighlighted = idx === highlightedMaterialIndex;
+                        return (
+                          <button
+                            key={mat.id || idx}
+                            type="button"
+                            onMouseDown={() => {
+                              setDirectMaterial(mat.name.toUpperCase());
+                              setDirectUnit(mat.unit?.toUpperCase() || "CFT");
+                              setIsMaterialSuggestionsOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-xs font-bold border-b border-slate-100 last:border-0 ${
+                              isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {mat.name.toUpperCase()} ({mat.unit || "CFT"})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Qty & Unit */}
