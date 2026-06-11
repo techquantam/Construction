@@ -963,13 +963,13 @@ function DayBookContent() {
         e.preventDefault();
         setHighlightedEditParticularIndex((prev) => {
           const next = prev + 1;
-          return next >= filteredEditLedgerSuggestions.length ? 0 : next;
+          return next >= filteredEditLedgerSuggestions.length ? filteredEditLedgerSuggestions.length - 1 : next;
         });
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setHighlightedEditParticularIndex((prev) => {
           const next = prev - 1;
-          return next < 0 ? filteredEditLedgerSuggestions.length - 1 : next;
+          return next < 0 ? 0 : next;
         });
       } else if (e.key === "Enter") {
         if (highlightedEditParticularIndex >= 0 && highlightedEditParticularIndex < filteredEditLedgerSuggestions.length) {
@@ -1342,13 +1342,13 @@ function DayBookContent() {
                       e.preventDefault();
                       setHighlightedSiteIndex((prev) => {
                         const next = prev + 1;
-                        return next >= filteredSiteSuggestions.length ? 0 : next;
+                        return next >= filteredSiteSuggestions.length ? filteredSiteSuggestions.length - 1 : next;
                       });
                     } else if (e.key === "ArrowUp") {
                       e.preventDefault();
                       setHighlightedSiteIndex((prev) => {
                         const next = prev - 1;
-                        return next < 0 ? filteredSiteSuggestions.length - 1 : next;
+                        return next < 0 ? 0 : next;
                       });
                     } else if (e.key === "Enter") {
                       if (highlightedSiteIndex >= 0 && highlightedSiteIndex < filteredSiteSuggestions.length) {
@@ -1509,7 +1509,7 @@ function DayBookContent() {
                         e.preventDefault();
                         setHighlightedAccountIndex((prev) => {
                           const next = prev + 1;
-                          const index = next >= filteredAccountSuggestions.length ? 0 : next;
+                          const index = next >= filteredAccountSuggestions.length ? filteredAccountSuggestions.length - 1 : next;
                           setTimeout(() => {
                             const el = document.getElementById(`acct-opt-${index}`);
                             if (el) el.scrollIntoView({ block: "nearest" });
@@ -1520,7 +1520,7 @@ function DayBookContent() {
                         e.preventDefault();
                         setHighlightedAccountIndex((prev) => {
                           const next = prev - 1;
-                          const index = next < 0 ? filteredAccountSuggestions.length - 1 : next;
+                          const index = next < 0 ? 0 : next;
                           setTimeout(() => {
                             const el = document.getElementById(`acct-opt-${index}`);
                             if (el) el.scrollIntoView({ block: "nearest" });
@@ -1682,8 +1682,8 @@ function DayBookContent() {
                                   }}
                                   className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
                                 >
-                                  <option value="BY">By</option>
-                                  <option value="TO">To</option>
+                                  <option value="TO">DR</option>
+                                  <option value="BY">CR</option>
                                 </select>
                                 <div className="relative flex-1 flex items-center bg-white border border-slate-300 rounded overflow-hidden h-7">
                                   <input 
@@ -1921,8 +1921,8 @@ function DayBookContent() {
                             }}
                             className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
                           >
-                            <option value="BY">By</option>
-                            <option value="TO">To</option>
+                            <option value="TO">DR</option>
+                            <option value="BY">CR</option>
                           </select>
                           <div className="relative flex-1 flex items-center bg-white border border-slate-300 rounded overflow-hidden h-7">
                             <input 
@@ -1947,14 +1947,14 @@ function DayBookContent() {
                                     e.preventDefault();
                                     setHighlightedParticularIndex((prev) => {
                                       const next = prev + 1;
-                                      return next >= filteredLedgerSuggestions.length ? 0 : next;
+                                      return next >= filteredLedgerSuggestions.length ? filteredLedgerSuggestions.length - 1 : next;
                                     });
                                     return;
                                   } else if (e.key === "ArrowUp") {
                                     e.preventDefault();
                                     setHighlightedParticularIndex((prev) => {
                                       const next = prev - 1;
-                                      return next < 0 ? filteredLedgerSuggestions.length - 1 : next;
+                                      return next < 0 ? 0 : next;
                                     });
                                     return;
                                   }

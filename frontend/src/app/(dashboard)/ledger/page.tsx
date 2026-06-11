@@ -1520,13 +1520,13 @@ function LedgerContent() {
         e.preventDefault();
         setHighlightedEditParticularIndex((prev) => {
           const next = prev + 1;
-          return next >= filteredEditLedgerSuggestions.length ? 0 : next;
+          return next >= filteredEditLedgerSuggestions.length ? filteredEditLedgerSuggestions.length - 1 : next;
         });
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setHighlightedEditParticularIndex((prev) => {
           const next = prev - 1;
-          return next < 0 ? filteredEditLedgerSuggestions.length - 1 : next;
+          return next < 0 ? 0 : next;
         });
       } else if (e.key === "Enter") {
         if (highlightedEditParticularIndex >= 0 && highlightedEditParticularIndex < filteredEditLedgerSuggestions.length) {
@@ -2259,13 +2259,13 @@ function LedgerContent() {
                         e.preventDefault();
                         setHighlightedSiteIndex((prev) => {
                           const next = prev + 1;
-                          return next >= filteredSiteSuggestions.length ? 0 : next;
+                          return next >= filteredSiteSuggestions.length ? filteredSiteSuggestions.length - 1 : next;
                         });
                       } else if (e.key === "ArrowUp") {
                         e.preventDefault();
                         setHighlightedSiteIndex((prev) => {
                           const next = prev - 1;
-                          return next < 0 ? filteredSiteSuggestions.length - 1 : next;
+                          return next < 0 ? 0 : next;
                         });
                       } else if (e.key === "Enter") {
                         let targetIndex = highlightedSiteIndex;
@@ -2400,7 +2400,7 @@ function LedgerContent() {
                         e.preventDefault();
                         setHighlightedAccountIndex((prev) => {
                           const next = prev + 1;
-                          const index = next >= filteredAccountSuggestions.length ? 0 : next;
+                          const index = next >= filteredAccountSuggestions.length ? filteredAccountSuggestions.length - 1 : next;
                           setTimeout(() => {
                             const el = document.getElementById(`acct-opt-${index}`);
                             if (el) el.scrollIntoView({ block: "nearest" });
@@ -2411,7 +2411,7 @@ function LedgerContent() {
                         e.preventDefault();
                         setHighlightedAccountIndex((prev) => {
                           const next = prev - 1;
-                          const index = next < 0 ? filteredAccountSuggestions.length - 1 : next;
+                          const index = next < 0 ? 0 : next;
                           setTimeout(() => {
                             const el = document.getElementById(`acct-opt-${index}`);
                             if (el) el.scrollIntoView({ block: "nearest" });
@@ -3554,8 +3554,8 @@ function LedgerContent() {
                                         onKeyDown={(e) => handleInlineFieldKeyDown(e, "type")}
                                         className="bg-white border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
                                       >
-                                        <option value="BY">By</option>
-                                        <option value="TO">To</option>
+                                        <option value="TO">DR</option>
+                                        <option value="BY">CR</option>
                                       </select>
                                       <div className="relative flex-1 flex items-center bg-white border border-slate-300 rounded overflow-hidden h-7">
                                         <input 
@@ -3666,7 +3666,7 @@ function LedgerContent() {
                                         e.stopPropagation();
                                         setHighlightedEditMaterialIndex((prev) => {
                                           const next = prev + 1;
-                                          return next >= filteredEditMaterialSuggestions.length ? 0 : next;
+                                          return next >= filteredEditMaterialSuggestions.length ? filteredEditMaterialSuggestions.length - 1 : next;
                                         });
                                         return;
                                       }
@@ -3675,7 +3675,7 @@ function LedgerContent() {
                                         e.stopPropagation();
                                         setHighlightedEditMaterialIndex((prev) => {
                                           const next = prev - 1;
-                                          return next < 0 ? filteredEditMaterialSuggestions.length - 1 : next;
+                                          return next < 0 ? 0 : next;
                                         });
                                         return;
                                       }
@@ -3881,8 +3881,8 @@ function LedgerContent() {
                                       onKeyDown={(e) => handleInlineFieldKeyDown(e, "type")}
                                       className="bg-white border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
                                     >
-                                      <option value="BY">By</option>
-                                      <option value="TO">To</option>
+                                      <option value="TO">DR</option>
+                                      <option value="BY">CR</option>
                                     </select>
                                     <div className="relative flex-1 flex items-center bg-white border border-slate-300 rounded overflow-hidden h-7">
                                       <input 
@@ -4187,7 +4187,11 @@ function LedgerContent() {
                             <select
                               ref={compTypeSelectRef}
                               value={compType}
-                              onChange={(e) => setCompType(e.target.value as "BY" | "TO")}
+                              onChange={(e) => {
+                                const val = e.target.value as "BY" | "TO";
+                                setCompType(val);
+                                setCompCrDr(val === "TO" ? "DR" : "CR");
+                              }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
                                   e.preventDefault();
@@ -4207,8 +4211,8 @@ function LedgerContent() {
                               }}
                               className="bg-white border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
                             >
-                              <option value="BY">By</option>
-                              <option value="TO">To</option>
+                              <option value="TO">DR</option>
+                              <option value="BY">CR</option>
                             </select>
 
                             <div className="relative flex-1 flex items-center bg-white border border-slate-300 rounded overflow-hidden h-7">
@@ -4236,7 +4240,7 @@ function LedgerContent() {
                                       e.stopPropagation();
                                       setHighlightedCompNameIndex((prev) => {
                                         const next = prev + 1;
-                                        return next >= filteredCompNameSuggestions.length ? 0 : next;
+                                        return next >= filteredCompNameSuggestions.length ? filteredCompNameSuggestions.length - 1 : next;
                                       });
                                       return;
                                     }
@@ -4245,7 +4249,7 @@ function LedgerContent() {
                                       e.stopPropagation();
                                       setHighlightedCompNameIndex((prev) => {
                                         const next = prev - 1;
-                                        return next < 0 ? filteredCompNameSuggestions.length - 1 : next;
+                                        return next < 0 ? 0 : next;
                                       });
                                       return;
                                     }
@@ -4438,7 +4442,7 @@ function LedgerContent() {
                                   e.stopPropagation();
                                   setHighlightedCompMaterialIndex((prev) => {
                                     const next = prev + 1;
-                                    return next >= filteredCompMaterialSuggestions.length ? 0 : next;
+                                    return next >= filteredCompMaterialSuggestions.length ? filteredCompMaterialSuggestions.length - 1 : next;
                                   });
                                   return;
                                 }
@@ -4447,7 +4451,7 @@ function LedgerContent() {
                                   e.stopPropagation();
                                   setHighlightedCompMaterialIndex((prev) => {
                                     const next = prev - 1;
-                                    return next < 0 ? filteredCompMaterialSuggestions.length - 1 : next;
+                                    return next < 0 ? 0 : next;
                                   });
                                   return;
                                 }
@@ -4861,7 +4865,11 @@ function LedgerContent() {
                           <select
                             ref={compCrDrSelectRef}
                             value={compCrDr}
-                            onChange={(e) => setCompCrDr(e.target.value as "DR" | "CR")}
+                            onChange={(e) => {
+                              const val = e.target.value as "DR" | "CR";
+                              setCompCrDr(val);
+                              setCompType(val === "DR" ? "TO" : "BY");
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
@@ -5049,8 +5057,8 @@ function LedgerContent() {
                                 }}
                                 className="bg-white border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
                               >
-                                <option value="BY">By</option>
-                                <option value="TO">To</option>
+                                <option value="TO">DR</option>
+                                <option value="BY">CR</option>
                               </select>
 
                               {selectedLedgerId === "all" ? (
@@ -5092,13 +5100,13 @@ function LedgerContent() {
                                         e.preventDefault();
                                         setHighlightedEntryAccountIndex((prev) => {
                                           const next = prev + 1;
-                                          return next >= filteredEntryAccountSuggestions.length ? 0 : next;
+                                          return next >= filteredEntryAccountSuggestions.length ? filteredEntryAccountSuggestions.length - 1 : next;
                                         });
                                       } else if (e.key === "ArrowUp") {
                                         e.preventDefault();
                                         setHighlightedEntryAccountIndex((prev) => {
                                           const next = prev - 1;
-                                          return next < 0 ? filteredEntryAccountSuggestions.length - 1 : next;
+                                          return next < 0 ? 0 : next;
                                         });
                                       } else if (e.key === "Enter") {
                                         let targetIndex = highlightedEntryAccountIndex;

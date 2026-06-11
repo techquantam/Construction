@@ -119,13 +119,13 @@ function SitesContent() {
       e.preventDefault();
       setHighlightedIndex((prev) => {
         const next = prev + 1;
-        return next >= filteredSites.length ? 0 : next;
+        return next >= filteredSites.length ? filteredSites.length - 1 : next;
       });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedIndex((prev) => {
         const next = prev - 1;
-        return next < 0 ? filteredSites.length - 1 : next;
+        return next < 0 ? 0 : next;
       });
     } else if (e.key === "Enter") {
       e.preventDefault();

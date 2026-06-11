@@ -555,13 +555,13 @@ export default function ChallanPage() {
       e.preventDefault();
       setHighlightedSiteIndex((prev) => {
         const next = prev + 1;
-        return next >= filteredSites.length ? 0 : next;
+        return next >= filteredSites.length ? filteredSites.length - 1 : next;
       });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedSiteIndex((prev) => {
         const next = prev - 1;
-        return next < 0 ? filteredSites.length - 1 : next;
+        return next < 0 ? 0 : next;
       });
     } else if (e.key === "Enter") {
       e.preventDefault();
@@ -603,7 +603,7 @@ export default function ChallanPage() {
       e.preventDefault();
       setHighlightedLedgerIndex((prev) => {
         const next = prev + 1;
-        const index = next >= filteredLedgers.length ? 0 : next;
+        const index = next >= filteredLedgers.length ? filteredLedgers.length - 1 : next;
         setTimeout(() => {
           const el = document.getElementById(`acct-opt-${index}`);
           if (el) el.scrollIntoView({ block: "nearest" });
@@ -614,7 +614,7 @@ export default function ChallanPage() {
       e.preventDefault();
       setHighlightedLedgerIndex((prev) => {
         const next = prev - 1;
-        const index = next < 0 ? filteredLedgers.length - 1 : next;
+        const index = next < 0 ? 0 : next;
         setTimeout(() => {
           const el = document.getElementById(`acct-opt-${index}`);
           if (el) el.scrollIntoView({ block: "nearest" });

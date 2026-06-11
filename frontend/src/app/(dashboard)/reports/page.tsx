@@ -649,13 +649,13 @@ function ReportsContent() {
       e.preventDefault();
       setHighlightedDbSiteIndex((prev) => {
         const next = prev + 1;
-        return next >= filteredDbSites.length ? 0 : next;
+        return next >= filteredDbSites.length ? filteredDbSites.length - 1 : next;
       });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedDbSiteIndex((prev) => {
         const next = prev - 1;
-        return next < 0 ? filteredDbSites.length - 1 : next;
+        return next < 0 ? 0 : next;
       });
     } else if (e.key === "Enter") {
       e.preventDefault();
@@ -694,13 +694,13 @@ function ReportsContent() {
       e.preventDefault();
       setHighlightedLgSiteIndex((prev) => {
         const next = prev + 1;
-        return next >= filteredLgSites.length ? 0 : next;
+        return next >= filteredLgSites.length ? filteredLgSites.length - 1 : next;
       });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedLgSiteIndex((prev) => {
         const next = prev - 1;
-        return next < 0 ? filteredLgSites.length - 1 : next;
+        return next < 0 ? 0 : next;
       });
     } else if (e.key === "Enter") {
       e.preventDefault();
@@ -743,7 +743,7 @@ function ReportsContent() {
       e.preventDefault();
       setHighlightedLgLedgerIndex((prev) => {
         const next = prev + 1;
-        const index = next >= filteredLgLedgers.length ? 0 : next;
+        const index = next >= filteredLgLedgers.length ? filteredLgLedgers.length - 1 : next;
         setTimeout(() => {
           const el = document.getElementById(`lg-acct-opt-${index}`);
           if (el) el.scrollIntoView({ block: "nearest" });
@@ -754,7 +754,7 @@ function ReportsContent() {
       e.preventDefault();
       setHighlightedLgLedgerIndex((prev) => {
         const next = prev - 1;
-        const index = next < 0 ? filteredLgLedgers.length - 1 : next;
+        const index = next < 0 ? 0 : next;
         setTimeout(() => {
           const el = document.getElementById(`lg-acct-opt-${index}`);
           if (el) el.scrollIntoView({ block: "nearest" });
@@ -799,13 +799,13 @@ function ReportsContent() {
       e.preventDefault();
       setHighlightedSmSiteIndex((prev) => {
         const next = prev + 1;
-        return next >= filteredSmSites.length ? 0 : next;
+        return next >= filteredSmSites.length ? filteredSmSites.length - 1 : next;
       });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedSmSiteIndex((prev) => {
         const next = prev - 1;
-        return next < 0 ? filteredSmSites.length - 1 : next;
+        return next < 0 ? 0 : next;
       });
     } else if (e.key === "Enter") {
       e.preventDefault();
@@ -845,7 +845,7 @@ function ReportsContent() {
       e.preventDefault();
       setHighlightedSmLedgerIndex((prev) => {
         const next = prev + 1;
-        const index = next >= filteredSmLedgers.length ? 0 : next;
+        const index = next >= filteredSmLedgers.length ? filteredSmLedgers.length - 1 : next;
         const ledger = filteredSmLedgers[index];
         if (ledger) {
           setSmSelectedLedgerId(ledger.id);
@@ -861,7 +861,7 @@ function ReportsContent() {
       e.preventDefault();
       setHighlightedSmLedgerIndex((prev) => {
         const next = prev - 1;
-        const index = next < 0 ? filteredSmLedgers.length - 1 : next;
+        const index = next < 0 ? 0 : next;
         const ledger = filteredSmLedgers[index];
         if (ledger) {
           setSmSelectedLedgerId(ledger.id);
