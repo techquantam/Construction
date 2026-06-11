@@ -1707,8 +1707,6 @@ export default function ChallanPage() {
           </div>
         </div>
       )}
-        </div>
-      )}
     </div>
   );
 }
