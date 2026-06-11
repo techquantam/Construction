@@ -386,6 +386,27 @@ function translateBilingual(text: string): string {
   return `${text.toUpperCase()} [${hindi}]`;
 }
 
+const getTodayDateStr = () => {
+  const d = new Date();
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = String(d.getFullYear()).substring(2);
+  return `${day}.${month}.${year}`;
+};
+
+const parseInputDate = (dateStr: string) => {
+  if (dateStr.includes(".")) {
+    const parts = dateStr.split(".");
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(`20${parts[2]}`, 10);
+      return new Date(year, month, day);
+    }
+  }
+  return new Date(dateStr);
+};
+
 export default function ChallanPage() {
   // Query: Fetch all sites
   const { data: sites } = useQuery({
@@ -440,6 +461,97 @@ export default function ChallanPage() {
 
   // Print Mode State
   const [printCopy, setPrintCopy] = useState<"copy1" | "copy2" | "both">("both");
+
+  // States for Direct Challan Creation
+  const [showDirectChallanModal, setShowDirectChallanModal] = useState(false);
+  const [directChallan, setDirectChallan] = useState<{
+    customerName: string;
+    date: string;
+    items: {
+      id: string;
+      date: string;
+      type: "TO" | "BY";
+      material: string;
+      qty: number;
+      unit: string;
+      rate: number;
+      amount: number;
+      particulars: string;
+      reference: string;
+    }[];
+  } | null>(null);
+
+  const [directDate, setDirectDate] = useState("");
+  const [directCustomer, setDirectCustomer] = useState("DIRECT CLIENT");
+  const [directMaterial, setDirectMaterial] = useState("");
+  const [directQty, setDirectQty] = useState("");
+  const [directUnit, setDirectUnit] = useState("CFT");
+  const [directRate, setDirectRate] = useState("");
+  const [directAmount, setDirectAmount] = useState("");
+
+  const openDirectChallanModal = () => {
+    if (!selectedSiteId) {
+      toast.error("Please select a Construction Site first!");
+      setTimeout(() => siteInputRef.current?.focus(), 50);
+      return;
+    }
+    setDirectDate(getTodayDateStr());
+    setDirectCustomer("DIRECT CLIENT");
+    setDirectMaterial("");
+    setDirectQty("");
+    setDirectUnit("CFT");
+    setDirectRate("");
+    setDirectAmount("");
+    setShowDirectChallanModal(true);
+  };
+
+  const handleCreateDirectChallan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directDate.trim() || !directMaterial.trim()) {
+      toast.error("Date and Material Name are required");
+      return;
+    }
+
+    let parsedDate = new Date();
+    try {
+      parsedDate = parseInputDate(directDate);
+      if (isNaN(parsedDate.getTime())) {
+        parsedDate = new Date();
+      }
+    } catch {
+      toast.error("Invalid Date format. Use DD.MM.YY");
+      return;
+    }
+
+    const qtyVal = parseFloat(directQty) || 0;
+    const rateVal = parseFloat(directRate) || 0;
+    let amtVal = parseFloat(directAmount) || 0;
+    if (amtVal <= 0 && qtyVal > 0 && rateVal > 0) {
+      amtVal = qtyVal * rateVal;
+    }
+
+    setDirectChallan({
+      customerName: directCustomer.trim().toUpperCase() || "DIRECT CLIENT",
+      date: parsedDate.toISOString(),
+      items: [
+        {
+          id: "direct-item-1",
+          date: parsedDate.toISOString(),
+          type: "BY",
+          material: directMaterial.trim().toUpperCase(),
+          qty: qtyVal,
+          unit: directUnit.trim().toUpperCase() || "CFT",
+          rate: rateVal,
+          amount: amtVal,
+          particulars: "DIRECT SALE / CASH",
+          reference: "DIRECT_CHALLAN"
+        }
+      ]
+    });
+
+    setShowDirectChallanModal(false);
+    toast.success("Direct Challan generated successfully for preview");
+  };
 
   // Auto-focus site input on page mount
   useEffect(() => {
@@ -642,6 +754,19 @@ export default function ChallanPage() {
 
   // Compile materials transactions (Challan list) chronological
   const challanData = (() => {
+    if (directChallan) {
+      const items = directChallan.items;
+      const totalQty = items.reduce((sum: number, item: any) => sum + item.qty, 0);
+      const totalAmount = items.reduce((sum: number, item: any) => sum + item.amount, 0);
+      return {
+        items,
+        totalQty,
+        totalAmount,
+        outstandingBalance: 0,
+        challanNo: "DIRECT"
+      };
+    }
+
     if (!selectedSiteId || !selectedLedgerId || !siteDaybookData) {
       return { items: [], totalQty: 0, totalAmount: 0, outstandingBalance: 0, challanNo: "" };
     }
@@ -777,7 +902,7 @@ export default function ChallanPage() {
   const selectedSiteObj = sites?.find((s: any) => s.id === selectedSiteId);
 
   // Generate stable deterministic Challan Serial Number based on latest challan batch No
-  const challanSerial = challanData.challanNo || "1001";
+  const challanSerial = directChallan ? "DIRECT" : (challanData.challanNo || "1001");
 
   const challanDateStr = challanData.items.length > 0
     ? formatRenderDate(challanData.items[0].date)
@@ -953,19 +1078,31 @@ export default function ChallanPage() {
       } else if (e.key === "F3") {
         e.preventDefault();
         handleExportExcel();
+      } else if (e.key === "c" || e.key === "C") {
+        e.preventDefault();
+        openDirectChallanModal();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [challanData, selectedLedgerObj, challanSerial]);
+  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId]);
 
   return (
     <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
       {/* Search Filter Widgets Bar */}
       <div className="bg-[#E5ECF4] border-2 border-slate-800 p-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-4 print:hidden select-none">
-        <div className="flex items-center gap-2 border-b-2 border-slate-350 pb-2 mb-2">
-          <Building2 className="h-4 w-4 text-slate-700" />
-          <span className="font-bold text-xs uppercase text-slate-700">CHALLAN SELECTOR SYSTEM</span>
+        <div className="flex items-center justify-between border-b-2 border-slate-350 pb-2 mb-2">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-slate-700" />
+            <span className="font-bold text-xs uppercase text-slate-700">CHALLAN SELECTOR SYSTEM</span>
+          </div>
+          <button
+            type="button"
+            onClick={openDirectChallanModal}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
+          >
+            Direct Challan / डायरेक्ट चालान (C)
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -989,6 +1126,9 @@ export default function ChallanPage() {
                     setSelectedSiteId(null);
                     setSelectedLedgerId(null);
                     setLedgerSearchVal("");
+                  }
+                  if (directChallan) {
+                    setDirectChallan(null);
                   }
                 }}
                 onFocus={() => {
@@ -1026,6 +1166,9 @@ export default function ChallanPage() {
 
                         setSelectedLedgerId(null);
                         setLedgerSearchVal("");
+                        if (directChallan) {
+                          setDirectChallan(null);
+                        }
 
                         setTimeout(() => {
                           ledgerInputRef.current?.focus();
@@ -1070,6 +1213,9 @@ export default function ChallanPage() {
                   if (selectedLedgerId) {
                     setSelectedLedgerId(null);
                   }
+                  if (directChallan) {
+                    setDirectChallan(null);
+                  }
                 }}
                 onFocus={(e) => {
                   setIsLedgerFocused(true);
@@ -1111,6 +1257,9 @@ export default function ChallanPage() {
                         setLedgerSearchVal(ledger.name.toUpperCase());
                         setIsLedgerSuggestionsOpen(false);
                         setHighlightedLedgerIndex(-1);
+                        if (directChallan) {
+                          setDirectChallan(null);
+                        }
                       }}
                       className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
                         ? "bg-amber-400 text-slate-955 font-black"
@@ -1130,7 +1279,7 @@ export default function ChallanPage() {
       </div>
 
       {/* Main Delivery Challan View Panel */}
-      {selectedSiteId && selectedLedgerId ? (
+      {selectedSiteId && (selectedLedgerId || directChallan) ? (
         <>
           <div className="print-container bg-white border-2 border-slate-850 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden print:border-2 print:border-black print:shadow-none animate-in fade-in zoom-in-95 duration-200">
 
@@ -1138,9 +1287,18 @@ export default function ChallanPage() {
           <div className="flex items-center justify-between bg-slate-900 text-white px-3 py-1.5 font-mono text-xs font-black shadow-inner select-none no-print">
             <div className="flex items-center gap-2">
               <Printer className="h-3.5 w-3.5" />
-              <span>Challan_Delivery_Print_Panel</span>
+              <span>{directChallan ? "Direct_Challan_Print_Panel (Pure Frontend)" : "Challan_Delivery_Print_Panel"}</span>
             </div>
             <div className="flex items-center gap-1">
+              {directChallan && (
+                <button
+                  type="button"
+                  onClick={() => setDirectChallan(null)}
+                  className="bg-red-650 hover:bg-red-700 text-white font-extrabold text-[9px] px-2 py-0.5 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer uppercase transition-all shadow-sm mr-2 no-print"
+                >
+                  Exit Direct / बाहर आएं
+                </button>
+              )}
               <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-slate-800 text-[8px] flex items-center justify-center font-bold font-sans shadow-sm select-none">_</span>
               <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-slate-800 text-[8px] flex items-center justify-center font-bold font-sans shadow-sm select-none">&#9633;</span>
               <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-red-650 text-[9px] flex items-center justify-center font-black font-sans shadow-sm select-none">X</span>
@@ -1361,7 +1519,7 @@ export default function ChallanPage() {
         </div>
 
         {/* EDIT CHALLAN SECTION (BOTTOM OF PAGE) */}
-        {challanData.items.length > 0 && (
+        {!directChallan && challanData.items.length > 0 && (
           <div className="bg-[#E5ECF4] border-2 border-slate-800 p-6 rounded shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-4 print:hidden select-none mt-6">
             <div className="flex items-center gap-2 border-b-2 border-slate-350 pb-2 mb-2 bg-[#2B547E] text-white p-3 rounded">
               <Printer className="h-4 w-4" />
@@ -1397,6 +1555,158 @@ export default function ChallanPage() {
           </div>
           <h3 className="text-base font-black text-slate-800 uppercase tracking-widest">NO CHALLAN DOCUMENT SELECTED</h3>
           <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed max-w-sm mx-auto">Please select a Site and Supplier to proceed.</p>
+        </div>
+      )}
+
+      {/* Direct Challan Modal */}
+      {showDirectChallanModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-200">
+          <div className="bg-[#D3DFEE] border-2 border-slate-950 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[480px] font-mono flex flex-col select-none">
+            {/* Title Bar */}
+            <div className="bg-emerald-700 border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0">
+              <span className="text-xs font-black uppercase tracking-wider">Create Direct Challan / डायरेक्ट चालान बनाएँ</span>
+              <button
+                type="button"
+                onClick={() => setShowDirectChallanModal(false)}
+                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2 py-0.5 rounded border border-slate-950 active:translate-y-0.5"
+              >
+                X
+              </button>
+            </div>
+
+            {/* Content Form */}
+            <form onSubmit={handleCreateDirectChallan} className="p-6 bg-[#E5ECF4] space-y-4 text-slate-955">
+              <div className="space-y-3.5">
+                {/* Date Input */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Date / दिनांक (DD.MM.YY):</label>
+                  <input
+                    type="text"
+                    required
+                    value={directDate}
+                    onChange={(e) => setDirectDate(e.target.value)}
+                    placeholder="DD.MM.YY"
+                    className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                {/* Customer Name */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Customer Name / ग्राहक का नाम:</label>
+                  <input
+                    type="text"
+                    required
+                    value={directCustomer}
+                    onChange={(e) => setDirectCustomer(e.target.value.toUpperCase())}
+                    placeholder="e.g. DIRECT CLIENT"
+                    className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                {/* Material Name */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Material Name / सामग्री का नाम:</label>
+                  <input
+                    type="text"
+                    required
+                    value={directMaterial}
+                    onChange={(e) => setDirectMaterial(e.target.value.toUpperCase())}
+                    placeholder="e.g. CEMENT, BALU GANGA"
+                    className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                {/* Qty & Unit */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Quantity / मात्रा:</label>
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      value={directQty}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDirectQty(val);
+                        const q = parseFloat(val) || 0;
+                        const r = parseFloat(directRate) || 0;
+                        if (q > 0 && r > 0) {
+                          setDirectAmount((q * r).toFixed(2));
+                        }
+                      }}
+                      placeholder="e.g. 100"
+                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Unit / इकाई:</label>
+                    <input
+                      type="text"
+                      required
+                      value={directUnit}
+                      onChange={(e) => setDirectUnit(e.target.value.toUpperCase())}
+                      placeholder="e.g. CFT, BAGS, PCS"
+                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+
+                {/* Rate & Amount */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Rate / दर:</label>
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      value={directRate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDirectRate(val);
+                        const r = parseFloat(val) || 0;
+                        const q = parseFloat(directQty) || 0;
+                        if (q > 0 && r > 0) {
+                          setDirectAmount((q * r).toFixed(2));
+                        }
+                      }}
+                      placeholder="e.g. 45"
+                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Amount / राशि:</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={directAmount}
+                      onChange={(e) => setDirectAmount(e.target.value)}
+                      placeholder="Auto-calculated"
+                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="bg-white border-t border-slate-300 -mx-6 -mb-6 p-4 flex gap-3 justify-end mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowDirectChallanModal(false)}
+                  className="bg-slate-500 hover:bg-slate-600 text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-950 cursor-pointer uppercase tracking-wider"
+                >
+                  Cancel / रद्द करें
+                </button>
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-950 cursor-pointer uppercase tracking-wider"
+                >
+                  Generate Challan / चालान बनाएं
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
         </div>
       )}
     </div>
