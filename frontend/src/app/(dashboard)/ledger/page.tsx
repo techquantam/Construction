@@ -2004,6 +2004,25 @@ function LedgerContent() {
     setShowNewEstimatePrompt(false);
   };
 
+  const handlePaymentDirectEntry = () => {
+    setPendingEstimateCallback(null);
+    updateChallanNo("COMPANY_DIRECT");
+    setCompCrDr("CR");
+    setCompType("BY");
+    setCompMaterial("PAYMENT");
+    setCompQty("");
+    setCompRate("");
+    setCompAmount("");
+    setCompActiveStep("DATE");
+    setShowNewEstimatePrompt(false);
+    setTimeout(() => {
+      if (compDateInputRef.current) {
+        compDateInputRef.current.focus();
+        compDateInputRef.current.setSelectionRange(0, 2);
+      }
+    }, 100);
+  };
+
   useEffect(() => {
     if (showNewEstimatePrompt === false && pendingEstimateCallback) {
       pendingEstimateCallback();
@@ -2027,6 +2046,10 @@ function LedgerContent() {
         e.preventDefault();
         e.stopPropagation();
         handleCancelNewEstimate();
+      } else if (e.key === "p" || e.key === "P") {
+        e.preventDefault();
+        e.stopPropagation();
+        handlePaymentDirectEntry();
       }
     };
 
@@ -4480,7 +4503,7 @@ function LedgerContent() {
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (compMaterial.trim() === "" && highlightedCompMaterialIndex === -1) {
+                                if ((compMaterial.trim() === "" || compMaterial.trim().toUpperCase() === "PAYMENT") && highlightedCompMaterialIndex === -1) {
                                   setCompActiveStep("CRDR");
                                   setTimeout(() => compCrDrSelectRef.current?.focus(), 50);
                                 } else {
@@ -5452,18 +5475,18 @@ function LedgerContent() {
                 </div>
               </div>
 
-              <div className="text-[10px] text-[#2B547E] font-bold bg-white/70 py-2 px-3 border border-slate-300 rounded uppercase">
-                💡 Press <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Enter</span> to Start New, or <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Esc</span> to Continue Previous
+              <div className="text-[9.5px] text-[#2B547E] font-bold bg-white/70 py-2 px-2.5 border border-slate-300 rounded uppercase leading-relaxed">
+                💡 Press <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Enter</span> to Start New, <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Esc</span> to Continue Previous, or <span className="font-mono bg-emerald-600 text-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">P</span> for Payment
               </div>
             </div>
 
             {/* Buttons */}
-            <div className="bg-white border-t border-slate-300 p-4 flex justify-center gap-3">
+            <div className="bg-white border-t border-slate-300 p-4 flex justify-center gap-2">
               <button
                 ref={startNewButtonRef}
                 type="button"
                 onClick={handleConfirmNewEstimate}
-                className="bg-[#2B547E] hover:bg-[#1E3E64] text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-700 cursor-pointer flex-1 focus:ring-2 focus:ring-slate-950 focus:outline-none"
+                className="bg-[#2B547E] hover:bg-[#1E3E64] text-white font-extrabold text-[9.5px] px-2.5 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-700 cursor-pointer flex-1 focus:ring-2 focus:ring-slate-950 focus:outline-none"
               >
                 Start New Challan / नया चालान
               </button>
@@ -5472,9 +5495,17 @@ function LedgerContent() {
                 ref={continueButtonRef}
                 type="button"
                 onClick={handleCancelNewEstimate}
-                className="bg-slate-500 hover:bg-slate-600 text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-600 cursor-pointer flex-1 focus:ring-2 focus:ring-slate-950 focus:outline-none"
+                className="bg-slate-500 hover:bg-slate-600 text-white font-extrabold text-[9.5px] px-2.5 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-slate-600 cursor-pointer flex-1 focus:ring-2 focus:ring-slate-950 focus:outline-none"
               >
                 Continue Previous / पुराना रखें
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePaymentDirectEntry}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[9.5px] px-2.5 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-emerald-700 cursor-pointer flex-1 focus:ring-2 focus:ring-slate-950 focus:outline-none"
+              >
+                Payment / भुगतान (P)
               </button>
             </div>
           </div>
