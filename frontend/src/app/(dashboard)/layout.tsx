@@ -172,6 +172,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isDashboard) {
         if (e.key === "Escape") {
+          // If a nested modal (z-[9999] or z-50 overlay) is open, let it handle Escape.
+          if (document.querySelector('.z-\\[9999\\]') || document.querySelector('.z-50')) {
+            return;
+          }
           handleCloseModal();
         }
         return;

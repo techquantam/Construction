@@ -1220,8 +1220,12 @@ export default function ChallanPage() {
   // Connect hotkeys (1: Print Without Rate, 2: Print With Rate, F3: Excel)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. If modal is open and Escape is pressed, close the modal immediately
+      // 1. If modal is open and Escape is pressed, check if any suggestions dropdown is open
       if (showDirectChallanModal && e.key === "Escape") {
+        const anyDropdownOpen = directItems.some(item => item.isMaterialSuggestionsOpen);
+        if (anyDropdownOpen) {
+          return;
+        }
         e.preventDefault();
         setShowDirectChallanModal(false);
         return;
@@ -1796,15 +1800,14 @@ export default function ChallanPage() {
                 </div>
 
                 {/* Items Table/Grid */}
-                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-2">
+                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-2 pb-32">
                   <div className="grid grid-cols-12 gap-2 text-[10px] font-black uppercase text-slate-600 px-1 select-none">
                     <div className="col-span-1 text-center">#</div>
-                    <div className="col-span-4">Material Name / सामग्री</div>
+                    <div className="col-span-5">Material Name / सामग्री</div>
                     <div className="col-span-2 text-right">Qty / मात्रा</div>
                     <div className="col-span-2 text-center">Unit / इकाई</div>
                     <div className="col-span-1 text-right">Rate / दर</div>
                     <div className="col-span-1 text-right">Amount</div>
-                    <div className="col-span-1 text-center font-bold">Del</div>
                   </div>
 
                   {directItems.map((item, idx) => {
@@ -1823,11 +1826,10 @@ export default function ChallanPage() {
                         </div>
 
                         {/* Material Input with Autocomplete */}
-                        <div className="col-span-4 relative">
+                        <div className="col-span-5 relative">
                           <input
                             id={`direct-material-input-${idx}`}
                             type="text"
-                            required
                             value={item.material}
                             onChange={(e) => {
                               updateDirectItem(idx, {
@@ -1838,6 +1840,9 @@ export default function ChallanPage() {
                             }}
                             onFocus={() => {
                               updateDirectItem(idx, { isMaterialSuggestionsOpen: true, highlightedMaterialIndex: -1 });
+                            }}
+                            onClick={() => {
+                              updateDirectItem(idx, { isMaterialSuggestionsOpen: true });
                             }}
                             onBlur={() => {
                               setTimeout(() => updateDirectItem(idx, { isMaterialSuggestionsOpen: false }), 200);
@@ -1888,7 +1893,6 @@ export default function ChallanPage() {
                             id={`direct-qty-input-${idx}`}
                             type="number"
                             step="any"
-                            required
                             value={item.qty}
                             onChange={(e) => updateDirectItem(idx, { qty: e.target.value })}
                             placeholder="Qty"
@@ -1900,7 +1904,6 @@ export default function ChallanPage() {
                         <div className="col-span-2">
                           <input
                             type="text"
-                            required
                             value={item.unit}
                             onChange={(e) => updateDirectItem(idx, { unit: e.target.value.toUpperCase() })}
                             placeholder="Unit"
@@ -1913,7 +1916,6 @@ export default function ChallanPage() {
                           <input
                             type="number"
                             step="any"
-                            required
                             value={item.rate}
                             onChange={(e) => updateDirectItem(idx, { rate: e.target.value })}
                             placeholder="Rate"
@@ -1924,18 +1926,6 @@ export default function ChallanPage() {
                         {/* Amount Calculation */}
                         <div className="col-span-1 text-right font-mono font-bold text-xs pr-1">
                           {item.amount || "-"}
-                        </div>
-
-                        {/* Row Delete Button */}
-                        <div className="col-span-1 text-center">
-                          <button
-                            type="button"
-                            disabled={directItems.length <= 1}
-                            onClick={() => handleDeleteDirectItem(idx)}
-                            className="text-red-650 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed font-extrabold text-sm hover:scale-110 active:scale-95 transition-all focus:outline-none"
-                          >
-                            ✕
-                          </button>
                         </div>
                       </div>
                     );
