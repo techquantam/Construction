@@ -836,6 +836,31 @@ function LedgerContent() {
     };
   }, []);
 
+  // Keep track of the previous open state of account suggestions
+  const wasAccountSuggestionsOpenRef = useRef(false);
+
+  // Auto-scroll and highlight selected account when dropdown is opened
+  useEffect(() => {
+    const isOpened = isAccountSuggestionsOpen && !wasAccountSuggestionsOpenRef.current;
+    wasAccountSuggestionsOpenRef.current = isAccountSuggestionsOpen;
+
+    if (isOpened && selectedLedgerId) {
+      const selectedIndex = filteredAccountSuggestions.findIndex(
+        (l: any) => l.id === selectedLedgerId
+      );
+      if (selectedIndex >= 0) {
+        setHighlightedAccountIndex(selectedIndex);
+        setTimeout(() => {
+          const el = document.getElementById(`acct-opt-${selectedIndex}`);
+          if (el) {
+            el.scrollIntoView({ block: "nearest" });
+          }
+        }, 50);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAccountSuggestionsOpen, selectedLedgerId]);
+
   // Click outside listener for the active inline editing transaction row
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -2445,6 +2470,7 @@ function LedgerContent() {
                     ) : (
                       filteredAccountSuggestions.map((ledger: any, index: number) => {
                         const isActive = highlightedAccountIndex === index;
+                        const isSelected = selectedLedgerId === ledger.id;
                         return (
                           <button
                             key={ledger.id}
@@ -2482,7 +2508,11 @@ function LedgerContent() {
                             }}
                             onMouseEnter={() => setHighlightedAccountIndex(index)}
                             className={`w-full text-left px-2.5 py-1.5 border-b border-slate-100 last:border-b-0 font-black uppercase text-[11px] ${
-                              isActive ? "bg-[#2B547E] text-white" : "bg-white hover:bg-slate-200 text-slate-900"
+                              isActive 
+                                ? "bg-[#2B547E] text-white" 
+                                : isSelected 
+                                  ? "bg-[#E5ECF4] text-[#2B547E] font-black" 
+                                  : "bg-white hover:bg-slate-200 text-slate-900"
                             }`}
                           >
                             <span className="truncate block py-0.5">{ledger.name.toUpperCase()}</span>
