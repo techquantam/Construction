@@ -1222,6 +1222,15 @@ export default function ChallanPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 1. If modal is open and Escape is pressed, check if any suggestions dropdown is open
       if (showDirectChallanModal && e.key === "Escape") {
+        const activeEl = document.activeElement;
+        if (activeEl && (
+          activeEl.id.startsWith("direct-qty-input-") ||
+          activeEl.id.startsWith("direct-unit-input-") ||
+          activeEl.id.startsWith("direct-rate-input-")
+        )) {
+          return;
+        }
+
         const anyDropdownOpen = directItems.some(item => item.isMaterialSuggestionsOpen);
         if (anyDropdownOpen) {
           return;
@@ -1895,6 +1904,18 @@ export default function ChallanPage() {
                             step="any"
                             value={item.qty}
                             onChange={(e) => updateDirectItem(idx, { qty: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const el = document.getElementById(`direct-unit-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const el = document.getElementById(`direct-material-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                              }
+                            }}
                             placeholder="Qty"
                             className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
                           />
@@ -1903,9 +1924,22 @@ export default function ChallanPage() {
                         {/* Unit Input */}
                         <div className="col-span-2">
                           <input
+                            id={`direct-unit-input-${idx}`}
                             type="text"
                             value={item.unit}
                             onChange={(e) => updateDirectItem(idx, { unit: e.target.value.toUpperCase() })}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const el = document.getElementById(`direct-rate-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const el = document.getElementById(`direct-qty-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                              }
+                            }}
                             placeholder="Unit"
                             className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-emerald-600 uppercase"
                           />
@@ -1914,10 +1948,19 @@ export default function ChallanPage() {
                         {/* Rate Input */}
                         <div className="col-span-1">
                           <input
+                            id={`direct-rate-input-${idx}`}
                             type="number"
                             step="any"
                             value={item.rate}
                             onChange={(e) => updateDirectItem(idx, { rate: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const el = document.getElementById(`direct-unit-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                              }
+                            }}
                             placeholder="Rate"
                             className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
                           />
