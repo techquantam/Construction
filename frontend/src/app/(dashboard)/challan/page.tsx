@@ -492,29 +492,85 @@ export default function ChallanPage() {
 
   const [directDate, setDirectDate] = useState("");
   const [directCustomer, setDirectCustomer] = useState("");
-  const [directMaterial, setDirectMaterial] = useState("");
-  const [directQty, setDirectQty] = useState("");
-  const [directUnit, setDirectUnit] = useState("CFT");
-  const [directRate, setDirectRate] = useState("");
-  const [directAmount, setDirectAmount] = useState("");
-
-  const [isMaterialSuggestionsOpen, setIsMaterialSuggestionsOpen] = useState(false);
-  const [highlightedMaterialIndex, setHighlightedMaterialIndex] = useState(-1);
-
-  const filteredDirectMaterialSuggestions = (() => {
-    const q = directMaterial.trim().toUpperCase();
-    if (!existingMaterials) return [];
-    if (!q) return existingMaterials;
-    return existingMaterials.filter((m: any) => matchesFuzzy(m.name, q));
-  })();
+  const [directItems, setDirectItems] = useState<{
+    id: string;
+    material: string;
+    qty: string;
+    unit: string;
+    rate: string;
+    amount: string;
+    isMaterialSuggestionsOpen: boolean;
+    highlightedMaterialIndex: number;
+  }[]>([
+    {
+      id: "direct-item-1",
+      material: "",
+      qty: "",
+      unit: "CFT",
+      rate: "",
+      amount: "",
+      isMaterialSuggestionsOpen: false,
+      highlightedMaterialIndex: -1
+    }
+  ]);
 
   const directDateInputRef = useRef<HTMLInputElement>(null);
-  const directQtyInputRef = useRef<HTMLInputElement>(null);
 
-  const handleMaterialKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!isMaterialSuggestionsOpen) {
+  const updateDirectItem = (idx: number, fields: Partial<typeof directItems[0]>) => {
+    setDirectItems((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...fields };
+      
+      const qtyVal = parseFloat(next[idx].qty) || 0;
+      const rateVal = parseFloat(next[idx].rate) || 0;
+      if (qtyVal > 0 && rateVal > 0) {
+        next[idx].amount = (qtyVal * rateVal).toFixed(2);
+      } else {
+        if (fields.qty !== undefined || fields.rate !== undefined) {
+          next[idx].amount = "";
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleAddDirectItem = () => {
+    setDirectItems((prev) => {
+      const nextIdx = prev.length;
+      setTimeout(() => {
+        const el = document.getElementById(`direct-material-input-${nextIdx}`);
+        if (el) {
+          el.focus();
+        }
+      }, 50);
+      return [
+        ...prev,
+        {
+          id: `direct-item-${Date.now()}-${Math.random()}`,
+          material: "",
+          qty: "",
+          unit: prev[prev.length - 1]?.unit || "CFT",
+          rate: "",
+          amount: "",
+          isMaterialSuggestionsOpen: false,
+          highlightedMaterialIndex: -1
+        }
+      ];
+    });
+  };
+
+  const handleDeleteDirectItem = (idx: number) => {
+    setDirectItems((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const handleMaterialKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>, suggestions: any[]) => {
+    const item = directItems[idx];
+    if (!item.isMaterialSuggestionsOpen) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        setIsMaterialSuggestionsOpen(true);
+        updateDirectItem(idx, { isMaterialSuggestionsOpen: true });
         e.preventDefault();
       }
       return;
@@ -522,48 +578,53 @@ export default function ChallanPage() {
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightedMaterialIndex((prev) => {
-        const next = prev + 1;
-        const index = next >= filteredDirectMaterialSuggestions.length ? filteredDirectMaterialSuggestions.length - 1 : next;
-        setTimeout(() => {
-          const el = document.getElementById(`mat-opt-${index}`);
-          if (el) el.scrollIntoView({ block: "nearest" });
-        }, 10);
-        return index;
-      });
+      const next = item.highlightedMaterialIndex + 1;
+      const index = next >= suggestions.length ? suggestions.length - 1 : next;
+      updateDirectItem(idx, { highlightedMaterialIndex: index });
+      setTimeout(() => {
+        const el = document.getElementById(`mat-opt-${idx}-${index}`);
+        if (el) el.scrollIntoView({ block: "nearest" });
+      }, 10);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightedMaterialIndex((prev) => {
-        const next = prev - 1;
-        const index = next < 0 ? 0 : next;
-        setTimeout(() => {
-          const el = document.getElementById(`mat-opt-${index}`);
-          if (el) el.scrollIntoView({ block: "nearest" });
-        }, 10);
-        return index;
-      });
+      const next = item.highlightedMaterialIndex - 1;
+      const index = next < 0 ? 0 : next;
+      updateDirectItem(idx, { highlightedMaterialIndex: index });
+      setTimeout(() => {
+        const el = document.getElementById(`mat-opt-${idx}-${index}`);
+        if (el) el.scrollIntoView({ block: "nearest" });
+      }, 10);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      let idx = highlightedMaterialIndex;
-      if (idx === -1 && filteredDirectMaterialSuggestions.length > 0) {
-        idx = 0;
+      let sIdx = item.highlightedMaterialIndex;
+      if (sIdx === -1 && suggestions.length > 0) {
+        sIdx = 0;
       }
-      if (idx >= 0 && idx < filteredDirectMaterialSuggestions.length) {
-        const mat = filteredDirectMaterialSuggestions[idx];
-        setDirectMaterial(mat.name.toUpperCase());
-        setDirectUnit(mat.unit?.toUpperCase() || "CFT");
+      if (sIdx >= 0 && sIdx < suggestions.length) {
+        const mat = suggestions[sIdx];
+        updateDirectItem(idx, {
+          material: mat.name.toUpperCase(),
+          unit: mat.unit?.toUpperCase() || "CFT",
+          isMaterialSuggestionsOpen: false,
+          highlightedMaterialIndex: -1
+        });
+      } else {
+        updateDirectItem(idx, {
+          isMaterialSuggestionsOpen: false,
+          highlightedMaterialIndex: -1
+        });
       }
-      setIsMaterialSuggestionsOpen(false);
-      setHighlightedMaterialIndex(-1);
       setTimeout(() => {
-        directQtyInputRef.current?.focus();
-        directQtyInputRef.current?.select();
+        const qtyEl = document.getElementById(`direct-qty-input-${idx}`) as HTMLInputElement | null;
+        if (qtyEl) {
+          qtyEl.focus();
+          qtyEl.select();
+        }
       }, 50);
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
-      setIsMaterialSuggestionsOpen(false);
-      setHighlightedMaterialIndex(-1);
+      updateDirectItem(idx, { isMaterialSuggestionsOpen: false, highlightedMaterialIndex: -1 });
     }
   };
 
@@ -579,18 +640,25 @@ export default function ChallanPage() {
   const openDirectChallanModal = () => {
     setDirectDate(getTodayDateStr());
     setDirectCustomer("");
-    setDirectMaterial("");
-    setDirectQty("");
-    setDirectUnit("CFT");
-    setDirectRate("");
-    setDirectAmount("");
+    setDirectItems([
+      {
+        id: "direct-item-1",
+        material: "",
+        qty: "",
+        unit: "CFT",
+        rate: "",
+        amount: "",
+        isMaterialSuggestionsOpen: false,
+        highlightedMaterialIndex: -1
+      }
+    ]);
     setShowDirectChallanModal(true);
   };
 
   const handleCreateDirectChallan = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!directDate.trim() || !directMaterial.trim()) {
-      toast.error("Date and Material Name are required");
+    if (!directDate.trim()) {
+      toast.error("Date is required");
       return;
     }
 
@@ -605,30 +673,38 @@ export default function ChallanPage() {
       return;
     }
 
-    const qtyVal = parseFloat(directQty) || 0;
-    const rateVal = parseFloat(directRate) || 0;
-    let amtVal = parseFloat(directAmount) || 0;
-    if (amtVal <= 0 && qtyVal > 0 && rateVal > 0) {
-      amtVal = qtyVal * rateVal;
+    const validItems = directItems.filter(item => item.material.trim() !== "");
+    if (validItems.length === 0) {
+      toast.error("Please add at least one material");
+      return;
     }
+
+    const items = validItems.map((item, idx) => {
+      const qtyVal = parseFloat(item.qty) || 0;
+      const rateVal = parseFloat(item.rate) || 0;
+      let amtVal = parseFloat(item.amount) || 0;
+      if (amtVal <= 0 && qtyVal > 0 && rateVal > 0) {
+        amtVal = qtyVal * rateVal;
+      }
+
+      return {
+        id: `direct-item-${idx + 1}`,
+        date: parsedDate.toISOString(),
+        type: "BY" as const,
+        material: item.material.trim().toUpperCase(),
+        qty: qtyVal,
+        unit: item.unit.trim().toUpperCase() || "CFT",
+        rate: rateVal,
+        amount: amtVal,
+        particulars: "DIRECT SALE / CASH",
+        reference: "DIRECT_CHALLAN"
+      };
+    });
 
     setDirectChallan({
       customerName: directCustomer.trim().toUpperCase() || "DIRECT CLIENT",
       date: parsedDate.toISOString(),
-      items: [
-        {
-          id: "direct-item-1",
-          date: parsedDate.toISOString(),
-          type: "BY",
-          material: directMaterial.trim().toUpperCase(),
-          qty: qtyVal,
-          unit: directUnit.trim().toUpperCase() || "CFT",
-          rate: rateVal,
-          amount: amtVal,
-          particulars: "DIRECT SALE / CASH",
-          reference: "DIRECT_CHALLAN"
-        }
-      ]
+      items: items
     });
 
     setShowDirectChallanModal(false);
@@ -997,8 +1073,9 @@ export default function ChallanPage() {
       return;
     }
 
-    const headers = ["Date", "Material", "Description", "Quantity", "Unit"];
-    const rows = challanData.items.map((item: any) => [
+    const headers = ["S.No", "Date", "Material", "Description", "Quantity", "Unit"];
+    const rows = challanData.items.map((item: any, idx: number) => [
+      idx + 1,
       formatRenderDate(item.date),
       translateBilingual(item.material),
       item.particulars,
@@ -1008,6 +1085,7 @@ export default function ChallanPage() {
 
     rows.push([
       "TOTAL",
+      "",
       "",
       "",
       challanData.totalQty,
@@ -1163,6 +1241,14 @@ export default function ChallanPage() {
         activeEl.tagName === "TEXTAREA" || 
         activeEl.hasAttribute("contenteditable")
       );
+
+      // If modal is open and 'n' or 'N' is pressed when no input is focused, add a new row!
+      if (showDirectChallanModal && (e.key === "n" || e.key === "N") && !isInputFocused) {
+        e.preventDefault();
+        handleAddDirectItem();
+        return;
+      }
+
       if (isInputFocused) return;
 
       if (e.key === "1") {
@@ -1178,7 +1264,7 @@ export default function ChallanPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId, showDirectChallanModal]);
+  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId, showDirectChallanModal, handleAddDirectItem]);
 
   return (
     <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
@@ -1476,28 +1562,30 @@ export default function ChallanPage() {
                     <table className="w-full text-left border-collapse text-xs font-mono">
                       <thead>
                         <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
-                          <th className="py-1.5 px-3 border-r border-slate-800"></th>
+                          <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
+                          <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
                           <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
                           <th className="py-1.5 px-3 text-center w-20">Unit</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-300 font-black text-[12px]">
                         {challanData.items.filter((item: any) => item.qty > 0).length > 0 ? (
-                          challanData.items.filter((item: any) => item.qty > 0).map((item: any) => (
+                          challanData.items.filter((item: any) => item.qty > 0).map((item: any, idx: number) => (
                             <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900">
+                              <td className="py-1.5 px-3 border-r border-slate-300 text-center text-slate-700">{idx + 1}</td>
                               <td className="py-1.5 px-3 border-r border-slate-300 text-slate-955 font-extrabold">{translateBilingual(item.material)}</td>
                               <td className="py-1.5 px-3 border-r border-slate-300 text-right font-mono text-slate-955">{item.qty > 0 ? item.qty : "-"}</td>
                               <td className="py-1.5 px-3 text-center font-bold text-slate-500">{item.qty > 0 ? item.unit : "-"}</td>
                             </tr>
                           ))
                         ) : (
-                          <tr><td colSpan={3} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
+                          <tr><td colSpan={4} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
                         )}
                       </tbody>
                       {challanData.items.filter((item: any) => item.qty > 0).length > 0 && (
                         <tfoot>
                           <tr className="bg-slate-100 border-t border-slate-800 font-black text-slate-955 text-[11px]">
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
+                            <td colSpan={2} className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
                             <td className="py-1.5 px-3 border-r border-slate-800 text-right text-amber-900 font-black font-mono total-value">{challanData.totalQty}</td>
                             <td className="py-1.5 px-3 text-center text-slate-500">{challanData.items.filter((item: any) => item.qty > 0)[0]?.unit || "-"}</td>
                           </tr>
@@ -1559,7 +1647,8 @@ export default function ChallanPage() {
                     <table className="w-full text-left border-collapse text-xs font-mono">
                       <thead>
                         <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
-                          <th className="py-1.5 px-3 border-r border-slate-800"></th>
+                          <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
+                          <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
                           <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
                           <th className="py-1.5 px-3 border-r border-slate-800 text-center w-20">Unit</th>
                           <th className="py-1.5 px-3 border-r border-slate-800 text-right w-20">Rate</th>
@@ -1568,8 +1657,9 @@ export default function ChallanPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-300 font-black text-[12px]">
                         {challanData.items.length > 0 ? (
-                          challanData.items.map((item: any) => (
+                          challanData.items.map((item: any, idx: number) => (
                             <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900">
+                              <td className="py-1.5 px-3 border-r border-slate-300 text-center text-slate-700">{idx + 1}</td>
                               <td className="py-1.5 px-3 border-r border-slate-300 text-slate-955 font-extrabold">{translateBilingual(item.material)}</td>
                               <td className="py-1.5 px-3 border-r border-slate-300 text-right font-mono text-slate-955">{item.qty > 0 ? item.qty : "-"}</td>
                               <td className="py-1.5 px-3 border-r border-slate-300 text-center font-bold text-slate-500">{item.qty > 0 ? item.unit : "-"}</td>
@@ -1578,13 +1668,13 @@ export default function ChallanPage() {
                             </tr>
                           ))
                         ) : (
-                          <tr><td colSpan={5} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
+                          <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
                         )}
                       </tbody>
                       {challanData.items.length > 0 && (
                         <tfoot>
                           <tr className="bg-slate-100 border-t border-slate-800 font-black text-slate-955 text-[11px]">
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
+                            <td colSpan={2} className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
                             <td className="py-1.5 px-3 border-r border-slate-800 text-right text-amber-900 font-black font-mono total-value">{challanData.totalQty}</td>
                             <td className="py-1.5 px-3 border-r border-slate-800 text-center text-slate-500">{challanData.items[0]?.unit || "-"}</td>
                             <td className="py-1.5 px-3 border-r border-slate-800 text-right text-slate-400">-</td>
@@ -1654,7 +1744,7 @@ export default function ChallanPage() {
       {/* Direct Challan Modal */}
       {showDirectChallanModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-200">
-          <div className="bg-[#D3DFEE] border-2 border-slate-950 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[480px] font-mono flex flex-col select-none">
+          <div className="bg-[#D3DFEE] border-2 border-slate-955 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[840px] max-w-[95vw] font-mono flex flex-col select-none">
             {/* Title Bar */}
             <div className="bg-emerald-700 border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0">
               <span className="text-xs font-black uppercase tracking-wider">Create Direct Challan / डायरेक्ट चालान बनाएँ</span>
@@ -1669,155 +1759,198 @@ export default function ChallanPage() {
 
             {/* Content Form */}
             <form onSubmit={handleCreateDirectChallan} className="p-6 bg-[#E5ECF4] space-y-4 text-slate-955">
-              <div className="space-y-3.5">
-                {/* Date Input */}
-                <div>
-                  <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Date / दिनांक (DD.MM.YY):</label>
-                  <input
-                    ref={directDateInputRef}
-                    type="text"
-                    required
-                    value={directDate}
-                    onChange={(e) => setDirectDate(e.target.value)}
-                    placeholder="DD.MM.YY"
-                    className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-
-                {/* Customer Name */}
-                <div>
-                  <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Customer Name / ग्राहक का नाम:</label>
-                  <input
-                    type="text"
-                    value={directCustomer}
-                    onChange={(e) => setDirectCustomer(e.target.value.toUpperCase())}
-                    placeholder="ENTER CUSTOMER NAME (OPTIONAL)"
-                    className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-
-                {/* Material Name */}
-                <div className="relative">
-                  <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Material Name / सामग्री का नाम:</label>
-                  <input
-                    type="text"
-                    required
-                    value={directMaterial}
-                    onChange={(e) => {
-                      setDirectMaterial(e.target.value.toUpperCase());
-                      setIsMaterialSuggestionsOpen(true);
-                      setHighlightedMaterialIndex(-1);
-                    }}
-                    onFocus={() => {
-                      setIsMaterialSuggestionsOpen(true);
-                      setHighlightedMaterialIndex(-1);
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setIsMaterialSuggestionsOpen(false), 200);
-                    }}
-                    onKeyDown={handleMaterialKeyDown}
-                    placeholder="ENTER MATERIAL NAME"
-                    className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
-                  />
-                  {isMaterialSuggestionsOpen && filteredDirectMaterialSuggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-950 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-40 overflow-y-auto">
-                      {filteredDirectMaterialSuggestions.map((mat: any, idx: number) => {
-                        const isHighlighted = idx === highlightedMaterialIndex;
-                        return (
-                          <button
-                            key={mat.id || idx}
-                            id={`mat-opt-${idx}`}
-                            type="button"
-                            onMouseDown={() => {
-                              setDirectMaterial(mat.name.toUpperCase());
-                              setDirectUnit(mat.unit?.toUpperCase() || "CFT");
-                              setIsMaterialSuggestionsOpen(false);
-                              setTimeout(() => {
-                                directQtyInputRef.current?.focus();
-                                directQtyInputRef.current?.select();
-                              }, 50);
-                            }}
-                            className={`w-full text-left px-3 py-1.5 text-xs font-bold border-b border-slate-100 last:border-0 ${
-                              isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {mat.name.toUpperCase()} ({mat.unit || "CFT"})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Qty & Unit */}
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4">
+                
+                {/* Date and Customer Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Date Input */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Quantity / मात्रा:</label>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Date / दिनांक (DD.MM.YY):</label>
                     <input
-                      ref={directQtyInputRef}
-                      type="number"
-                      step="any"
+                      ref={directDateInputRef}
+                      type="text"
                       required
-                      value={directQty}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setDirectQty(val);
-                        const q = parseFloat(val) || 0;
-                        const r = parseFloat(directRate) || 0;
-                        if (q > 0 && r > 0) {
-                          setDirectAmount((q * r).toFixed(2));
-                        }
-                      }}
-                      placeholder="e.g. 100"
+                      value={directDate}
+                      onChange={(e) => setDirectDate(e.target.value)}
+                      placeholder="DD.MM.YY"
                       className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
                     />
                   </div>
+
+                  {/* Customer Name */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Unit / इकाई:</label>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Customer Name / ग्राहक का नाम:</label>
                     <input
                       type="text"
-                      required
-                      value={directUnit}
-                      onChange={(e) => setDirectUnit(e.target.value.toUpperCase())}
-                      placeholder="e.g. CFT, BAGS, PCS"
+                      value={directCustomer}
+                      onChange={(e) => setDirectCustomer(e.target.value.toUpperCase())}
+                      placeholder="ENTER CUSTOMER NAME (OPTIONAL)"
                       className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
                     />
                   </div>
                 </div>
 
-                {/* Rate & Amount */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Rate / दर:</label>
-                    <input
-                      type="number"
-                      step="any"
-                      required
-                      value={directRate}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setDirectRate(val);
-                        const r = parseFloat(val) || 0;
-                        const q = parseFloat(directQty) || 0;
-                        if (q > 0 && r > 0) {
-                          setDirectAmount((q * r).toFixed(2));
-                        }
-                      }}
-                      placeholder="e.g. 45"
-                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
-                    />
+                {/* Items Section Title */}
+                <div className="border-b-2 border-slate-355 border-slate-400 pb-1 flex justify-between items-center">
+                  <span className="text-xs font-black uppercase text-slate-700">Materials / सामग्री सूची</span>
+                </div>
+
+                {/* Items Table/Grid */}
+                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-2">
+                  <div className="grid grid-cols-12 gap-2 text-[10px] font-black uppercase text-slate-600 px-1 select-none">
+                    <div className="col-span-1 text-center">#</div>
+                    <div className="col-span-4">Material Name / सामग्री</div>
+                    <div className="col-span-2 text-right">Qty / मात्रा</div>
+                    <div className="col-span-2 text-center">Unit / इकाई</div>
+                    <div className="col-span-1 text-right">Rate / दर</div>
+                    <div className="col-span-1 text-right">Amount</div>
+                    <div className="col-span-1 text-center font-bold">Del</div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Amount / राशि:</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={directAmount}
-                      onChange={(e) => setDirectAmount(e.target.value)}
-                      placeholder="Auto-calculated"
-                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
-                    />
-                  </div>
+
+                  {directItems.map((item, idx) => {
+                    const suggestions = (() => {
+                      const q = item.material.trim().toUpperCase();
+                      if (!existingMaterials) return [];
+                      if (!q) return existingMaterials;
+                      return existingMaterials.filter((m: any) => matchesFuzzy(m.name, q));
+                    })();
+
+                    return (
+                      <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                        {/* S.No */}
+                        <div className="col-span-1 text-center font-bold text-xs text-slate-700">
+                          {idx + 1}
+                        </div>
+
+                        {/* Material Input with Autocomplete */}
+                        <div className="col-span-4 relative">
+                          <input
+                            id={`direct-material-input-${idx}`}
+                            type="text"
+                            required
+                            value={item.material}
+                            onChange={(e) => {
+                              updateDirectItem(idx, {
+                                material: e.target.value.toUpperCase(),
+                                isMaterialSuggestionsOpen: true,
+                                highlightedMaterialIndex: -1
+                              });
+                            }}
+                            onFocus={() => {
+                              updateDirectItem(idx, { isMaterialSuggestionsOpen: true, highlightedMaterialIndex: -1 });
+                            }}
+                            onBlur={() => {
+                              setTimeout(() => updateDirectItem(idx, { isMaterialSuggestionsOpen: false }), 200);
+                            }}
+                            onKeyDown={(e) => handleMaterialKeyDown(idx, e, suggestions)}
+                            placeholder="Type Material..."
+                            className="w-full bg-white border border-slate-950 rounded px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-emerald-600 uppercase"
+                          />
+                          {item.isMaterialSuggestionsOpen && suggestions.length > 0 && (
+                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-950 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto">
+                              {suggestions.map((mat: any, sIdx: number) => {
+                                const isHighlighted = sIdx === item.highlightedMaterialIndex;
+                                return (
+                                  <button
+                                    key={mat.id || sIdx}
+                                    id={`mat-opt-${idx}-${sIdx}`}
+                                    type="button"
+                                    onMouseDown={() => {
+                                      updateDirectItem(idx, {
+                                        material: mat.name.toUpperCase(),
+                                        unit: mat.unit?.toUpperCase() || "CFT",
+                                        isMaterialSuggestionsOpen: false,
+                                        highlightedMaterialIndex: -1
+                                      });
+                                      setTimeout(() => {
+                                        const qtyEl = document.getElementById(`direct-qty-input-${idx}`) as HTMLInputElement | null;
+                                        if (qtyEl) {
+                                          qtyEl.focus();
+                                          qtyEl.select();
+                                        }
+                                      }, 50);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 ${
+                                      isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
+                                    }`}
+                                  >
+                                    {mat.name.toUpperCase()} ({mat.unit || "CFT"})
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Qty Input */}
+                        <div className="col-span-2">
+                          <input
+                            id={`direct-qty-input-${idx}`}
+                            type="number"
+                            step="any"
+                            required
+                            value={item.qty}
+                            onChange={(e) => updateDirectItem(idx, { qty: e.target.value })}
+                            placeholder="Qty"
+                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
+                          />
+                        </div>
+
+                        {/* Unit Input */}
+                        <div className="col-span-2">
+                          <input
+                            type="text"
+                            required
+                            value={item.unit}
+                            onChange={(e) => updateDirectItem(idx, { unit: e.target.value.toUpperCase() })}
+                            placeholder="Unit"
+                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-emerald-600 uppercase"
+                          />
+                        </div>
+
+                        {/* Rate Input */}
+                        <div className="col-span-1">
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={item.rate}
+                            onChange={(e) => updateDirectItem(idx, { rate: e.target.value })}
+                            placeholder="Rate"
+                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
+                          />
+                        </div>
+
+                        {/* Amount Calculation */}
+                        <div className="col-span-1 text-right font-mono font-bold text-xs pr-1">
+                          {item.amount || "-"}
+                        </div>
+
+                        {/* Row Delete Button */}
+                        <div className="col-span-1 text-center">
+                          <button
+                            type="button"
+                            disabled={directItems.length <= 1}
+                            onClick={() => handleDeleteDirectItem(idx)}
+                            className="text-red-650 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed font-extrabold text-sm hover:scale-110 active:scale-95 transition-all focus:outline-none"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Add Item Button */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleAddDirectItem}
+                    className="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-400 font-extrabold text-[10px] py-2 rounded transition-all active:translate-y-0.5 cursor-pointer uppercase tracking-wider text-center flex items-center justify-center gap-1.5 focus:outline-none"
+                  >
+                    <span>+ Add Item / नया आइटम जोड़ें (N)</span>
+                  </button>
                 </div>
               </div>
 
