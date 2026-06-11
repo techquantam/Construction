@@ -508,6 +508,74 @@ export default function ChallanPage() {
     return existingMaterials.filter((m: any) => matchesFuzzy(m.name, q));
   })();
 
+  const directDateInputRef = useRef<HTMLInputElement>(null);
+  const directQtyInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMaterialKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isMaterialSuggestionsOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setIsMaterialSuggestionsOpen(true);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedMaterialIndex((prev) => {
+        const next = prev + 1;
+        const index = next >= filteredDirectMaterialSuggestions.length ? filteredDirectMaterialSuggestions.length - 1 : next;
+        setTimeout(() => {
+          const el = document.getElementById(`mat-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
+        return index;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedMaterialIndex((prev) => {
+        const next = prev - 1;
+        const index = next < 0 ? 0 : next;
+        setTimeout(() => {
+          const el = document.getElementById(`mat-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
+        return index;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      let idx = highlightedMaterialIndex;
+      if (idx === -1 && filteredDirectMaterialSuggestions.length > 0) {
+        idx = 0;
+      }
+      if (idx >= 0 && idx < filteredDirectMaterialSuggestions.length) {
+        const mat = filteredDirectMaterialSuggestions[idx];
+        setDirectMaterial(mat.name.toUpperCase());
+        setDirectUnit(mat.unit?.toUpperCase() || "CFT");
+      }
+      setIsMaterialSuggestionsOpen(false);
+      setHighlightedMaterialIndex(-1);
+      setTimeout(() => {
+        directQtyInputRef.current?.focus();
+        directQtyInputRef.current?.select();
+      }, 50);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsMaterialSuggestionsOpen(false);
+      setHighlightedMaterialIndex(-1);
+    }
+  };
+
+  useEffect(() => {
+    if (showDirectChallanModal) {
+      setTimeout(() => {
+        directDateInputRef.current?.focus();
+        directDateInputRef.current?.select();
+      }, 50);
+    }
+  }, [showDirectChallanModal]);
+
   const openDirectChallanModal = () => {
     setDirectDate(getTodayDateStr());
     setDirectCustomer("");
@@ -1074,6 +1142,20 @@ export default function ChallanPage() {
   // Connect hotkeys (1: Print Without Rate, 2: Print With Rate, F3: Excel)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. If modal is open and Escape is pressed, close the modal immediately
+      if (showDirectChallanModal && e.key === "Escape") {
+        e.preventDefault();
+        setShowDirectChallanModal(false);
+        return;
+      }
+
+      // 2. If modal is closed and 'd' or 'D' is pressed, open the modal immediately and prevent typing in inputs
+      if (!showDirectChallanModal && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        openDirectChallanModal();
+        return;
+      }
+
       // Avoid triggering print shortcuts if typing in search input fields
       const activeEl = document.activeElement;
       const isInputFocused = activeEl && (
@@ -1092,14 +1174,11 @@ export default function ChallanPage() {
       } else if (e.key === "F3") {
         e.preventDefault();
         handleExportExcel();
-      } else if (e.key === "d" || e.key === "D") {
-        e.preventDefault();
-        openDirectChallanModal();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId]);
+  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId, showDirectChallanModal]);
 
   return (
     <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
@@ -1595,6 +1674,7 @@ export default function ChallanPage() {
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Date / दिनांक (DD.MM.YY):</label>
                   <input
+                    ref={directDateInputRef}
                     type="text"
                     required
                     value={directDate}
@@ -1635,6 +1715,7 @@ export default function ChallanPage() {
                     onBlur={() => {
                       setTimeout(() => setIsMaterialSuggestionsOpen(false), 200);
                     }}
+                    onKeyDown={handleMaterialKeyDown}
                     placeholder="ENTER MATERIAL NAME"
                     className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
                   />
@@ -1645,11 +1726,16 @@ export default function ChallanPage() {
                         return (
                           <button
                             key={mat.id || idx}
+                            id={`mat-opt-${idx}`}
                             type="button"
                             onMouseDown={() => {
                               setDirectMaterial(mat.name.toUpperCase());
                               setDirectUnit(mat.unit?.toUpperCase() || "CFT");
                               setIsMaterialSuggestionsOpen(false);
+                              setTimeout(() => {
+                                directQtyInputRef.current?.focus();
+                                directQtyInputRef.current?.select();
+                              }, 50);
                             }}
                             className={`w-full text-left px-3 py-1.5 text-xs font-bold border-b border-slate-100 last:border-0 ${
                               isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
@@ -1668,6 +1754,7 @@ export default function ChallanPage() {
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Quantity / मात्रा:</label>
                     <input
+                      ref={directQtyInputRef}
                       type="number"
                       step="any"
                       required
@@ -1735,17 +1822,10 @@ export default function ChallanPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="bg-white border-t border-slate-300 -mx-6 -mb-6 p-4 flex gap-3 justify-end mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowDirectChallanModal(false)}
-                  className="bg-slate-500 hover:bg-slate-600 text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-950 cursor-pointer uppercase tracking-wider"
-                >
-                  Cancel / रद्द करें
-                </button>
+              <div className="bg-white border-t border-slate-300 -mx-6 -mb-6 p-4 mt-4">
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] px-4 py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-950 cursor-pointer uppercase tracking-wider"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-950 cursor-pointer uppercase tracking-wider text-center"
                 >
                   Generate Challan / चालान बनाएं
                 </button>
