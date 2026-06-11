@@ -503,8 +503,8 @@ function ReportsContent() {
       if (nameUpper.includes(queryUpper)) return 800;
       
       const details = parsePartyDetails(ledger.contactPerson);
-      const address = details ? details.address : (ledger.contactPerson || "");
-      const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
+      const address = (details ? details.address : (ledger.contactPerson || "")) || "";
+      const phone = (details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "")) || "";
       
       const addressUpper = address.toUpperCase();
       const phoneUpper = phone.toUpperCase();
@@ -550,8 +550,8 @@ function ReportsContent() {
       if (nameUpper.includes(queryUpper)) return 800;
       
       const details = parsePartyDetails(ledger.contactPerson);
-      const address = details ? details.address : (ledger.contactPerson || "");
-      const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
+      const address = (details ? details.address : (ledger.contactPerson || "")) || "";
+      const phone = (details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "")) || "";
       
       const addressUpper = address.toUpperCase();
       const phoneUpper = phone.toUpperCase();
