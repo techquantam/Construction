@@ -126,7 +126,14 @@ const getLastChallanNoForLedger = (ledgerName: string, daybooks: any[]): string 
     if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
     else if (text.toUpperCase().startsWith("BY ")) name = text.substring(3).trim().toUpperCase();
     
-    if (name === ledgerUpper && item.referenceNumber && item.referenceNumber !== "AUTO_DEBIT") {
+    if (
+      name === ledgerUpper &&
+      item.referenceNumber &&
+      item.referenceNumber !== "AUTO_DEBIT" &&
+      item.referenceNumber !== "COMPANY_DIRECT" &&
+      item.referenceNumber !== "LEDGER_DIRECT" &&
+      item.referenceNumber !== "DIRECT_FORM_V2"
+    ) {
       if (!latestTx || new Date(item.createdAt).getTime() > new Date(latestTx.createdAt).getTime()) {
         latestTx = item;
       }
@@ -1401,7 +1408,7 @@ function LedgerContent() {
         amount: calculatedAmount,
         paymentMode: serializedPaymentMode,
         description: "COMPANY_LEDGER_ENTRY",
-        referenceNumber: challanNo.trim().toUpperCase() || "1001",
+        referenceNumber: compCrDr === "CR" ? "COMPANY_DIRECT" : (challanNo.trim().toUpperCase() || "1001"),
       };
 
       createMutation.mutate(payload, {
@@ -1492,7 +1499,7 @@ function LedgerContent() {
       amount: calculatedAmount,
       paymentMode: serializedPaymentMode,
       description: item.description || "COMPANY_LEDGER_ENTRY",
-      referenceNumber: ledgerTypeTab === "COMPANY" ? (editChallanNo.trim().toUpperCase() || "1001") : null,
+      referenceNumber: ledgerTypeTab === "COMPANY" ? (editType === "BY" ? "COMPANY_DIRECT" : (editChallanNo.trim().toUpperCase() || "1001")) : null,
     };
 
     updateTransactionMutation.mutate({ id: editingTransactionId, payload });
@@ -2009,7 +2016,7 @@ function LedgerContent() {
     updateChallanNo("COMPANY_DIRECT");
     setCompCrDr("CR");
     setCompType("BY");
-    setCompMaterial("PAYMENT");
+    setCompMaterial("CREDIT");
     setCompQty("");
     setCompRate("");
     setCompAmount("");
@@ -2046,7 +2053,7 @@ function LedgerContent() {
         e.preventDefault();
         e.stopPropagation();
         handleCancelNewEstimate();
-      } else if (e.key === "p" || e.key === "P") {
+      } else if (e.key === "c" || e.key === "C") {
         e.preventDefault();
         e.stopPropagation();
         handlePaymentDirectEntry();
@@ -4503,7 +4510,7 @@ function LedgerContent() {
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if ((compMaterial.trim() === "" || compMaterial.trim().toUpperCase() === "PAYMENT") && highlightedCompMaterialIndex === -1) {
+                                if ((compMaterial.trim() === "" || compMaterial.trim().toUpperCase() === "PAYMENT" || compMaterial.trim().toUpperCase() === "CREDIT") && highlightedCompMaterialIndex === -1) {
                                   setCompActiveStep("CRDR");
                                   setTimeout(() => compCrDrSelectRef.current?.focus(), 50);
                                 } else {
@@ -5476,7 +5483,7 @@ function LedgerContent() {
               </div>
 
               <div className="text-[9.5px] text-[#2B547E] font-bold bg-white/70 py-2 px-2.5 border border-slate-300 rounded uppercase leading-relaxed">
-                💡 Press <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Enter</span> to Start New, <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Esc</span> to Continue Previous, or <span className="font-mono bg-emerald-600 text-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">P</span> for Payment
+                💡 Press <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Enter</span> to Start New, <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">Esc</span> to Continue Previous, or <span className="font-mono bg-emerald-600 text-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">C</span> for Credit Entry
               </div>
             </div>
 
@@ -5505,7 +5512,7 @@ function LedgerContent() {
                 onClick={handlePaymentDirectEntry}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[9.5px] px-2.5 py-2.5 rounded transition-all shadow-md active:translate-y-0.5 tracking-wider uppercase border border-emerald-700 cursor-pointer flex-1 focus:ring-2 focus:ring-slate-950 focus:outline-none"
               >
-                Payment / भुगतान (P)
+                Credit / क्रेडिट (C)
               </button>
             </div>
           </div>
