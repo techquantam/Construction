@@ -971,16 +971,41 @@ function LedgerContent() {
         })
       : filteredLedgers;
     
-    const matches = searchSource.filter((ledger: any) => {
+    const queryUpper = accountSearchVal.trim().toUpperCase();
+
+    const getMatchScore = (ledger: any) => {
+      const nameUpper = ledger.name.toUpperCase();
+      if (nameUpper === queryUpper) return 1000;
+      if (nameUpper.startsWith(queryUpper)) return 900;
+      if (nameUpper.includes(queryUpper)) return 800;
+      
       const details = parsePartyDetails(ledger.contactPerson);
       const address = details ? details.address : (ledger.contactPerson || "");
       const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
-      return (
-        matchesFuzzy(ledger.name, accountSearchVal) ||
-        (address && matchesFuzzy(address, accountSearchVal)) ||
-        (phone && matchesFuzzy(phone, accountSearchVal))
-      );
-    });
+      
+      const addressUpper = address.toUpperCase();
+      const phoneUpper = phone.toUpperCase();
+      
+      if (addressUpper.startsWith(queryUpper) || phoneUpper.startsWith(queryUpper)) return 700;
+      if (addressUpper.includes(queryUpper) || phoneUpper.includes(queryUpper)) return 600;
+      
+      if (matchesFuzzy(ledger.name, accountSearchVal)) return 500;
+      if (address && matchesFuzzy(address, accountSearchVal)) return 400;
+      if (phone && matchesFuzzy(phone, accountSearchVal)) return 300;
+      
+      return 0;
+    };
+
+    const matches = searchSource
+      .map((ledger: any) => ({ ledger, score: getMatchScore(ledger) }))
+      .filter((item: any) => item.score > 0)
+      .sort((a: any, b: any) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return a.ledger.name.localeCompare(b.ledger.name);
+      })
+      .map((item: any) => item.ledger);
     
     // Prepend special option if action is not entry and it matches query
     if (action !== "entry" && matchesFuzzy(firstOptionName, accountSearchVal)) {
