@@ -312,6 +312,31 @@ function ReportsContent() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Keep track of the previous open state of print ledger account suggestions
+  const wasLgLedgerSuggestionsOpenRef = useRef(false);
+
+  // Auto-scroll and highlight selected account when dropdown is opened
+  useEffect(() => {
+    const isOpened = isLgLedgerSuggestionsOpen && !wasLgLedgerSuggestionsOpenRef.current;
+    wasLgLedgerSuggestionsOpenRef.current = isLgLedgerSuggestionsOpen;
+
+    if (isOpened && lgSelectedLedgerId) {
+      const selectedIndex = filteredLgLedgers.findIndex(
+        (l: any) => l.id === lgSelectedLedgerId
+      );
+      if (selectedIndex >= 0) {
+        setHighlightedLgLedgerIndex(selectedIndex);
+        setTimeout(() => {
+          const el = document.getElementById(`lg-acct-opt-${selectedIndex}`);
+          if (el) {
+            el.scrollIntoView({ block: "nearest" });
+          }
+        }, 50);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLgLedgerSuggestionsOpen, lgSelectedLedgerId]);
+
   // Autofocus search box when reportType changes
   useEffect(() => {
     if (reportType === "ledger") {
@@ -669,15 +694,10 @@ function ReportsContent() {
       setHighlightedLgLedgerIndex((prev) => {
         const next = prev + 1;
         const index = next >= filteredLgLedgers.length ? 0 : next;
-        const ledger = filteredLgLedgers[index];
-        if (ledger) {
-          setLgSelectedLedgerId(ledger.id);
-          setLgLedgerSearchVal(ledger.name.toUpperCase());
-          setTimeout(() => {
-            const el = document.getElementById(`lg-acct-opt-${index}`);
-            if (el) el.scrollIntoView({ block: "nearest" });
-          }, 10);
-        }
+        setTimeout(() => {
+          const el = document.getElementById(`lg-acct-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
         return index;
       });
     } else if (e.key === "ArrowUp") {
@@ -685,19 +705,23 @@ function ReportsContent() {
       setHighlightedLgLedgerIndex((prev) => {
         const next = prev - 1;
         const index = next < 0 ? filteredLgLedgers.length - 1 : next;
-        const ledger = filteredLgLedgers[index];
-        if (ledger) {
-          setLgSelectedLedgerId(ledger.id);
-          setLgLedgerSearchVal(ledger.name.toUpperCase());
-          setTimeout(() => {
-            const el = document.getElementById(`lg-acct-opt-${index}`);
-            if (el) el.scrollIntoView({ block: "nearest" });
-          }, 10);
-        }
+        setTimeout(() => {
+          const el = document.getElementById(`lg-acct-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
         return index;
       });
     } else if (e.key === "Enter") {
       e.preventDefault();
+      let targetIndex = highlightedLgLedgerIndex;
+      if (targetIndex === -1 && filteredLgLedgers.length > 0) {
+        targetIndex = 0;
+      }
+      if (targetIndex >= 0 && targetIndex < filteredLgLedgers.length) {
+        const ledger = filteredLgLedgers[targetIndex];
+        setLgSelectedLedgerId(ledger.id);
+        setLgLedgerSearchVal(ledger.name.toUpperCase());
+      }
       setIsLgLedgerSuggestionsOpen(false);
       setHighlightedLgLedgerIndex(-1);
       lgLedgerInputRef.current?.blur();
@@ -2357,6 +2381,7 @@ function ReportsContent() {
                       ) : (
                         filteredLgLedgers.map((ledger: any, index: number) => {
                           const isActive = highlightedLgLedgerIndex === index;
+                          const isSelected = lgSelectedLedgerId === ledger.id;
                           return (
                             <button
                               key={ledger.id}
@@ -2370,7 +2395,11 @@ function ReportsContent() {
                               }}
                               onMouseEnter={() => setHighlightedLgLedgerIndex(index)}
                               className={`w-full text-left px-2.5 py-1.5 border-b border-slate-100 last:border-b-0 font-black uppercase text-[11px] ${
-                                isActive ? "bg-[#2B547E] text-white" : "bg-white hover:bg-slate-200 text-slate-900"
+                                isActive 
+                                  ? "bg-[#2B547E] text-white" 
+                                  : isSelected 
+                                    ? "bg-[#E5ECF4] text-[#2B547E] font-black" 
+                                    : "bg-white hover:bg-slate-200 text-slate-900"
                               }`}
                             >
                               <span className="truncate block py-0.5">{ledger.name.toUpperCase()}</span>
