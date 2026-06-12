@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Printer, Building2, User, Phone, MapPin, Wallet, ArrowDown, FileSpreadsheet } from "lucide-react";
 import api from "@/lib/axios";
@@ -407,6 +407,28 @@ const parseInputDate = (dateStr: string) => {
   return new Date(dateStr);
 };
 
+const getNextChallanNoForDate = (dateStr: string, daybooks: any[]): string => {
+  if (!daybooks || daybooks.length === 0) {
+    return `${dateStr}/1`;
+  }
+  
+  let maxN = 0;
+  daybooks.forEach((item: any) => {
+    const ref = item.referenceNumber;
+    if (ref && typeof ref === "string" && ref.startsWith(dateStr + "/")) {
+      const parts = ref.split("/");
+      if (parts.length === 2) {
+        const num = parseInt(parts[1], 10);
+        if (!isNaN(num) && num > maxN) {
+          maxN = num;
+        }
+      }
+    }
+  });
+  
+  return `${dateStr}/${maxN + 1}`;
+};
+
 export default function ChallanPage() {
   // Query: Fetch all sites
   const { data: sites } = useQuery({
@@ -452,6 +474,8 @@ export default function ChallanPage() {
   const [highlightedLedgerIndex, setHighlightedLedgerIndex] = useState<number>(-1);
   const ledgerSelectorRef = useRef<HTMLDivElement>(null);
   const ledgerInputRef = useRef<HTMLInputElement>(null);
+  const [selectedCompanyChallanNo, setSelectedCompanyChallanNo] = useState<string | null>(null);
+  const [focusedChallanIndex, setFocusedChallanIndex] = useState<number>(0);
 
   // Query: Fetch all daybook entries for the selected site
   const { data: siteDaybookData } = useQuery({
@@ -464,6 +488,15 @@ export default function ChallanPage() {
     enabled: !!selectedSiteId,
   });
 
+  // Query: Fetch all daybook entries across all sites (to determine recent site/company)
+  const { data: allDaybookData } = useQuery({
+    queryKey: ["allDaybooks"],
+    queryFn: async () => {
+      const res = await api.get("/daybooks");
+      return res.data.data || [];
+    }
+  });
+
   // Focus states for input highlight
   const [isSiteFocused, setIsSiteFocused] = useState(false);
   const [isLedgerFocused, setIsLedgerFocused] = useState(false);
@@ -472,10 +505,27 @@ export default function ChallanPage() {
   const [printCopy, setPrintCopy] = useState<"copy1" | "copy2" | "both">("both");
 
   // States for Direct Challan Creation
+  const [challanFormMode, setChallanFormMode] = useState<"DIRECT" | "COMPANY">("DIRECT");
+  const [directAddress, setDirectAddress] = useState("");
+  const [directMobile, setDirectMobile] = useState("");
   const [showDirectChallanModal, setShowDirectChallanModal] = useState(false);
+
+  // Modal Site Autocomplete States
+  const [modalSiteSearchVal, setModalSiteSearchVal] = useState("");
+  const [isModalSiteSuggestionsOpen, setIsModalSiteSuggestionsOpen] = useState(false);
+  const [highlightedModalSiteIndex, setHighlightedModalSiteIndex] = useState(-1);
+  const modalSiteSelectorRef = useRef<HTMLDivElement>(null);
+  const modalSiteInputRef = useRef<HTMLInputElement>(null);
+
+  // Modal Customer Autocomplete States
+  const [isModalCustomerSuggestionsOpen, setIsModalCustomerSuggestionsOpen] = useState(false);
+  const [highlightedModalCustomerIndex, setHighlightedModalCustomerIndex] = useState(-1);
+  const modalCustomerSelectorRef = useRef<HTMLDivElement>(null);
+  const modalCustomerInputRef = useRef<HTMLInputElement>(null);
   const [directChallan, setDirectChallan] = useState<{
     customerName: string;
     date: string;
+    challanNo: string;
     items: {
       id: string;
       date: string;
@@ -489,6 +539,64 @@ export default function ChallanPage() {
       reference: string;
     }[];
   } | null>(null);
+
+  // Local direct challans history for today
+  const [localDirectChallans, setLocalDirectChallans] = useState<any[]>([]);
+  const [sidebarDate, setSidebarDate] = useState(getTodayDateStr());
+
+  // Load local direct challans from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("today_direct_challans");
+        if (stored) {
+          setLocalDirectChallans(JSON.parse(stored));
+        }
+      } catch (e) {
+        console.error("Failed to load local direct challans", e);
+      }
+    }
+  }, []);
+
+  // Helper to load a company challan from the sidebar
+  const loadCompanyChallan = async (siteId: string, customerName: string, challanNo?: string) => {
+    setDirectChallan(null);
+    setSelectedSiteId(siteId);
+    if (challanNo) {
+      setSelectedCompanyChallanNo(challanNo);
+    }
+
+    const siteObj = sites?.find((s: any) => s.id === siteId);
+    if (siteObj) {
+      setSiteSearchVal(siteObj.name.toUpperCase());
+    }
+
+    setLedgerSearchVal(customerName.toUpperCase());
+
+    try {
+      const response = await api.get(`/ledgers?siteId=${siteId}`);
+      const siteLedgers = response.data.data || [];
+      const matched = siteLedgers.find(
+        (l: any) => l.name.toUpperCase() === customerName.toUpperCase() && l.type === "Company"
+      );
+      if (matched) {
+        setSelectedLedgerId(matched.id);
+      } else {
+        setSelectedLedgerId(customerName.toUpperCase());
+      }
+    } catch (err) {
+      setSelectedLedgerId(customerName.toUpperCase());
+    }
+  };
+
+  // Helper to load a direct challan from the sidebar
+  const loadDirectChallan = (challan: any) => {
+    setDirectChallan(challan);
+    setSelectedSiteId(null);
+    setSelectedLedgerId(null);
+    setSiteSearchVal("");
+    setLedgerSearchVal("");
+  };
 
   const [directDate, setDirectDate] = useState("");
   const [directCustomer, setDirectCustomer] = useState("");
@@ -631,15 +739,134 @@ export default function ChallanPage() {
   useEffect(() => {
     if (showDirectChallanModal) {
       setTimeout(() => {
-        directDateInputRef.current?.focus();
-        directDateInputRef.current?.select();
+        modalSiteInputRef.current?.focus();
+        modalSiteInputRef.current?.select();
       }, 50);
     }
   }, [showDirectChallanModal]);
 
-  const openDirectChallanModal = () => {
+  const openDirectChallanModal = (mode: "DIRECT" | "COMPANY" = "DIRECT") => {
+    setChallanFormMode(mode);
     setDirectDate(getTodayDateStr());
-    setDirectCustomer("");
+    
+    let targetSiteId = selectedSiteId;
+    let targetSiteName = "";
+
+    // 1. Find recent site from all daybooks (where a company challan was created)
+    if (allDaybookData && allDaybookData.length > 0) {
+      const companyChallanEntries = allDaybookData
+        .filter((item: any) => item.description === "COMPANY_LEDGER_ENTRY")
+        .sort((a: any, b: any) => {
+          const timeA = new Date(a.date).getTime();
+          const timeB = new Date(b.date).getTime();
+          if (timeA !== timeB) return timeB - timeA;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+      if (companyChallanEntries.length > 0) {
+        targetSiteId = companyChallanEntries[0].siteId;
+      } else if (allDaybookData.length > 0) {
+        // fallback to any newest daybook entry site
+        targetSiteId = allDaybookData[0].siteId;
+      }
+    }
+
+    // Fallback if still not determined
+    if (!targetSiteId && sites && sites.length > 0) {
+      targetSiteId = sites[0].id;
+    }
+
+    if (targetSiteId && sites) {
+      const matchedSite = sites.find((s: any) => s.id === targetSiteId);
+      if (matchedSite) {
+        targetSiteName = matchedSite.name.toUpperCase();
+      }
+    }
+
+    setSelectedSiteId(targetSiteId);
+    setModalSiteSearchVal(targetSiteName);
+
+    let defaultCustomer = "";
+    let defaultAddress = "";
+    let defaultMobile = "";
+
+    if (mode === "COMPANY" && targetSiteId) {
+      // Find the most recently used company in the determined targetSiteId daybooks
+      if (allDaybookData && allDaybookData.length > 0) {
+        const siteCompanyEntries = allDaybookData
+          .filter((item: any) => item.siteId === targetSiteId && item.description === "COMPANY_LEDGER_ENTRY" && item.expenseType)
+          .sort((a: any, b: any) => {
+            const timeA = new Date(a.date).getTime();
+            const timeB = new Date(b.date).getTime();
+            if (timeA !== timeB) return timeB - timeA;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+
+        if (siteCompanyEntries.length > 0) {
+          const newestEntry = siteCompanyEntries[0];
+          const text = newestEntry.expenseType || "";
+          let name = "";
+          if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
+          else if (text.toUpperCase().startsWith("BY ")) name = text.substring(3).trim().toUpperCase();
+          
+          if (name) {
+            // Find in activeSiteCompanyLedgers list matching targetSiteId
+            const matchedLedger = activeSiteCompanyLedgers.find((l: any) => l.name.toUpperCase() === name);
+            if (matchedLedger) {
+              defaultCustomer = matchedLedger.name.toUpperCase();
+              const details = parsePartyDetails(matchedLedger.contactPerson);
+              if (details) {
+                defaultAddress = details.address || "";
+                defaultMobile = details.mobileNo || details.phoneNo || "";
+              } else {
+                defaultAddress = matchedLedger.contactPerson || "";
+                defaultMobile = matchedLedger.phone || "";
+              }
+            } else {
+              defaultCustomer = name;
+              const parsedMode = parsePaymentModeDetails(newestEntry.paymentMode || "");
+              if (parsedMode && parsedMode.isCompany) {
+                defaultAddress = parsedMode.address || "";
+                defaultMobile = parsedMode.mobile || "";
+              }
+            }
+          }
+        }
+      }
+      
+      if (!defaultCustomer && selectedLedgerId && selectedSiteId === targetSiteId) {
+        const matchedLedger = activeSiteCompanyLedgers.find((l: any) => String(l.id) === String(selectedLedgerId));
+        if (matchedLedger) {
+          defaultCustomer = matchedLedger.name.toUpperCase();
+          const details = parsePartyDetails(matchedLedger.contactPerson);
+          if (details) {
+            defaultAddress = details.address || "";
+            defaultMobile = details.mobileNo || details.phoneNo || "";
+          } else {
+            defaultAddress = matchedLedger.contactPerson || "";
+            defaultMobile = matchedLedger.phone || "";
+          }
+        }
+      }
+
+      if (!defaultCustomer && activeSiteCompanyLedgers.length > 0) {
+        const firstLedger = activeSiteCompanyLedgers[0];
+        defaultCustomer = firstLedger.name.toUpperCase();
+        const details = parsePartyDetails(firstLedger.contactPerson);
+        if (details) {
+          defaultAddress = details.address || "";
+          defaultMobile = details.mobileNo || details.phoneNo || "";
+        } else {
+          defaultAddress = firstLedger.contactPerson || "";
+          defaultMobile = firstLedger.phone || "";
+        }
+      }
+    }
+
+    setDirectCustomer(defaultCustomer);
+    setDirectAddress(defaultAddress);
+    setDirectMobile(defaultMobile);
+    
     setDirectItems([
       {
         id: "direct-item-1",
@@ -654,6 +881,113 @@ export default function ChallanPage() {
     ]);
     setShowDirectChallanModal(true);
   };
+
+  const createChallanMutation = useMutation({
+    mutationFn: async (payload: {
+      date: Date;
+      customerName: string;
+      address: string;
+      mobile: string;
+      items: {
+        material: string;
+        qty: number;
+        unit: string;
+        rate: number;
+        amount: number;
+      }[];
+    }) => {
+      if (!selectedSiteId) {
+        throw new Error("Please select a Construction Site first");
+      }
+
+      const cleanCustomerName = payload.customerName.trim().toUpperCase();
+
+      // 1. Find or create the company ledger account
+      const existingLedger = activeSiteCompanyLedgers.find(
+        (l) => l.name.toUpperCase() === cleanCustomerName
+      );
+
+      let ledgerId = "";
+      if (existingLedger && !existingLedger.isVirtual) {
+        ledgerId = existingLedger.id;
+      } else {
+        // Create the company ledger
+        const ledgerRes = await api.post("/ledgers", {
+          type: "Company",
+          name: cleanCustomerName,
+          contactPerson: JSON.stringify({
+            address: payload.address.trim().toUpperCase() || "N/A",
+            mobileNo: payload.mobile.trim() || "N/A",
+            customerExtra: "CUSTOMER",
+            measurementType: "OTHER",
+            plotUnit: payload.items[0]?.unit?.toUpperCase() || "CFT"
+          }),
+          phone: payload.mobile.trim() || "N/A",
+          openingBalance: 0,
+          siteId: selectedSiteId
+        });
+        
+        if (ledgerRes.data && ledgerRes.data.data) {
+          ledgerId = ledgerRes.data.data.id;
+        }
+      }
+
+      // 2. Generate new Challan Number for the date
+      const d = payload.date;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = String(d.getFullYear()).substring(2);
+      const dateStr = `${day}.${month}.${year}`;
+
+      const generatedChallanNo = getNextChallanNoForDate(dateStr, siteDaybookData || []);
+
+      // 3. Post daybook entry for each material item
+      const promises = payload.items.map(async (item) => {
+        const serializedPaymentMode = JSON.stringify({
+          type: "CompanyTransaction",
+          address: payload.address.trim().toUpperCase() || "N/A",
+          mobile: payload.mobile.trim() || "N/A",
+          material: item.material.trim().toUpperCase(),
+          qty: item.qty,
+          unit: item.unit.trim().toUpperCase() || "CFT",
+          crDr: "DR",
+          rate: item.rate
+        });
+
+        const daybookPayload = {
+          siteId: selectedSiteId,
+          date: payload.date.toISOString(),
+          expenseType: `By ${cleanCustomerName}`,
+          amount: item.amount,
+          paymentMode: serializedPaymentMode,
+          description: "COMPANY_LEDGER_ENTRY",
+          referenceNumber: generatedChallanNo,
+        };
+
+        return api.post("/daybooks", daybookPayload);
+      });
+
+      await Promise.all(promises);
+
+      return { ledgerId, cleanCustomerName };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["daybooks", selectedSiteId] });
+      queryClient.invalidateQueries({ queryKey: ["ledgers", selectedSiteId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+
+      toast.success("Company Ledger Challan saved and generated successfully!");
+      
+      setSelectedLedgerId(data.ledgerId);
+      setLedgerSearchVal(data.cleanCustomerName);
+      setDirectChallan(null);
+      setSelectedCompanyChallanNo(null);
+      setShowDirectChallanModal(false);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || err.response?.data?.message || "Failed to save Company Ledger Challan");
+    }
+  });
 
   const handleCreateDirectChallan = (e: React.FormEvent) => {
     e.preventDefault();
@@ -673,13 +1007,18 @@ export default function ChallanPage() {
       return;
     }
 
+    if (challanFormMode === "COMPANY" && !directCustomer.trim()) {
+      toast.error("Customer Name is required");
+      return;
+    }
+
     const validItems = directItems.filter(item => item.material.trim() !== "");
     if (validItems.length === 0) {
       toast.error("Please add at least one material");
       return;
     }
 
-    const items = validItems.map((item, idx) => {
+    const items = validItems.map((item) => {
       const qtyVal = parseFloat(item.qty) || 0;
       const rateVal = parseFloat(item.rate) || 0;
       let amtVal = parseFloat(item.amount) || 0;
@@ -688,35 +1027,183 @@ export default function ChallanPage() {
       }
 
       return {
-        id: `direct-item-${idx + 1}`,
-        date: parsedDate.toISOString(),
-        type: "BY" as const,
         material: item.material.trim().toUpperCase(),
         qty: qtyVal,
         unit: item.unit.trim().toUpperCase() || "CFT",
         rate: rateVal,
-        amount: amtVal,
-        particulars: "DIRECT SALE / CASH",
-        reference: "DIRECT_CHALLAN"
+        amount: amtVal
       };
     });
 
-    setDirectChallan({
-      customerName: directCustomer.trim().toUpperCase() || "DIRECT CLIENT",
-      date: parsedDate.toISOString(),
-      items: items
-    });
+    if (challanFormMode === "COMPANY") {
+      createChallanMutation.mutate({
+        date: parsedDate,
+        customerName: directCustomer,
+        address: directAddress,
+        mobile: directMobile,
+        items
+      });
+    } else {
+      const directItemsFormatted = items.map((item, idx) => ({
+        id: `direct-item-${idx + 1}`,
+        date: parsedDate.toISOString(),
+        type: "BY" as const,
+        material: item.material,
+        qty: item.qty,
+        unit: item.unit,
+        rate: item.rate,
+        amount: item.amount,
+        particulars: "DIRECT SALE / CASH",
+        reference: "DIRECT_CHALLAN"
+      }));
 
-    setShowDirectChallanModal(false);
-    toast.success("Direct Challan generated successfully for preview");
+      // Generate sequential challan number for direct mode as well
+      const d = parsedDate;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = String(d.getFullYear()).substring(2);
+      const dateStr = `${day}.${month}.${year}`;
+
+      const generatedChallanNo = getNextChallanNoForDate(dateStr, siteDaybookData || []);
+
+      const newDirectChallan = {
+        customerName: directCustomer.trim().toUpperCase() || "DIRECT CLIENT",
+        date: parsedDate.toISOString(),
+        challanNo: generatedChallanNo,
+        items: directItemsFormatted,
+        siteId: selectedSiteId || ""
+      };
+
+      setDirectChallan(newDirectChallan);
+
+      setLocalDirectChallans((prev) => {
+        const filtered = prev.filter((c) => c.challanNo !== generatedChallanNo);
+        const updated = [...filtered, newDirectChallan];
+        if (typeof window !== "undefined") {
+          localStorage.setItem("today_direct_challans", JSON.stringify(updated));
+        }
+        return updated;
+      });
+
+      setShowDirectChallanModal(false);
+      toast.success("Direct Challan generated successfully for preview");
+    }
   };
 
-  // Auto-focus site input on page mount
+  // Mount hooks or page layout effects
+
+  // Memoized list of today's challans (both Company and Direct)
+  const todayChallansList = useMemo(() => {
+    const todayStr = sidebarDate || getTodayDateStr();
+    const list: any[] = [];
+
+    // 1. Group today's Company Challans from allDaybookData
+    if (allDaybookData && allDaybookData.length > 0) {
+      const todayCompanyEntries = allDaybookData.filter((item: any) => {
+        if (item.description !== "COMPANY_LEDGER_ENTRY") return false;
+        return formatRenderDate(item.date) === todayStr;
+      });
+
+      const groups: { [ref: string]: any[] } = {};
+      todayCompanyEntries.forEach((item: any) => {
+        const ref = item.referenceNumber || "AUTO";
+        if (!groups[ref]) groups[ref] = [];
+        groups[ref].push(item);
+      });
+
+      Object.keys(groups).forEach((ref) => {
+        const entries = groups[ref];
+        if (entries.length === 0) return;
+
+        const firstEntry = entries[0];
+        const text = firstEntry.expenseType || "";
+        let customerName = "COMPANY CLIENT";
+        if (text.toUpperCase().startsWith("TO ")) {
+          customerName = text.substring(3).trim().toUpperCase();
+        } else if (text.toUpperCase().startsWith("BY ")) {
+          customerName = text.substring(3).trim().toUpperCase();
+        }
+
+        const items = entries.map((item: any) => {
+          const parsed = parsePaymentModeDetails(item.paymentMode || "");
+          const qty = parseFloat(parsed.qty) || 0;
+          const rate = parseFloat(parsed.rate) || 0;
+          const amount = qty > 0 && rate > 0 ? qty * rate : item.amount;
+          return {
+            id: item.id,
+            material: parsed.material || "UNKNOWN",
+            qty,
+            unit: parsed.unit || "CFT",
+            rate,
+            amount
+          };
+        }).filter(item => item.material && (item.qty > 0 || item.amount > 0));
+
+        const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+
+        list.push({
+          type: "COMPANY" as const,
+          challanNo: ref,
+          date: firstEntry.date,
+          customerName,
+          siteId: firstEntry.siteId,
+          items,
+          totalAmount,
+          createdAt: firstEntry.createdAt
+        });
+      });
+    }
+
+    // 2. Add today's local Direct Challans
+    const todayDirects = localDirectChallans.filter((c: any) => {
+      return formatRenderDate(c.date) === todayStr;
+    });
+
+    todayDirects.forEach((c: any) => {
+      const totalAmount = c.items.reduce((sum: number, item: any) => sum + item.amount, 0);
+      list.push({
+        type: "DIRECT" as const,
+        challanNo: c.challanNo,
+        date: c.date,
+        customerName: c.customerName,
+        siteId: c.siteId || "",
+        items: c.items.map((item: any) => ({
+          id: item.id,
+          material: item.material,
+          qty: item.qty,
+          unit: item.unit,
+          rate: item.rate,
+          amount: item.amount
+        })),
+        totalAmount,
+        createdAt: c.date
+      });
+    });
+
+    // Sort sequentially by the sequence number in referenceNumber/challanNo
+    const getSeqNum = (ref: string) => {
+      if (!ref) return 0;
+      const parts = ref.split("/");
+      if (parts.length === 2) {
+        const num = parseInt(parts[1], 10);
+        if (!isNaN(num)) return num;
+      }
+      return 0;
+    };
+
+    return list.sort((a, b) => {
+      const seqA = getSeqNum(a.challanNo);
+      const seqB = getSeqNum(b.challanNo);
+      return seqB - seqA;
+    });
+  }, [allDaybookData, localDirectChallans, sidebarDate]);
+
+  // Reset focus index when today's challans list changes
   useEffect(() => {
-    setTimeout(() => {
-      siteInputRef.current?.focus();
-    }, 100);
-  }, []);
+    setFocusedChallanIndex(0);
+  }, [todayChallansList]);
+
+
 
   // Close autocomplete dropdowns when clicking outside
   useEffect(() => {
@@ -726,6 +1213,12 @@ export default function ChallanPage() {
       }
       if (ledgerSelectorRef.current && !ledgerSelectorRef.current.contains(event.target as Node)) {
         setIsLedgerSuggestionsOpen(false);
+      }
+      if (modalCustomerSelectorRef.current && !modalCustomerSelectorRef.current.contains(event.target as Node)) {
+        setIsModalCustomerSuggestionsOpen(false);
+      }
+      if (modalSiteSelectorRef.current && !modalSiteSelectorRef.current.contains(event.target as Node)) {
+        setIsModalSiteSuggestionsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -808,6 +1301,201 @@ export default function ChallanPage() {
     });
   })();
 
+  // Autocomplete filter for modal sites suggestions list
+  const filteredModalSites = (() => {
+    if (!sites) return [];
+    const isSearching = modalSiteSearchVal.trim() !== "";
+    if (!isSearching) return sites;
+    return sites.filter((site: any) => matchesFuzzy(site.name, modalSiteSearchVal));
+  })();
+
+  const selectModalSite = (site: any) => {
+    setSelectedSiteId(site.id);
+    setModalSiteSearchVal(site.name.toUpperCase());
+    setIsModalSiteSuggestionsOpen(false);
+    setHighlightedModalSiteIndex(-1);
+    setSelectedCompanyChallanNo(null);
+
+    // Reset customer details when site is selected inside the modal
+    setDirectCustomer("");
+    setDirectAddress("");
+    setDirectMobile("");
+
+    setTimeout(() => {
+      directDateInputRef.current?.focus();
+      directDateInputRef.current?.select();
+    }, 100);
+  };
+
+  const handleModalSiteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isModalSiteSuggestionsOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setIsModalSiteSuggestionsOpen(true);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedModalSiteIndex((prev) => {
+        const next = prev + 1;
+        const index = next >= filteredModalSites.length ? filteredModalSites.length - 1 : next;
+        setTimeout(() => {
+          const el = document.getElementById(`modal-site-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
+        return index;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedModalSiteIndex((prev) => {
+        const next = prev - 1;
+        const index = next < 0 ? 0 : next;
+        setTimeout(() => {
+          const el = document.getElementById(`modal-site-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
+        return index;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      let idx = highlightedModalSiteIndex;
+      if (idx === -1 && filteredModalSites.length > 0) idx = 0;
+      if (idx >= 0 && idx < filteredModalSites.length) {
+        const site = filteredModalSites[idx];
+        selectModalSite(site);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setIsModalSiteSuggestionsOpen(false);
+      setHighlightedModalSiteIndex(-1);
+    }
+  };
+
+  // Autocomplete filter for modal customer suggestions list
+  const filteredModalCustomers = (() => {
+    if (challanFormMode !== "COMPANY") return [];
+    if (!directCustomer.trim()) return activeSiteCompanyLedgers;
+    return activeSiteCompanyLedgers.filter((ledger) =>
+      matchesFuzzy(ledger.name, directCustomer)
+    );
+  })();
+
+  const selectModalCustomer = (ledger: any) => {
+    setDirectCustomer(ledger.name.toUpperCase());
+    
+    const details = parsePartyDetails(ledger.contactPerson);
+    if (details) {
+      setDirectAddress(details.address || "");
+      setDirectMobile(details.mobileNo || details.phoneNo || "");
+    } else {
+      setDirectAddress(ledger.contactPerson || "");
+      setDirectMobile(ledger.phone || "");
+    }
+    
+    setIsModalCustomerSuggestionsOpen(false);
+    setHighlightedModalCustomerIndex(-1);
+
+    setTimeout(() => {
+      if (challanFormMode === "COMPANY") {
+        const addrEl = document.getElementById("modal-address-input") as HTMLInputElement | null;
+        if (addrEl) {
+          addrEl.focus();
+          addrEl.select();
+        }
+      } else {
+        const matEl = document.getElementById("direct-material-input-0") as HTMLInputElement | null;
+        if (matEl) {
+          matEl.focus();
+          matEl.select();
+        }
+      }
+    }, 100);
+  };
+
+  const handleModalCustomerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (challanFormMode !== "COMPANY") return;
+    
+    if (!isModalCustomerSuggestionsOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setIsModalCustomerSuggestionsOpen(true);
+        e.preventDefault();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (challanFormMode === "COMPANY") {
+          const addrEl = document.getElementById("modal-address-input") as HTMLInputElement | null;
+          if (addrEl) {
+            addrEl.focus();
+            addrEl.select();
+          }
+        } else {
+          const matEl = document.getElementById("direct-material-input-0") as HTMLInputElement | null;
+          if (matEl) {
+            matEl.focus();
+            matEl.select();
+          }
+        }
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedModalCustomerIndex((prev) => {
+        const next = prev + 1;
+        const index = next >= filteredModalCustomers.length ? filteredModalCustomers.length - 1 : next;
+        setTimeout(() => {
+          const el = document.getElementById(`modal-cust-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
+        return index;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedModalCustomerIndex((prev) => {
+        const next = prev - 1;
+        const index = next < 0 ? 0 : next;
+        setTimeout(() => {
+          const el = document.getElementById(`modal-cust-opt-${index}`);
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 10);
+        return index;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      let idx = highlightedModalCustomerIndex;
+      if (idx === -1 && filteredModalCustomers.length > 0) idx = 0;
+      if (idx >= 0 && idx < filteredModalCustomers.length) {
+        const ledger = filteredModalCustomers[idx];
+        selectModalCustomer(ledger);
+      } else {
+        // Custom name entered - proceed to next field!
+        setIsModalCustomerSuggestionsOpen(false);
+        setHighlightedModalCustomerIndex(-1);
+        setTimeout(() => {
+          if (challanFormMode === "COMPANY") {
+            const addrEl = document.getElementById("modal-address-input") as HTMLInputElement | null;
+            if (addrEl) {
+              addrEl.focus();
+              addrEl.select();
+            }
+          } else {
+            const matEl = document.getElementById("direct-material-input-0") as HTMLInputElement | null;
+            if (matEl) {
+              matEl.focus();
+              matEl.select();
+            }
+          }
+        }, 100);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setIsModalCustomerSuggestionsOpen(false);
+      setHighlightedModalCustomerIndex(-1);
+    }
+  };
+
   // Keydown handlers for Autocomplete controls
   const handleSiteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isSiteSuggestionsOpen) {
@@ -847,6 +1535,7 @@ export default function ChallanPage() {
         // Reset account selection when site changes
         setSelectedLedgerId(null);
         setLedgerSearchVal("");
+        setSelectedCompanyChallanNo(null);
 
         setTimeout(() => {
           ledgerInputRef.current?.focus();
@@ -901,6 +1590,7 @@ export default function ChallanPage() {
         setLedgerSearchVal(ledger.name.toUpperCase());
         setIsLedgerSuggestionsOpen(false);
         setHighlightedLedgerIndex(-1);
+        setSelectedCompanyChallanNo(null);
         ledgerInputRef.current?.blur();
       }
     } else if (e.key === "Escape") {
@@ -921,7 +1611,7 @@ export default function ChallanPage() {
         totalQty,
         totalAmount,
         outstandingBalance: 0,
-        challanNo: "DIRECT"
+        challanNo: directChallan.challanNo
       };
     }
 
@@ -954,19 +1644,23 @@ export default function ChallanPage() {
       groups[chNo].push(item);
     });
 
-    // Find the latest group by max createdAt timestamp
-    let latestChallanNo = "";
-    let maxCreatedAt = 0;
+    // Find the latest group by max createdAt timestamp or select selectedCompanyChallanNo if set
+    let latestChallanNo = selectedCompanyChallanNo && groups[selectedCompanyChallanNo] 
+      ? selectedCompanyChallanNo 
+      : "";
 
-    Object.keys(groups).forEach((chNo) => {
-      groups[chNo].forEach((item) => {
-        const time = new Date(item.createdAt).getTime();
-        if (time > maxCreatedAt) {
-          maxCreatedAt = time;
-          latestChallanNo = chNo;
-        }
+    if (!latestChallanNo) {
+      let maxCreatedAt = 0;
+      Object.keys(groups).forEach((chNo) => {
+        groups[chNo].forEach((item) => {
+          const time = new Date(item.createdAt).getTime();
+          if (time > maxCreatedAt) {
+            maxCreatedAt = time;
+            latestChallanNo = chNo;
+          }
+        });
       });
-    });
+    }
 
     // If no groups found, return empty
     if (!latestChallanNo) {
@@ -1060,7 +1754,7 @@ export default function ChallanPage() {
   const selectedSiteObj = sites?.find((s: any) => s.id === selectedSiteId);
 
   // Generate stable deterministic Challan Serial Number based on latest challan batch No
-  const challanSerial = directChallan ? "DIRECT" : (challanData.challanNo || "1001");
+  const challanSerial = directChallan ? directChallan.challanNo : (challanData.challanNo || "1001");
 
   const challanDateStr = challanData.items.length > 0
     ? formatRenderDate(challanData.items[0].date)
@@ -1161,6 +1855,39 @@ export default function ChallanPage() {
       return;
     }
 
+    if (directChallan) {
+      setDirectChallan((prev) => {
+        if (!prev) return null;
+        const updatedItems = prev.items.map((item) => {
+          if (item.id === id) {
+            return {
+              ...item,
+              material: material.trim().toUpperCase(),
+              qty: qty,
+              unit: unit.trim().toUpperCase(),
+              rate: rate,
+              amount: qty * rate
+            };
+          }
+          return item;
+        });
+        const updatedChallan = {
+          ...prev,
+          items: updatedItems
+        };
+        setLocalDirectChallans((prevList) => {
+          const updated = prevList.map(c => c.challanNo === prev.challanNo ? updatedChallan : c);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("today_direct_challans", JSON.stringify(updated));
+          }
+          return updated;
+        });
+        return updatedChallan;
+      });
+      toast.success("Direct challan item updated successfully");
+      return;
+    }
+
     let originalParsedDetails: any = {};
     if (rawItem.paymentMode && rawItem.paymentMode.trim().startsWith("{") && rawItem.paymentMode.trim().endsWith("}")) {
       try {
@@ -1193,6 +1920,36 @@ export default function ChallanPage() {
 
   const handleDeleteRow = (id: string) => {
     if (window.confirm("Are you sure you want to delete this item from the challan?")) {
+      if (directChallan) {
+        setDirectChallan((prev) => {
+          if (!prev) return null;
+          const remainingItems = prev.items.filter((item) => item.id !== id);
+          if (remainingItems.length === 0) {
+            setLocalDirectChallans((prevList) => {
+              const updated = prevList.filter(c => c.challanNo !== prev.challanNo);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("today_direct_challans", JSON.stringify(updated));
+              }
+              return updated;
+            });
+            return null; // close preview panel if no items left
+          }
+          const updatedChallan = {
+            ...prev,
+            items: remainingItems
+          };
+          setLocalDirectChallans((prevList) => {
+            const updated = prevList.map(c => c.challanNo === prev.challanNo ? updatedChallan : c);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("today_direct_challans", JSON.stringify(updated));
+            }
+            return updated;
+          });
+          return updatedChallan;
+        });
+        toast.success("Direct challan item deleted successfully");
+        return;
+      }
       deleteMutation.mutate(id);
     }
   };
@@ -1220,9 +1977,26 @@ export default function ChallanPage() {
   // Connect hotkeys (1: Print Without Rate, 2: Print With Rate, F3: Excel)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInputFocused = activeEl && (
+        activeEl.tagName === "INPUT" || 
+        activeEl.tagName === "TEXTAREA" || 
+        activeEl.hasAttribute("contenteditable")
+      );
+
+      // 0. If modal is open and F1 is pressed, trigger the submit button
+      if (showDirectChallanModal && e.key === "F1") {
+        e.preventDefault();
+        e.stopPropagation();
+        const submitBtn = document.getElementById("modal-submit-btn") as HTMLButtonElement | null;
+        if (submitBtn) {
+          submitBtn.click();
+        }
+        return;
+      }
+
       // 1. If modal is open and Escape is pressed, check if any suggestions dropdown is open
       if (showDirectChallanModal && e.key === "Escape") {
-        const activeEl = document.activeElement;
         if (activeEl && (
           activeEl.id.startsWith("direct-qty-input-") ||
           activeEl.id.startsWith("direct-unit-input-") ||
@@ -1240,20 +2014,19 @@ export default function ChallanPage() {
         return;
       }
 
-      // 2. If modal is closed and 'd' or 'D' is pressed, open the modal immediately and prevent typing in inputs
-      if (!showDirectChallanModal && (e.key === "d" || e.key === "D")) {
+      // 2. If modal is closed and 'd' or 'D' is pressed, open the modal immediately in DIRECT mode
+      if (!showDirectChallanModal && (e.key === "d" || e.key === "D") && !isInputFocused) {
         e.preventDefault();
-        openDirectChallanModal();
+        openDirectChallanModal("DIRECT");
         return;
       }
 
-      // Avoid triggering print shortcuts if typing in search input fields
-      const activeEl = document.activeElement;
-      const isInputFocused = activeEl && (
-        activeEl.tagName === "INPUT" || 
-        activeEl.tagName === "TEXTAREA" || 
-        activeEl.hasAttribute("contenteditable")
-      );
+      // 3. If modal is closed and 'c' or 'C' is pressed, open the modal in COMPANY mode
+      if (!showDirectChallanModal && (e.key === "c" || e.key === "C") && !isInputFocused) {
+        e.preventDefault();
+        openDirectChallanModal("COMPANY");
+        return;
+      }
 
       // If modal is open and 'n' or 'N' is pressed when no input is focused, add a new row!
       if (showDirectChallanModal && (e.key === "n" || e.key === "N") && !isInputFocused) {
@@ -1263,6 +2036,44 @@ export default function ChallanPage() {
       }
 
       if (isInputFocused) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedChallanIndex((prev) => {
+          const next = prev + 1;
+          if (next < todayChallansList.length) {
+            setTimeout(() => {
+              const el = document.getElementById(`sidebar-challan-row-${next}`);
+              if (el) el.scrollIntoView({ block: "nearest" });
+            }, 10);
+            return next;
+          }
+          return prev;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedChallanIndex((prev) => {
+          const next = prev - 1;
+          if (next >= 0) {
+            setTimeout(() => {
+              const el = document.getElementById(`sidebar-challan-row-${next}`);
+              if (el) el.scrollIntoView({ block: "nearest" });
+            }, 10);
+            return next;
+          }
+          return prev;
+        });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (todayChallansList.length > 0 && focusedChallanIndex >= 0 && focusedChallanIndex < todayChallansList.length) {
+          const targetCh = todayChallansList[focusedChallanIndex];
+          if (targetCh.type === "DIRECT") {
+            loadDirectChallan(targetCh);
+          } else {
+            loadCompanyChallan(targetCh.siteId, targetCh.customerName, targetCh.challanNo);
+          }
+        }
+      }
 
       if (e.key === "1") {
         e.preventDefault();
@@ -1277,24 +2088,36 @@ export default function ChallanPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId, showDirectChallanModal, handleAddDirectItem]);
+  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId, showDirectChallanModal, handleAddDirectItem, directItems, todayChallansList, directChallan, focusedChallanIndex]);
 
   return (
     <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
-      {/* Search Filter Widgets Bar */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column (Selectors, Preview and Editor Panels) */}
+        <div className="lg:col-span-9 space-y-4">
+          {/* Search Filter Widgets Bar */}
       <div className="bg-[#E5ECF4] border-2 border-slate-800 p-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-4 print:hidden select-none">
         <div className="flex items-center justify-between border-b-2 border-slate-350 pb-2 mb-2">
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-slate-700" />
             <span className="font-bold text-xs uppercase text-slate-700">CHALLAN SELECTOR SYSTEM</span>
           </div>
-          <button
-            type="button"
-            onClick={openDirectChallanModal}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
-          >
-            Direct Challan / डायरेक्ट चालान (D)
-          </button>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={() => openDirectChallanModal("DIRECT")}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
+            >
+              Direct Challan / डायरेक्ट चालान (D)
+            </button>
+            <button
+              type="button"
+              onClick={() => openDirectChallanModal("COMPANY")}
+              className="px-3 py-1.5 bg-[#2B547E] hover:bg-[#1E3E64] text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
+            >
+              Company Ledger Challan / कंपनी लेजर चालान (C)
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1322,6 +2145,7 @@ export default function ChallanPage() {
                   if (directChallan) {
                     setDirectChallan(null);
                   }
+                  setSelectedCompanyChallanNo(null);
                 }}
                 onFocus={() => {
                   setIsSiteFocused(true);
@@ -1361,6 +2185,7 @@ export default function ChallanPage() {
                         if (directChallan) {
                           setDirectChallan(null);
                         }
+                        setSelectedCompanyChallanNo(null);
 
                         setTimeout(() => {
                           ledgerInputRef.current?.focus();
@@ -1408,6 +2233,7 @@ export default function ChallanPage() {
                   if (directChallan) {
                     setDirectChallan(null);
                   }
+                  setSelectedCompanyChallanNo(null);
                 }}
                 onFocus={(e) => {
                   setIsLedgerFocused(true);
@@ -1452,6 +2278,7 @@ export default function ChallanPage() {
                         if (directChallan) {
                           setDirectChallan(null);
                         }
+                        setSelectedCompanyChallanNo(null);
                       }}
                       className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
                         ? "bg-amber-400 text-slate-955 font-black"
@@ -1473,7 +2300,10 @@ export default function ChallanPage() {
       {/* Main Delivery Challan View Panel */}
       {(selectedSiteId && selectedLedgerId) || directChallan ? (
         <>
-          <div className="print-container bg-white border-2 border-slate-850 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden print:border-2 print:border-black print:shadow-none animate-in fade-in zoom-in-95 duration-200">
+          <div 
+            className="print-container bg-white border-2 border-slate-850 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden print:border-2 print:border-black print:shadow-none animate-in fade-in zoom-in-95 duration-200"
+            style={{ zoom: 0.8 }}
+          >
 
           {/* Windows retro window frame title bar */}
           <div className="flex items-center justify-between bg-slate-900 text-white px-3 py-1.5 font-mono text-xs font-black shadow-inner select-none no-print">
@@ -1517,6 +2347,7 @@ export default function ChallanPage() {
                   background: white !important;
                   display: block !important;
                   z-index: 99999999 !important;
+                  zoom: 1 !important;
                 }
                 
                 /* Large typography for A5 half-page readability */
@@ -1537,8 +2368,8 @@ export default function ChallanPage() {
           }} />
 
           {/* Inner content wrapper */}
-          <div className="p-8 bg-white print:p-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 print:block print:space-y-0">
+          <div className="p-4 bg-white print:p-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:block print:space-y-0">
 
               {/* COPY 1: WITHOUT RATE & AMOUNT */}
               <div className={`space-y-4 ${printCopy === "copy2" ? "print:hidden" : ""}`}>
@@ -1715,7 +2546,7 @@ export default function ChallanPage() {
         </div>
 
         {/* EDIT CHALLAN SECTION (BOTTOM OF PAGE) */}
-        {!directChallan && challanData.items.length > 0 && (
+        {challanData.items.length > 0 && (
           <div className="bg-[#E5ECF4] border-2 border-slate-800 p-6 rounded shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-4 print:hidden select-none mt-6">
             <div className="flex items-center gap-2 border-b-2 border-slate-350 pb-2 mb-2 bg-[#2B547E] text-white p-3 rounded">
               <Printer className="h-4 w-4" />
@@ -1753,18 +2584,102 @@ export default function ChallanPage() {
           <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed max-w-sm mx-auto">Please select a Site and Supplier to proceed.</p>
         </div>
       )}
+        </div>
+
+        {/* Right Column: Today's Challans Sidebar Table */}
+        <div className="bg-[#E5ECF4] border-2 border-slate-800 p-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-3 print:hidden select-none lg:col-span-3 rounded">
+          <div className="flex items-center justify-between border-b-2 border-slate-350 pb-2 mb-2 bg-[#2B547E] text-white p-2 px-2.5 rounded">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              <span className="font-bold text-xs uppercase tracking-wider">CHALLANS ({todayChallansList.length})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-black text-slate-200">DATE:</span>
+              <input
+                type="text"
+                value={sidebarDate}
+                onChange={(e) => setSidebarDate(e.target.value)}
+                placeholder="DD.MM.YY"
+                className="bg-white text-slate-900 border border-slate-900 text-[10px] font-mono font-bold px-1.5 py-0.5 w-20 rounded text-center focus:outline-none focus:ring-1 focus:ring-amber-400 uppercase"
+              />
+            </div>
+          </div>
+
+          {todayChallansList.length > 0 ? (
+            <div className="overflow-x-auto border-2 border-slate-800 bg-white max-h-[600px] overflow-y-auto">
+              <table className="w-full text-left border-collapse text-xs font-mono">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[10px]">
+                    <th className="py-1.5 px-2 border-r border-slate-800 text-center w-24">No.</th>
+                    <th className="py-1.5 px-2 text-left">Party Name</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-300 font-bold text-[11px]">
+                  {todayChallansList.map((ch, idx) => {
+                    const isSelected = directChallan 
+                      ? (ch.type === "DIRECT" && ch.challanNo === directChallan.challanNo)
+                      : (ch.type === "COMPANY" && ch.challanNo === challanData.challanNo && ch.siteId === selectedSiteId);
+
+                    const isFocused = idx === focusedChallanIndex;
+
+                    return (
+                      <tr 
+                        key={`${ch.type}-${ch.challanNo}`} 
+                        id={`sidebar-challan-row-${idx}`}
+                        onClick={() => {
+                          setFocusedChallanIndex(idx);
+                          if (ch.type === "DIRECT") {
+                            loadDirectChallan(ch);
+                          } else {
+                            loadCompanyChallan(ch.siteId, ch.customerName, ch.challanNo);
+                          }
+                        }}
+                        className={`cursor-pointer uppercase border-b border-slate-200 last:border-0 hover:bg-[#ECC30B]/20 transition-colors ${
+                          isFocused 
+                            ? "bg-[#ECC30B] hover:bg-[#ECC30B] text-slate-955 border-l-4 border-l-slate-955 font-black font-mono" 
+                            : isSelected
+                              ? "bg-slate-100/80 text-slate-900 border-l-4 border-l-slate-400 font-bold"
+                              : "text-slate-800"
+                        }`}
+                      >
+                        <td className="py-1.5 px-2 border-r border-slate-300 text-center text-slate-950 font-black font-mono text-[10px] tracking-tighter">
+                          {ch.challanNo}
+                        </td>
+                        <td className="py-1.5 px-2 font-black text-slate-950 flex items-center justify-between min-w-0" title={ch.customerName}>
+                          <span className="truncate">{ch.customerName}</span>
+                          {ch.type === "DIRECT" && (
+                            <span className="text-[8px] bg-emerald-600 text-white px-1 py-0.5 rounded font-extrabold ml-1.5 shrink-0">
+                              DIRECT
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="border border-dashed border-slate-400 p-8 text-center text-slate-500 text-xs font-bold uppercase rounded bg-white">
+              No Challans Found for Date
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Direct Challan Modal */}
       {showDirectChallanModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-200">
           <div className="bg-[#D3DFEE] border-2 border-slate-955 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[840px] max-w-[95vw] font-mono flex flex-col select-none">
             {/* Title Bar */}
-            <div className="bg-emerald-700 border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0">
-              <span className="text-xs font-black uppercase tracking-wider">Create Direct Challan / डायरेक्ट चालान बनाएँ</span>
+            <div className={`border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0 ${challanFormMode === "COMPANY" ? "bg-[#2B547E]" : "bg-emerald-700"}`}>
+              <span className="text-xs font-black uppercase tracking-wider">
+                {challanFormMode === "COMPANY" ? "Create Company Ledger Challan / कंपनी लेजर चालान बनाएँ" : "Create Direct Challan / डायरेक्ट चालान बनाएँ"}
+              </span>
               <button
                 type="button"
                 onClick={() => setShowDirectChallanModal(false)}
-                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2 py-0.5 rounded border border-slate-950 active:translate-y-0.5"
+                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2 py-0.5 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer"
               >
                 X
               </button>
@@ -1774,34 +2689,221 @@ export default function ChallanPage() {
             <form onSubmit={handleCreateDirectChallan} className="p-6 bg-[#E5ECF4] space-y-4 text-slate-955">
               <div className="space-y-4">
                 
-                {/* Date and Customer Row */}
+                {/* Site and Date Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Select Construction Site */}
+                  <div className="relative" ref={modalSiteSelectorRef}>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Select Construction Site / साइट का नाम:</label>
+                    <input
+                      ref={modalSiteInputRef}
+                      type="text"
+                      required
+                      value={modalSiteSearchVal}
+                      onChange={(e) => {
+                        setModalSiteSearchVal(e.target.value);
+                        setIsModalSiteSuggestionsOpen(true);
+                        setHighlightedModalSiteIndex(-1);
+                        if (selectedSiteId) {
+                          setSelectedSiteId(null);
+                        }
+                      }}
+                      onFocus={() => {
+                        setIsModalSiteSuggestionsOpen(true);
+                        setHighlightedModalSiteIndex(-1);
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setIsModalSiteSuggestionsOpen(false), 200);
+                      }}
+                      onKeyDown={handleModalSiteKeyDown}
+                      placeholder="TYPE SITE NAME OR ARROW DOWN..."
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                    />
+                    
+                    {/* Modal Site Autocomplete dropdown */}
+                    {isModalSiteSuggestionsOpen && filteredModalSites.length > 0 && (
+                      <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[99999] max-h-48 overflow-y-auto">
+                        {filteredModalSites.map((site: any, idx: number) => {
+                          const isHighlighted = idx === highlightedModalSiteIndex;
+                          const isSelected = site.id === selectedSiteId;
+                          return (
+                            <button
+                              key={site.id}
+                              id={`modal-site-opt-${idx}`}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectModalSite(site);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
+                                ? "bg-amber-400 text-slate-955 font-black"
+                                : isSelected
+                                  ? "bg-amber-100 text-amber-900"
+                                  : "hover:bg-slate-100 text-slate-700"
+                                }`}
+                            >
+                              {site.name.toUpperCase()}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Date Input */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Date / दिनांक (DD.MM.YY):</label>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Date / दिनांक (DD.MM.YY):</label>
                     <input
                       ref={directDateInputRef}
                       type="text"
                       required
                       value={directDate}
                       onChange={(e) => setDirectDate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          modalCustomerInputRef.current?.focus();
+                          modalCustomerInputRef.current?.select();
+                        }
+                      }}
                       placeholder="DD.MM.YY"
-                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
-                    />
-                  </div>
-
-                  {/* Customer Name */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Customer Name / ग्राहक का नाम:</label>
-                    <input
-                      type="text"
-                      value={directCustomer}
-                      onChange={(e) => setDirectCustomer(e.target.value.toUpperCase())}
-                      placeholder="ENTER CUSTOMER NAME (OPTIONAL)"
-                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                     />
                   </div>
                 </div>
+
+                {/* Customer Name Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Customer Name */}
+                  <div className="relative" ref={modalCustomerSelectorRef}>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Customer Name / ग्राहक का नाम:</label>
+                    <input
+                      ref={modalCustomerInputRef}
+                      type="text"
+                      required={challanFormMode === "COMPANY"}
+                      value={directCustomer}
+                      disabled={!selectedSiteId}
+                      onChange={(e) => {
+                        setDirectCustomer(e.target.value.toUpperCase());
+                        setIsModalCustomerSuggestionsOpen(true);
+                        setHighlightedModalCustomerIndex(-1);
+                      }}
+                      onFocus={() => {
+                        if (challanFormMode === "COMPANY" && selectedSiteId) {
+                          setIsModalCustomerSuggestionsOpen(true);
+                          setHighlightedModalCustomerIndex(-1);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setIsModalCustomerSuggestionsOpen(false), 200);
+                      }}
+                      onKeyDown={handleModalCustomerKeyDown}
+                      placeholder={
+                        !selectedSiteId
+                          ? "SELECT SITE FIRST..."
+                          : challanFormMode === "COMPANY"
+                            ? "ENTER CUSTOMER / SUPPLIER NAME"
+                            : "ENTER CUSTOMER NAME (OPTIONAL)"
+                      }
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                    />
+                    
+                    {/* Modal Customer Autocomplete dropdown */}
+                    {isModalCustomerSuggestionsOpen && filteredModalCustomers.length > 0 && (
+                      <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[99999] max-h-48 overflow-y-auto">
+                        {filteredModalCustomers.map((ledger: any, idx: number) => {
+                          const isHighlighted = idx === highlightedModalCustomerIndex;
+                          const isSelected = ledger.name.toUpperCase() === directCustomer.toUpperCase();
+                          return (
+                            <button
+                              key={ledger.id}
+                              id={`modal-cust-opt-${idx}`}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectModalCustomer(ledger);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
+                                ? "bg-amber-400 text-slate-955 font-black"
+                                : isSelected
+                                  ? "bg-amber-100 text-amber-900"
+                                  : "hover:bg-slate-100 text-slate-700"
+                                }`}
+                            >
+                              <span className="truncate block py-0.5">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Address if COMPANY mode */}
+                  {challanFormMode === "COMPANY" ? (
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Address / पता (Optional):</label>
+                      <input
+                        id="modal-address-input"
+                        type="text"
+                        disabled={!selectedSiteId}
+                        value={directAddress}
+                        onChange={(e) => setDirectAddress(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const mobEl = document.getElementById("modal-mobile-input") as HTMLInputElement | null;
+                            if (mobEl) {
+                              mobEl.focus();
+                              mobEl.select();
+                            }
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            modalCustomerInputRef.current?.focus();
+                            modalCustomerInputRef.current?.select();
+                          }
+                        }}
+                        placeholder="ENTER ADDRESS"
+                        className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-[#2B547E] disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  ) : (
+                    <div /> // placeholder to keep grid aligned
+                  )}
+                </div>
+
+                {/* Additional Row for Mobile if COMPANY mode */}
+                {challanFormMode === "COMPANY" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Mobile No / मोबाइल नंबर (Optional):</label>
+                      <input
+                        id="modal-mobile-input"
+                        type="text"
+                        disabled={!selectedSiteId}
+                        value={directMobile}
+                        onChange={(e) => setDirectMobile(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const matEl = document.getElementById("direct-material-input-0") as HTMLInputElement | null;
+                            if (matEl) {
+                              matEl.focus();
+                              matEl.select();
+                            }
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            const addrEl = document.getElementById("modal-address-input") as HTMLInputElement | null;
+                            if (addrEl) {
+                              addrEl.focus();
+                              addrEl.select();
+                            }
+                          }
+                        }}
+                        placeholder="ENTER MOBILE NO."
+                        className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-[#2B547E] disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Items Section Title */}
                 <div className="border-b-2 border-slate-355 border-slate-400 pb-1 flex justify-between items-center">
@@ -1858,10 +2960,10 @@ export default function ChallanPage() {
                             }}
                             onKeyDown={(e) => handleMaterialKeyDown(idx, e, suggestions)}
                             placeholder="Type Material..."
-                            className="w-full bg-white border border-slate-950 rounded px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-emerald-600 uppercase"
+                            className={`w-full bg-white border border-slate-955 rounded px-2.5 py-1 text-xs font-bold focus:outline-none uppercase ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                           />
                           {item.isMaterialSuggestionsOpen && suggestions.length > 0 && (
-                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-950 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto">
+                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-955 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto">
                               {suggestions.map((mat: any, sIdx: number) => {
                                 const isHighlighted = sIdx === item.highlightedMaterialIndex;
                                 return (
@@ -1917,7 +3019,7 @@ export default function ChallanPage() {
                               }
                             }}
                             placeholder="Qty"
-                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
+                            className={`w-full bg-white border border-slate-955 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                           />
                         </div>
 
@@ -1941,7 +3043,7 @@ export default function ChallanPage() {
                               }
                             }}
                             placeholder="Unit"
-                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-emerald-600 uppercase"
+                            className={`w-full bg-white border border-slate-955 rounded px-2 py-1 text-xs font-bold text-center focus:outline-none uppercase ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                           />
                         </div>
 
@@ -1954,7 +3056,19 @@ export default function ChallanPage() {
                             value={item.rate}
                             onChange={(e) => updateDirectItem(idx, { rate: e.target.value })}
                             onKeyDown={(e) => {
-                              if (e.key === "Escape") {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const isLastRow = idx === directItems.length - 1;
+                                if (isLastRow) {
+                                  handleAddDirectItem();
+                                } else {
+                                  const nextMatInput = document.getElementById(`direct-material-input-${idx + 1}`);
+                                  if (nextMatInput) {
+                                    nextMatInput.focus();
+                                    (nextMatInput as HTMLInputElement).select();
+                                  }
+                                }
+                              } else if (e.key === "Escape") {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 const el = document.getElementById(`direct-unit-input-${idx}`);
@@ -1962,7 +3076,7 @@ export default function ChallanPage() {
                               }
                             }}
                             placeholder="Rate"
-                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
+                            className={`w-full bg-white border border-slate-955 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                           />
                         </div>
 
@@ -1990,10 +3104,12 @@ export default function ChallanPage() {
               {/* Action Buttons */}
               <div className="bg-white border-t border-slate-300 -mx-6 -mb-6 p-4 mt-4">
                 <button
+                  id="modal-submit-btn"
                   type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-950 cursor-pointer uppercase tracking-wider text-center"
+                  disabled={createChallanMutation.isPending}
+                  className={`w-full text-white font-extrabold text-[10px] py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-955 cursor-pointer uppercase tracking-wider text-center ${challanFormMode === "COMPANY" ? "bg-[#2B547E] hover:bg-[#1E3E64]" : "bg-emerald-600 hover:bg-emerald-700"}`}
                 >
-                  Generate Challan / चालान बनाएं
+                  {createChallanMutation.isPending ? "Generating & Saving..." : (challanFormMode === "COMPANY" ? "Generate & Save Company Challan / चालान बनाएं [F1]" : "Generate Challan / चालान बनाएं [F1]")}
                 </button>
               </div>
             </form>

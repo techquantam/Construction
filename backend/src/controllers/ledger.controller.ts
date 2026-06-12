@@ -165,17 +165,30 @@ export const deleteLedger = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     
     // Find the ledger record first to get its name
-    const ledger = await prisma.ledger.findUnique({ where: { id } });
-    if (!ledger) {
-      return res.status(404).json({ success: false, message: 'Ledger not found' });
+    let ledger = null;
+    if (id && id.length === 36) {
+      try {
+        ledger = await prisma.ledger.findUnique({ where: { id } });
+      } catch (e) {
+        // ID was not a valid UUID format
+      }
     }
 
-    const name = ledger.name;
+    if (!ledger) {
+      // Maybe the id is actually the name (for virtual accounts)
+      ledger = await prisma.ledger.findFirst({
+        where: { name: { equals: id, mode: 'insensitive' } }
+      });
+    }
+
+    const name = ledger ? ledger.name : id;
 
     await prisma.$transaction(async (tx) => {
-      await tx.ledgerTransaction.deleteMany({
-        where: { ledgerId: id }
-      });
+      if (ledger) {
+        await tx.ledgerTransaction.deleteMany({
+          where: { ledgerId: ledger.id }
+        });
+      }
 
       // Delete all DayBook entries matching this ledger's name
       await tx.dayBook.deleteMany({
@@ -187,9 +200,11 @@ export const deleteLedger = async (req: Request, res: Response) => {
         }
       });
 
-      await tx.ledger.delete({
-        where: { id }
-      });
+      if (ledger) {
+        await tx.ledger.delete({
+          where: { id: ledger.id }
+        });
+      }
     });
 
     res.json({ success: true, message: 'Ledger and all its transactions and DayBook entries deleted successfully' });
@@ -203,12 +218,22 @@ export const deleteLedgerData = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { siteId } = req.query;
 
-    const ledger = await prisma.ledger.findUnique({ where: { id } });
-    if (!ledger) {
-      return res.status(404).json({ success: false, message: 'Ledger not found' });
+    let ledger = null;
+    if (id && id.length === 36) {
+      try {
+        ledger = await prisma.ledger.findUnique({ where: { id } });
+      } catch (e) {
+        // ID was not a valid UUID format
+      }
     }
 
-    const name = ledger.name;
+    if (!ledger) {
+      ledger = await prisma.ledger.findFirst({
+        where: { name: { equals: id, mode: 'insensitive' } }
+      });
+    }
+
+    const name = ledger ? ledger.name : id;
 
     await prisma.$transaction(async (tx) => {
       let dayBookWhereClause: any = {
@@ -225,12 +250,12 @@ export const deleteLedgerData = async (req: Request, res: Response) => {
         where: dayBookWhereClause
       });
 
-      if (!siteId) {
+      if (!siteId && ledger) {
         await tx.ledgerTransaction.deleteMany({
-          where: { ledgerId: id }
+          where: { ledgerId: ledger.id }
         });
         await tx.ledger.update({
-          where: { id },
+          where: { id: ledger.id },
           data: { outstandingBalance: 0 }
         });
       }

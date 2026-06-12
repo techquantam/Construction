@@ -151,7 +151,7 @@ function LedgerContent() {
   
   const action = searchParams.get("action") || "entry";
 
-  const [ledgerTypeTab, setLedgerTypeTab] = useState<"PLOT" | "COMPANY" | null>(null);
+  const [ledgerTypeTab, setLedgerTypeTab] = useState<"PLOT" | "COMPANY" | null>("COMPANY");
 
   // States for Autocomplete Dropdowns
   const [siteSearchVal, setSiteSearchVal] = useState("");
@@ -173,6 +173,7 @@ function LedgerContent() {
   useEffect(() => {
     if (selectedSiteId && selectedSiteId !== "all" && selectedLedgerId) {
       setIsSidebarOpen(false);
+      setIsAccountSuggestionsOpen(false);
     }
   }, [selectedSiteId, selectedLedgerId]);
 
@@ -203,25 +204,7 @@ function LedgerContent() {
     }, 150);
   }, [action, ledgerTypeTab]);
 
-  useEffect(() => {
-    if (action !== "entry" || ledgerTypeTab !== null) return;
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key;
-      if (key === "1") {
-        e.preventDefault();
-        setLedgerTypeTab("PLOT");
-      } else if (key === "2") {
-        e.preventDefault();
-        setLedgerTypeTab("COMPANY");
-      }
-    };
-    
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [action, ledgerTypeTab]);
+
 
 
   
@@ -658,6 +641,11 @@ function LedgerContent() {
     const usedNames = new Set<string>();
     if (siteDaybooks && siteDaybooks.length > 0) {
       siteDaybooks.forEach((item: any) => {
+        const isCompanyEntry = item.description === "COMPANY_LEDGER_ENTRY";
+        const matchesTab = ledgerTypeTab === null || (ledgerTypeTab === "COMPANY" ? isCompanyEntry : !isCompanyEntry);
+        if (!matchesTab) {
+          return;
+        }
         const typeText = item.expenseType || "";
         let name = "";
         if (typeText.toUpperCase().startsWith("TO ")) {
@@ -772,9 +760,6 @@ function LedgerContent() {
         }
       }
     } else {
-      if (action !== "entry") {
-        setLedgerTypeTab(null);
-      }
       // Only clear if the input is not currently focused (meaning the user isn't typing)
       if (document.activeElement !== accountInputRef.current) {
         setAccountSearchVal("");
@@ -843,30 +828,9 @@ function LedgerContent() {
     };
   }, []);
 
-  // Keep track of the previous open state of account suggestions
-  const wasAccountSuggestionsOpenRef = useRef(false);
+  const hasScrolledRef = useRef(false);
 
-  // Auto-scroll and highlight selected account when dropdown is opened
-  useEffect(() => {
-    const isOpened = isAccountSuggestionsOpen && !wasAccountSuggestionsOpenRef.current;
-    wasAccountSuggestionsOpenRef.current = isAccountSuggestionsOpen;
 
-    if (isOpened && selectedLedgerId) {
-      const selectedIndex = filteredAccountSuggestions.findIndex(
-        (l: any) => l.id === selectedLedgerId
-      );
-      if (selectedIndex >= 0) {
-        setHighlightedAccountIndex(selectedIndex);
-        setTimeout(() => {
-          const el = document.getElementById(`acct-opt-${selectedIndex}`);
-          if (el) {
-            el.scrollIntoView({ block: "nearest" });
-          }
-        }, 50);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAccountSuggestionsOpen, selectedLedgerId]);
 
   // Click outside listener for the active inline editing transaction row
   useEffect(() => {
@@ -904,6 +868,22 @@ function LedgerContent() {
     setAccountSearchVal("");
   }, [selectedSiteId]);
 
+  // Reactive fallback to select first ledger if the currently selected one is deleted/missing
+  useEffect(() => {
+    if (isLoadingLedgers || isLoadingDayBooks) return;
+    
+    if (selectedSiteId && selectedSiteId !== "all" && selectedLedgerId && selectedLedgerId !== "all") {
+      const exists = filteredLedgers.some((l: any) => l.id === selectedLedgerId);
+      if (!exists) {
+        if (filteredLedgers.length > 0) {
+          setSelectedLedgerId(filteredLedgers[0].id);
+        } else {
+          setSelectedLedgerId("all");
+        }
+      }
+    }
+  }, [filteredLedgers, selectedLedgerId, selectedSiteId, isLoadingLedgers, isLoadingDayBooks]);
+
   // Filter site suggestions
   const filteredSiteSuggestions = (() => {
     const activeSite = sites.find((s) => s.id === selectedSiteId);
@@ -915,7 +895,7 @@ function LedgerContent() {
   // Filter account suggestions from the site's used accounts, prepending "ALL ACCOUNTS" or "+ CREATE NEW ACCOUNT"
   const filteredAccountSuggestions = (() => {
     const isAll = selectedLedgerId === "all";
-    const firstOptionName = ledgerTypeTab === "COMPANY" ? "+ CREATE NEW ACCOUNT" : "ALL ACCOUNTS";
+    const firstOptionName = "ALL ACCOUNTS";
     const selectedLedger = isAll ? { name: firstOptionName } : (filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
     const activeLedger = selectedLedger && !isAll ? (
       existingLedgers.find((l: any) => l.name.toUpperCase() === selectedLedger.name.toUpperCase()) || selectedLedger
@@ -961,8 +941,13 @@ function LedgerContent() {
         initialLedgers = recentNames
           .map((name) => activeSource.find((l) => l.name.toUpperCase() === name))
           .filter(Boolean) as any[];
-      } else {
-        initialLedgers = activeSource;
+      }
+      const hasSelected = selectedLedgerId && initialLedgers.some((l: any) => l.id === selectedLedgerId);
+      if (selectedLedgerId && selectedLedgerId !== "all" && !hasSelected) {
+        const selObj = filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId);
+        if (selObj) {
+          initialLedgers.push(selObj);
+        }
       }
 
       return [{ id: "all", name: firstOptionName }, ...initialLedgers];
@@ -1020,6 +1005,30 @@ function LedgerContent() {
     }
     return matches;
   })();
+
+  // Auto-scroll and highlight selected account when dropdown is opened
+  useEffect(() => {
+    if (!isAccountSuggestionsOpen) {
+      hasScrolledRef.current = false;
+      return;
+    }
+
+    if (isAccountSuggestionsOpen && !hasScrolledRef.current && selectedLedgerId) {
+      const selectedIndex = filteredAccountSuggestions.findIndex(
+        (l: any) => l.id === selectedLedgerId
+      );
+      if (selectedIndex >= 0) {
+        setHighlightedAccountIndex(selectedIndex);
+        hasScrolledRef.current = true;
+        setTimeout(() => {
+          const el = document.getElementById(`acct-opt-${selectedIndex}`);
+          if (el) {
+            el.scrollIntoView({ block: "nearest" });
+          }
+        }, 50);
+      }
+    }
+  }, [isAccountSuggestionsOpen, selectedLedgerId, filteredAccountSuggestions]);
 
   // Filter account suggestions for direct entry inline selector when selectedLedgerId === "all"
   const filteredEntryAccountSuggestions = (() => {
@@ -1144,7 +1153,12 @@ function LedgerContent() {
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
       toast.success("Ledger account deleted successfully");
       if (selectedLedgerId === id) {
-        setSelectedLedgerId("all");
+        const remaining = filteredLedgers.filter((l: any) => l.id !== id);
+        if (remaining.length > 0) {
+          setSelectedLedgerId(remaining[0].id);
+        } else {
+          setSelectedLedgerId("all");
+        }
       }
     },
     onError: (error: any) => {
@@ -1611,6 +1625,10 @@ function LedgerContent() {
 
     // 1. Filter daybook entries belonging to selected site (and this ledger name if not ALL)
     const matchingDaybooks = siteDaybooks.filter((item: any) => {
+      const isCompanyEntry = item.description === "COMPANY_LEDGER_ENTRY";
+      const matchesTab = ledgerTypeTab === null || (ledgerTypeTab === "COMPANY" ? isCompanyEntry : !isCompanyEntry);
+      if (!matchesTab) return false;
+
       if (isAll) return true;
 
       const typeText = item.expenseType || "";
@@ -1977,10 +1995,7 @@ function LedgerContent() {
 
 
   const selectedLedger = selectedLedgerId === "all"
-    ? (ledgerTypeTab === "COMPANY"
-        ? { name: "+ CREATE NEW ACCOUNT", contactPerson: "", phone: "" }
-        : { name: "ALL ACCOUNTS STATEMENT", contactPerson: "CONSOLIDATED SITE VIEW", phone: "N/A" }
-      )
+    ? { name: "ALL ACCOUNTS STATEMENT", contactPerson: "CONSOLIDATED SITE VIEW", phone: "N/A" }
     : (filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
 
   const triggerNewEstimatePrompt = (callback: () => void) => {
@@ -2080,19 +2095,11 @@ function LedgerContent() {
     
     // Fallback to selected ledger
     if (selectedLedgerId === "all") {
-      if (ledgerTypeTab === "COMPANY") {
-        return {
-          name: compName ? compName.toUpperCase() : "+ CREATE NEW ACCOUNT",
-          address: compAddress ? compAddress.toUpperCase() : "N/A",
-          phone: compMobile ? compMobile : "N/A"
-        };
-      } else {
-        return {
-          name: entryAccountSearchVal ? entryAccountSearchVal.toUpperCase() : "ALL ACCOUNTS STATEMENT",
-          address: "CONSOLIDATED SITE VIEW",
-          phone: "N/A"
-        };
-      }
+      return {
+        name: "ALL ACCOUNTS STATEMENT",
+        address: "CONSOLIDATED SITE VIEW",
+        phone: "N/A"
+      };
     }
 
     const details = parsePartyDetails(selectedLedger?.contactPerson);
@@ -2107,137 +2114,54 @@ function LedgerContent() {
 
   return (
     <div className="font-mono text-slate-800 space-y-4 max-w-[98%] mx-auto">
-      
-      {/* Title & Register Account Header Removed as per user request */}
-
-      {action === "entry" && ledgerTypeTab === null ? (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-200">
-          <div className="w-[600px] bg-[#D3DFEE] border-2 border-slate-950 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden flex flex-col">
-            
-            {/* Title Bar */}
-            <div className="bg-[#2B547E] border-b-2 border-slate-950 px-4 py-2.5 flex items-center justify-between text-white shrink-0">
-              <span className="text-xs font-black uppercase tracking-wider font-mono">
-                Select Ledger Module ({action === "entry" ? "Entry" : action === "delete" ? "Delete" : "Correction"} Mode)
-              </span>
-              <span className="text-[10px] bg-[#ECC30B] text-slate-950 font-black px-1.5 py-0.5 rounded-xs animate-pulse">ACTION REQUIRED</span>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 bg-[#E5ECF4] space-y-6 text-slate-950">
-              <div className="text-center space-y-1">
-                <h3 className="text-sm font-black text-slate-950 uppercase tracking-wide">Choose Ledger Account Type</h3>
-                <p className="text-[11px] text-slate-600 font-bold uppercase">Please select the type of ledger you wish to open</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Option 1: Plot Ledger */}
-                <button
-                  type="button"
-                  onClick={() => setLedgerTypeTab("PLOT")}
-                  className="bg-white hover:bg-slate-50 border-2 border-slate-950 rounded p-5 flex flex-col items-center text-center space-y-3.5 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all cursor-pointer group"
-                >
-                  <div className="text-4xl group-hover:scale-110 transition-transform">🏡</div>
-                  <div className="space-y-1">
-                    <h4 className="text-xs font-black uppercase text-[#2B547E] group-hover:underline">[1] PLOT LEDGER</h4>
-                    <p className="text-[10px] text-slate-500 font-bold leading-normal uppercase">
-                      Manage plot areas, rates, commissions, and customer details.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Option 2: Company Ledger */}
-                <button
-                  type="button"
-                  onClick={() => setLedgerTypeTab("COMPANY")}
-                  className="bg-white hover:bg-slate-50 border-2 border-slate-950 rounded p-5 flex flex-col items-center text-center space-y-3.5 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all cursor-pointer group"
-                >
-                  <div className="text-4xl group-hover:scale-110 transition-transform">🏢</div>
-                  <div className="space-y-1">
-                    <h4 className="text-xs font-black uppercase text-[#2B547E] group-hover:underline">[2] COMPANY LEDGER</h4>
-                    <p className="text-[10px] text-slate-500 font-bold leading-normal uppercase">
-                      Manage corporate accounts, corporate expenses, and suppliers.
-                    </p>
-                  </div>
-                </button>
-              </div>
-
-              <div className="bg-[#ECC30B]/35 border border-slate-400 p-2.5 rounded text-center text-[10px] text-slate-900 font-bold uppercase tracking-wider">
-                💡 Pro-Tip: Press <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">1</span> for Plot or <span className="font-mono bg-white border border-slate-950 px-1 py-0.5 text-xs font-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">2</span> for Company ledger!
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Small top utility bar to switch back if selected */}
-          {ledgerTypeTab !== null && (
-            <div className="flex justify-between items-center pb-2.5 border-b border-slate-350 animate-in fade-in duration-200">
-              <div className="text-xs font-black uppercase text-[#2B547E] tracking-wider flex items-center gap-1.5">
-                <span>Active Mode:</span>
-                <span className="bg-[#2B547E] text-white px-2 py-0.5 border border-slate-950 rounded-xs text-[10px]">{ledgerTypeTab === "PLOT" ? "PLOT LEDGER" : "COMPANY LEDGER"}</span>
-              </div>
-              
-              {/* Date Filter & Mode Switcher Button Container */}
-              <div className="flex items-center gap-4">
-                {/* DATE SELECTOR/FILTER FOR LEDGER */}
-                <div className="flex items-center gap-2 bg-[#E5ECF4] border border-slate-400 rounded px-2 py-1 h-7.5">
-                  <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider select-none font-mono">Filter Date:</span>
-                  <input
-                    type="text"
-                    placeholder="DD.MM.YY"
-                    value={filterDateVal}
-                    onChange={(e) => setFilterDateVal(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setAppliedFilterDate(filterDateVal);
-                      } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        accountInputRef.current?.focus();
-                        accountInputRef.current?.select();
-                      }
-                    }}
-                    className="w-20 bg-white border border-slate-355 rounded px-1.5 py-0.5 text-xs font-black font-mono placeholder:text-slate-400 text-slate-900 focus:outline-none uppercase h-6 text-center"
-                  />
-                  {filterDateVal && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFilterDateVal("");
-                        setAppliedFilterDate("");
-                      }}
-                      className="text-slate-400 hover:text-slate-955 transition-colors font-bold text-xs mr-1"
-                    >
-                      ×
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setAppliedFilterDate(filterDateVal)}
-                    className="px-2 py-0.5 bg-[#2B547E] hover:bg-[#1E3E64] text-white text-[9px] font-black font-mono rounded shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 transition-all cursor-pointer h-5 uppercase flex items-center justify-center shrink-0"
-                  >
-                    OK
-                  </button>
-                </div>
-
-                {action === "entry" && (
-                  <button
-                    type="button"
-                    onClick={() => setLedgerTypeTab(null)}
-                    className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border border-slate-955 bg-white hover:bg-slate-100 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:shadow-none active:translate-y-0.5 cursor-pointer flex items-center gap-1"
-                  >
-                    <span>← Change Ledger Type</span>
-                  </button>
-                )}
-              </div>
-            </div>
+      <div className="flex justify-end items-center pb-2.5 border-b border-slate-350 animate-in fade-in duration-200">
+        {/* DATE SELECTOR/FILTER FOR LEDGER */}
+        <div className="flex items-center gap-2 bg-[#E5ECF4] border border-slate-400 rounded px-2 py-1 h-7.5">
+          <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider select-none font-mono">Filter Date:</span>
+          <input
+            type="text"
+            placeholder="DD.MM.YY"
+            value={filterDateVal}
+            onChange={(e) => setFilterDateVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                setAppliedFilterDate(filterDateVal);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                accountInputRef.current?.focus();
+                accountInputRef.current?.select();
+              }
+            }}
+            className="w-20 bg-white border border-slate-355 rounded px-1.5 py-0.5 text-xs font-black font-mono placeholder:text-slate-400 text-slate-900 focus:outline-none uppercase h-6 text-center"
+          />
+          {filterDateVal && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterDateVal("");
+                setAppliedFilterDate("");
+              }}
+              className="text-slate-400 hover:text-slate-955 transition-colors font-bold text-xs mr-1"
+            >
+              ×
+            </button>
           )}
+          <button
+            type="button"
+            onClick={() => setAppliedFilterDate(filterDateVal)}
+            className="px-2 py-0.5 bg-[#2B547E] hover:bg-[#1E3E64] text-white text-[9px] font-black font-mono rounded shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 transition-all cursor-pointer h-5 uppercase flex items-center justify-center shrink-0"
+          >
+            OK
+          </button>
+        </div>
+      </div>
 
-          {/* Render Action View 1: ENTRY, CORRECTION & DELETE MODES (Classic Tally Print_Ledger UI) */}
-          {(action === "entry" || action === "correction" || action === "delete") && (
-            <div className={isSidebarOpen ? "grid grid-cols-1 lg:grid-cols-4 gap-4 items-start" : "block"}>
+      {/* Render Action View 1: ENTRY, CORRECTION & DELETE MODES (Classic Tally Print_Ledger UI) */}
+      {(action === "entry" || action === "correction" || action === "delete") && (
+        <div className={isSidebarOpen ? "grid grid-cols-1 lg:grid-cols-4 gap-4 items-start" : "block"}>
           
           {/* LEFT SIDEBAR PANEL (Width ~25%) */}
           {isSidebarOpen && (
@@ -2246,6 +2170,40 @@ function LedgerContent() {
             {/* Top Label */}
             <div className="bg-[#2B547E] text-white px-3 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-t-sm">
               Account Ledger : (ALL RECORD)
+            </div>
+
+            {/* Tab Switcher: PLOT vs COMPANY */}
+            <div className="grid grid-cols-2 gap-1 bg-white p-0.5 border border-slate-400 rounded text-center font-bold text-[10px]">
+              <button
+                type="button"
+                onClick={() => {
+                  setLedgerTypeTab("PLOT");
+                  setSelectedLedgerId(null);
+                  setAccountSearchVal("");
+                }}
+                className={`py-1 rounded transition-all uppercase cursor-pointer ${
+                  ledgerTypeTab === "PLOT"
+                    ? "bg-[#2B547E] text-white font-black"
+                    : "bg-transparent text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Plot Ledger
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLedgerTypeTab("COMPANY");
+                  setSelectedLedgerId(null);
+                  setAccountSearchVal("");
+                }}
+                className={`py-1 rounded transition-all uppercase cursor-pointer ${
+                  ledgerTypeTab === "COMPANY"
+                    ? "bg-[#2B547E] text-white font-black"
+                    : "bg-transparent text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Company Ledger
+              </button>
             </div>
 
             {/* SITE SELECTOR DROP-DOWN */}
@@ -4172,7 +4130,7 @@ function LedgerContent() {
                   })}
 
                   {selectedSiteId && selectedSiteId !== "all" && action === "entry" ? (
-                    ledgerTypeTab === "COMPANY" ? (
+                    (ledgerTypeTab === "COMPANY" && isParticularLedgerOpen) ? (
                       <tr className="bg-slate-50 border-t-2 border-slate-400 font-bold text-xs uppercase h-11">
                         {/* Date Input */}
                         <td className="relative bg-slate-50 border-t-2 border-slate-400 border-r border-slate-400 p-1.5 w-24 z-10">
@@ -5019,7 +4977,7 @@ function LedgerContent() {
                           </div>
                         </td>
                       </tr>
-                    ) : selectedLedgerId ? (
+                    ) : (selectedLedgerId && selectedLedgerId !== "all") ? (
                       <tr className="bg-slate-50 border-t-2 border-slate-400 font-bold h-11">
                         {/* Date Input */}
                         <td className="relative bg-slate-50 border-t-2 border-slate-400 border-r border-slate-400 p-1.5 w-24 z-10">
@@ -5375,7 +5333,7 @@ function LedgerContent() {
                   )}
 
                   {(() => {
-                    const hasDirectRow = selectedSiteId && selectedSiteId !== "all" && (ledgerTypeTab === "COMPANY" || selectedLedgerId) && action === "entry";
+                    const hasDirectRow = selectedSiteId && selectedSiteId !== "all" && selectedLedgerId && selectedLedgerId !== "all" && action === "entry";
                     const fillerCount = action === "entry" ? 0 : Math.max(0, 5 - statementData.transactions.length - (hasDirectRow ? 1 : 0));
                     const rows = [];
                     for (let i = 0; i < fillerCount; i++) {
@@ -5436,8 +5394,6 @@ function LedgerContent() {
           </div>
 
         </div>
-      )}
-        </>
       )}
 
 

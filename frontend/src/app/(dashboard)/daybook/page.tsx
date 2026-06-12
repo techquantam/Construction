@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useRef } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -67,6 +67,20 @@ const parsePartyDetails = (contactPerson: string | null) => {
     }
   }
   return null;
+};
+
+const displayPaymentMode = (mode: string | null) => {
+  if (!mode) return "CASH";
+  const trimmed = mode.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.type === "CompanyTransaction") {
+        return `${parsed.material || ""} (${parsed.qty || ""} ${parsed.unit || ""}) @ ${parsed.rate || ""}`;
+      }
+    } catch {}
+  }
+  return mode;
 };
 
 function DayBookContent() {
@@ -576,7 +590,7 @@ function DayBookContent() {
   };
 
   // Combine official ledgers and any unique names previously used in daybook transactions of the CURRENT site
-  const allLedgerNames = (() => {
+  const allLedgerNames = useMemo(() => {
     const namesSet = new Set<string>();
     
     // 1. Add names used in this site's daybook transactions (dayBooks is already site-specific)
@@ -604,15 +618,15 @@ function DayBookContent() {
         name: name
       };
     });
-  })();
+  }, [dayBooks, existingLedgers]);
 
   // List of all account suggestions including ALL ACCOUNTS at the top
-  const allFilterLedgers = (() => {
+  const allFilterLedgers = useMemo(() => {
     return [{ id: "all", name: "ALL ACCOUNTS" }, ...allLedgerNames];
-  })();
+  }, [allLedgerNames]);
 
   // Filter account suggestions for Select Account header dropdown
-  const filteredAccountSuggestions = (() => {
+  const filteredAccountSuggestions = useMemo(() => {
     const isAll = selectedAccountId === "all";
     const selectedLedger = isAll ? { name: "ALL ACCOUNTS" } : allFilterLedgers.find((l: any) => l.id === selectedAccountId);
     const isSearching = accountSearchVal.trim() !== "" && accountSearchVal.toUpperCase() !== selectedLedger?.name?.toUpperCase();
@@ -630,7 +644,7 @@ function DayBookContent() {
         (phone && matchesFuzzy(phone, accountSearchVal))
       );
     });
-  })();
+  }, [selectedAccountId, allFilterLedgers, accountSearchVal, existingLedgers]);
 
   // Reset selected account and search text when the construction site changes
   useEffect(() => {
@@ -666,7 +680,7 @@ function DayBookContent() {
   }, []);
 
   // Filter particular ledger suggestions based on text input
-  const filteredLedgerSuggestions = (() => {
+  const filteredLedgerSuggestions = useMemo(() => {
     const s = particularText.trim().toUpperCase();
     const activeLedger = allLedgerNames.find((l) => l.name.toUpperCase() === s);
     const isSearching = s !== "" && s !== activeLedger?.name?.toUpperCase();
@@ -685,7 +699,7 @@ function DayBookContent() {
     });
 
     return searchSource.filter((ledger) => matchesFuzzy(ledger.name, particularText));
-  })();
+  }, [particularText, allLedgerNames, existingLedgers]);
 
   // Click outside listener for particular suggestions
   useEffect(() => {
@@ -701,7 +715,7 @@ function DayBookContent() {
   }, []);
 
   // Filter edit particular suggestions
-  const filteredEditLedgerSuggestions = (() => {
+  const filteredEditLedgerSuggestions = useMemo(() => {
     const s = editParticularText.trim().toUpperCase();
     const activeLedger = allLedgerNames.find((l) => l.name.toUpperCase() === s);
     const isSearching = s !== "" && s !== activeLedger?.name?.toUpperCase();
@@ -720,7 +734,7 @@ function DayBookContent() {
     });
 
     return searchSource.filter((ledger) => matchesFuzzy(ledger.name, editParticularText));
-  })();
+  }, [editParticularText, allLedgerNames, existingLedgers]);
 
   // Click outside listener for edit particular suggestions
   useEffect(() => {
@@ -1006,23 +1020,20 @@ function DayBookContent() {
 
 
   // Autocomplete suggestions filter
-  const filteredSiteSuggestions = (() => {
+  const filteredSiteSuggestions = useMemo(() => {
     if (!sites) return [];
     const activeSite = sites.find((s) => s.id === selectedSiteId);
     const isSearching = siteSearchVal.trim() !== "" && siteSearchVal.toUpperCase() !== activeSite?.name?.toUpperCase();
     if (!isSearching) return sites;
     return sites.filter((site) => matchesFuzzy(site.name, siteSearchVal));
-  })();
+  }, [sites, selectedSiteId, siteSearchVal]);
 
   // Keep highlightedSiteIndex synchronized with the selected site when dropdown is open
   useEffect(() => {
     if (isSiteSuggestionsOpen && filteredSiteSuggestions.length > 0) {
       const currentIdx = filteredSiteSuggestions.findIndex((s) => s.id === selectedSiteId);
-      if (currentIdx >= 0) {
-        setHighlightedSiteIndex(currentIdx);
-      } else {
-        setHighlightedSiteIndex(0);
-      }
+      const targetIdx = currentIdx >= 0 ? currentIdx : 0;
+      setHighlightedSiteIndex((prev) => (prev !== targetIdx ? targetIdx : prev));
     }
   }, [isSiteSuggestionsOpen, selectedSiteId, filteredSiteSuggestions]);
 
@@ -1055,14 +1066,12 @@ function DayBookContent() {
   };
 
   // Process data chronologically and calculate running totals
-  const processedData = (() => {
+  const processedData = useMemo(() => {
     if (!dayBooks) return { items: [], totalDebit: 0, totalCredit: 0, finalBalance: 0 };
 
-    // Filter out auto-debit, ledger direct entries, and company ledger entries from daybook rendering & calculations
+    // Filter out only auto-debit entries from daybook rendering & calculations
     const nonAutoDebitDaybooks = dayBooks.filter((item: any) => 
-      item.referenceNumber !== "AUTO_DEBIT" && 
-      item.description !== "LEDGER DIRECT ENTRY" &&
-      item.description !== "COMPANY_LEDGER_ENTRY"
+      item.referenceNumber !== "AUTO_DEBIT"
     );
 
     // Filter by selectedAccountId first if not "all"
@@ -1123,7 +1132,7 @@ function DayBookContent() {
       totalCredit,
       finalBalance: cumulativeBalance,
     };
-  })();
+  }, [dayBooks, selectedAccountId, allFilterLedgers, modifyQuery]);
 
   // Reset auto-focused state and selection on site change
   useEffect(() => {
@@ -1188,8 +1197,16 @@ function DayBookContent() {
           e.preventDefault();
           const targetItem = processedData.items[selectedRowIndex];
           if (action === "correction") {
+            if (targetItem.description === "COMPANY_LEDGER_ENTRY" || targetItem.description === "LEDGER DIRECT ENTRY") {
+              toast.info("Please use Ledger Correction page to edit ledger-tied transactions.");
+              return;
+            }
             handleEditClick(targetItem);
           } else if (action === "delete") {
+            if (targetItem.description === "COMPANY_LEDGER_ENTRY" || targetItem.description === "LEDGER DIRECT ENTRY") {
+              toast.info("Please use Ledger Delete page to delete ledger-tied transactions.");
+              return;
+            }
             if (window.confirm("Are you sure you want to delete this entry?")) {
               deleteMutation.mutate(targetItem.id);
             }
@@ -1822,6 +1839,10 @@ function DayBookContent() {
                         onClick={() => {
                           setSelectedRowIndex(index);
                           if (action === "correction") {
+                            if (item.description === "COMPANY_LEDGER_ENTRY" || item.description === "LEDGER DIRECT ENTRY") {
+                              toast.info("Please use Ledger Correction page to edit ledger-tied transactions.");
+                              return;
+                            }
                             handleEditClick(item);
                           }
                         }}
@@ -1838,7 +1859,7 @@ function DayBookContent() {
                           <span className="font-extrabold text-slate-500 mr-1.5">{item.parsedType === "TO" ? "To" : "By"}</span>
                           {item.parsedParticular}
                         </td>
-                        <td className="border border-slate-400 py-3 px-4 uppercase text-slate-650 font-bold w-40">{item.paymentMode || "CASH"}</td>
+                        <td className="border border-slate-400 py-3 px-4 uppercase text-slate-650 font-bold w-40">{displayPaymentMode(item.paymentMode)}</td>
                         <td className="border border-slate-400 py-3 px-4 text-right font-black text-slate-955 text-slate-950 whitespace-nowrap">{item.debit > 0 ? item.debit.toFixed(2) : "-"}</td>
                         <td className="border border-slate-400 py-3 px-4 text-right font-black text-slate-955 text-slate-950 whitespace-nowrap">{item.credit > 0 ? item.credit.toFixed(2) : "-"}</td>
                         <td className="border border-slate-400 py-3 px-4 text-center font-black text-slate-600">{balanceSign}</td>
@@ -1849,6 +1870,10 @@ function DayBookContent() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (item.description === "COMPANY_LEDGER_ENTRY" || item.description === "LEDGER DIRECT ENTRY") {
+                                  toast.info("Please use Ledger Delete page to delete ledger-tied transactions.");
+                                  return;
+                                }
                                 if (window.confirm("Are you sure you want to delete this entry?")) {
                                   deleteMutation.mutate(item.id);
                                 }
