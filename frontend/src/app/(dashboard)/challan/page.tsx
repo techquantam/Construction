@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Printer, Building2, User, Phone, MapPin, Wallet, ArrowDown, FileSpreadsheet } from "lucide-react";
+import { Printer, Building2, User, Phone, MapPin, Wallet, ArrowDown, FileSpreadsheet, Trash2 } from "lucide-react";
 import api from "@/lib/axios";
 import { toast } from "sonner";
 
@@ -407,14 +407,10 @@ const parseInputDate = (dateStr: string) => {
   return new Date(dateStr);
 };
 
-const getNextChallanNoForDate = (dateStr: string, daybooks: any[]): string => {
-  if (!daybooks || daybooks.length === 0) {
-    return `${dateStr}/1`;
-  }
-  
+const getNextChallanNoForDate = (dateStr: string, daybooks: any[] | null | undefined, localDirectChallans?: any[]): string => {
   let maxN = 0;
-  daybooks.forEach((item: any) => {
-    const ref = item.referenceNumber;
+  
+  const checkRef = (ref: string) => {
     if (ref && typeof ref === "string" && ref.startsWith(dateStr + "/")) {
       const parts = ref.split("/");
       if (parts.length === 2) {
@@ -424,7 +420,19 @@ const getNextChallanNoForDate = (dateStr: string, daybooks: any[]): string => {
         }
       }
     }
-  });
+  };
+
+  if (daybooks && daybooks.length > 0) {
+    daybooks.forEach((item: any) => {
+      checkRef(item.referenceNumber);
+    });
+  }
+
+  if (localDirectChallans && localDirectChallans.length > 0) {
+    localDirectChallans.forEach((ch: any) => {
+      checkRef(ch.challanNo);
+    });
+  }
   
   return `${dateStr}/${maxN + 1}`;
 };
@@ -509,6 +517,20 @@ export default function ChallanPage() {
   const [directAddress, setDirectAddress] = useState("");
   const [directMobile, setDirectMobile] = useState("");
   const [showDirectChallanModal, setShowDirectChallanModal] = useState(false);
+  const [showCreditPopup, setShowCreditPopup] = useState(false);
+  const [creditDate, setCreditDate] = useState("");
+  const [creditParticulars, setCreditParticulars] = useState("CREDIT AMOUNT");
+  const [creditAmount, setCreditAmount] = useState("");
+
+  // States for Add Row Popup
+  const [showAddRowPopup, setShowAddRowPopup] = useState(false);
+  const [addRowMaterial, setAddRowMaterial] = useState("");
+  const [addRowQty, setAddRowQty] = useState("");
+  const [addRowUnit, setAddRowUnit] = useState("CFT");
+  const [addRowRate, setAddRowRate] = useState("");
+  const [isAddRowMaterialSuggestionsOpen, setIsAddRowMaterialSuggestionsOpen] = useState(false);
+  const [highlightedAddRowMaterialIndex, setHighlightedAddRowMaterialIndex] = useState(-1);
+  const addRowMaterialSelectorRef = useRef<HTMLDivElement>(null);
 
   // Modal Site Autocomplete States
   const [modalSiteSearchVal, setModalSiteSearchVal] = useState("");
@@ -522,8 +544,11 @@ export default function ChallanPage() {
   const [highlightedModalCustomerIndex, setHighlightedModalCustomerIndex] = useState(-1);
   const modalCustomerSelectorRef = useRef<HTMLDivElement>(null);
   const modalCustomerInputRef = useRef<HTMLInputElement>(null);
+  const hasAutoOpenedRef = useRef(false);
   const [directChallan, setDirectChallan] = useState<{
     customerName: string;
+    address?: string;
+    mobile?: string;
     date: string;
     challanNo: string;
     items: {
@@ -557,6 +582,14 @@ export default function ChallanPage() {
       }
     }
   }, []);
+
+  // Auto-open entry form modal on page mount (default to company ledger)
+  useEffect(() => {
+    if (!hasAutoOpenedRef.current && sites && allDaybookData) {
+      openDirectChallanModal("COMPANY");
+      hasAutoOpenedRef.current = true;
+    }
+  }, [sites, allDaybookData]);
 
   // Helper to load a company challan from the sidebar
   const loadCompanyChallan = async (siteId: string, customerName: string, challanNo?: string) => {
@@ -598,6 +631,45 @@ export default function ChallanPage() {
     setLedgerSearchVal("");
   };
 
+  const handleDeleteWholeChallan = async (ch: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const confirmMsg = `Are you sure you want to delete the ENTIRE Challan No. ${ch.challanNo}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    if (ch.type === "DIRECT") {
+      setLocalDirectChallans((prev) => {
+        const updated = prev.filter((c) => c.challanNo !== ch.challanNo);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("today_direct_challans", JSON.stringify(updated));
+        }
+        return updated;
+      });
+      if (directChallan && directChallan.challanNo === ch.challanNo) {
+        setDirectChallan(null);
+      }
+      toast.success("Direct challan deleted successfully");
+      return;
+    }
+
+    try {
+      const promises = ch.items.map((item: any) => api.delete(`/daybooks/${item.id}`));
+      await Promise.all(promises);
+      queryClient.invalidateQueries({ queryKey: ["daybooks", ch.siteId] });
+      queryClient.invalidateQueries({ queryKey: ["ledgers", ch.siteId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["allDaybooks"] });
+
+      if (challanData && challanData.challanNo === ch.challanNo && selectedSiteId === ch.siteId) {
+        setSelectedLedgerId(null);
+        setLedgerSearchVal("");
+        setSelectedCompanyChallanNo(null);
+      }
+      toast.success("Company challan deleted successfully");
+    } catch (err) {
+      toast.error("Failed to delete company challan entries");
+    }
+  };
+
   const [directDate, setDirectDate] = useState("");
   const [directCustomer, setDirectCustomer] = useState("");
   const [directItems, setDirectItems] = useState<{
@@ -607,6 +679,7 @@ export default function ChallanPage() {
     unit: string;
     rate: string;
     amount: string;
+    type: "TO" | "BY";
     isMaterialSuggestionsOpen: boolean;
     highlightedMaterialIndex: number;
   }[]>([
@@ -617,6 +690,7 @@ export default function ChallanPage() {
       unit: "CFT",
       rate: "",
       amount: "",
+      type: "TO",
       isMaterialSuggestionsOpen: false,
       highlightedMaterialIndex: -1
     }
@@ -660,6 +734,7 @@ export default function ChallanPage() {
           unit: prev[prev.length - 1]?.unit || "CFT",
           rate: "",
           amount: "",
+          type: prev[prev.length - 1]?.type || "TO",
           isMaterialSuggestionsOpen: false,
           highlightedMaterialIndex: -1
         }
@@ -875,6 +950,7 @@ export default function ChallanPage() {
         unit: "CFT",
         rate: "",
         amount: "",
+        type: "TO",
         isMaterialSuggestionsOpen: false,
         highlightedMaterialIndex: -1
       }
@@ -894,6 +970,7 @@ export default function ChallanPage() {
         unit: string;
         rate: number;
         amount: number;
+        type: "TO" | "BY";
       }[];
     }) => {
       if (!selectedSiteId) {
@@ -939,7 +1016,7 @@ export default function ChallanPage() {
       const year = String(d.getFullYear()).substring(2);
       const dateStr = `${day}.${month}.${year}`;
 
-      const generatedChallanNo = getNextChallanNoForDate(dateStr, siteDaybookData || []);
+      const generatedChallanNo = getNextChallanNoForDate(dateStr, siteDaybookData || [], localDirectChallans);
 
       // 3. Post daybook entry for each material item
       const promises = payload.items.map(async (item) => {
@@ -950,14 +1027,14 @@ export default function ChallanPage() {
           material: item.material.trim().toUpperCase(),
           qty: item.qty,
           unit: item.unit.trim().toUpperCase() || "CFT",
-          crDr: "DR",
+          crDr: item.type === "TO" ? "DR" : "CR",
           rate: item.rate
         });
 
         const daybookPayload = {
           siteId: selectedSiteId,
           date: payload.date.toISOString(),
-          expenseType: `By ${cleanCustomerName}`,
+          expenseType: item.type === "TO" ? `To ${cleanCustomerName}` : `By ${cleanCustomerName}`,
           amount: item.amount,
           paymentMode: serializedPaymentMode,
           description: "COMPANY_LEDGER_ENTRY",
@@ -975,9 +1052,15 @@ export default function ChallanPage() {
       queryClient.invalidateQueries({ queryKey: ["daybooks", selectedSiteId] });
       queryClient.invalidateQueries({ queryKey: ["ledgers", selectedSiteId] });
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["allDaybooks"] });
 
       toast.success("Company Ledger Challan saved and generated successfully!");
       
+      const siteObj = sites?.find((s: any) => s.id === selectedSiteId);
+      if (siteObj) {
+        setSiteSearchVal(siteObj.name.toUpperCase());
+      }
+
       setSelectedLedgerId(data.ledgerId);
       setLedgerSearchVal(data.cleanCustomerName);
       setDirectChallan(null);
@@ -1031,7 +1114,8 @@ export default function ChallanPage() {
         qty: qtyVal,
         unit: item.unit.trim().toUpperCase() || "CFT",
         rate: rateVal,
-        amount: amtVal
+        amount: amtVal,
+        type: item.type || "TO"
       };
     });
 
@@ -1047,7 +1131,7 @@ export default function ChallanPage() {
       const directItemsFormatted = items.map((item, idx) => ({
         id: `direct-item-${idx + 1}`,
         date: parsedDate.toISOString(),
-        type: "BY" as const,
+        type: item.type as "TO" | "BY",
         material: item.material,
         qty: item.qty,
         unit: item.unit,
@@ -1064,10 +1148,12 @@ export default function ChallanPage() {
       const year = String(d.getFullYear()).substring(2);
       const dateStr = `${day}.${month}.${year}`;
 
-      const generatedChallanNo = getNextChallanNoForDate(dateStr, siteDaybookData || []);
+      const generatedChallanNo = getNextChallanNoForDate(dateStr, siteDaybookData || [], localDirectChallans);
 
       const newDirectChallan = {
         customerName: directCustomer.trim().toUpperCase() || "DIRECT CLIENT",
+        address: directAddress.trim().toUpperCase() || "N/A",
+        mobile: directMobile.trim() || "N/A",
         date: parsedDate.toISOString(),
         challanNo: generatedChallanNo,
         items: directItemsFormatted,
@@ -1129,17 +1215,21 @@ export default function ChallanPage() {
           const qty = parseFloat(parsed.qty) || 0;
           const rate = parseFloat(parsed.rate) || 0;
           const amount = qty > 0 && rate > 0 ? qty * rate : item.amount;
+          const isDebit = (item.expenseType || "").toUpperCase().startsWith("TO ");
           return {
             id: item.id,
             material: parsed.material || "UNKNOWN",
             qty,
             unit: parsed.unit || "CFT",
             rate,
-            amount
+            amount,
+            type: isDebit ? "TO" as const : "BY" as const
           };
         }).filter(item => item.material && (item.qty > 0 || item.amount > 0));
 
-        const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+        const totalAmount = items.reduce((sum, item) => {
+          return item.type === "BY" ? sum - item.amount : sum + item.amount;
+        }, 0);
 
         list.push({
           type: "COMPANY" as const,
@@ -1160,7 +1250,9 @@ export default function ChallanPage() {
     });
 
     todayDirects.forEach((c: any) => {
-      const totalAmount = c.items.reduce((sum: number, item: any) => sum + item.amount, 0);
+      const totalAmount = c.items.reduce((sum: number, item: any) => {
+        return item.type === "BY" ? sum - item.amount : sum + item.amount;
+      }, 0);
       list.push({
         type: "DIRECT" as const,
         challanNo: c.challanNo,
@@ -1173,7 +1265,8 @@ export default function ChallanPage() {
           qty: item.qty,
           unit: item.unit,
           rate: item.rate,
-          amount: item.amount
+          amount: item.amount,
+          type: item.type || "TO"
         })),
         totalAmount,
         createdAt: c.date
@@ -1219,6 +1312,9 @@ export default function ChallanPage() {
       }
       if (modalSiteSelectorRef.current && !modalSiteSelectorRef.current.contains(event.target as Node)) {
         setIsModalSiteSuggestionsOpen(false);
+      }
+      if (addRowMaterialSelectorRef.current && !addRowMaterialSelectorRef.current.contains(event.target as Node)) {
+        setIsAddRowMaterialSuggestionsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1605,7 +1701,9 @@ export default function ChallanPage() {
     if (directChallan) {
       const items = directChallan.items;
       const totalQty = items.reduce((sum: number, item: any) => sum + item.qty, 0);
-      const totalAmount = items.reduce((sum: number, item: any) => sum + item.amount, 0);
+      const totalAmount = items.reduce((sum: number, item: any) => {
+        return item.type === "BY" ? sum - item.amount : sum + item.amount;
+      }, 0);
       return {
         items,
         totalQty,
@@ -1703,7 +1801,11 @@ export default function ChallanPage() {
         if (parsed.isCompany) {
           totalQty += qtyVal;
         }
-        totalAmount += calculatedAmount;
+        if (isDebit) {
+          totalAmount += calculatedAmount;
+        } else {
+          totalAmount -= calculatedAmount;
+        }
 
         items.push({
           id: item.id,
@@ -1743,13 +1845,13 @@ export default function ChallanPage() {
     ? parsePartyDetails(selectedLedgerObj.contactPerson)
     : null;
 
-  const supplierAddress = contactPersonDetails
-    ? contactPersonDetails.address
-    : (selectedLedgerObj?.contactPerson || "NOT AVAILABLE");
+  const supplierAddress = selectedLedgerObj
+    ? (contactPersonDetails ? contactPersonDetails.address : (selectedLedgerObj.contactPerson || "NOT AVAILABLE"))
+    : (directChallan ? (directChallan.address || "N/A") : "NOT AVAILABLE");
 
-  const supplierPhone = contactPersonDetails
-    ? contactPersonDetails.mobileNo || contactPersonDetails.phoneNo
-    : (selectedLedgerObj?.phone || "NOT AVAILABLE");
+  const supplierPhone = selectedLedgerObj
+    ? (contactPersonDetails ? (contactPersonDetails.mobileNo || contactPersonDetails.phoneNo) : (selectedLedgerObj.phone || "NOT AVAILABLE"))
+    : (directChallan ? (directChallan.mobile || "N/A") : "NOT AVAILABLE");
 
   const selectedSiteObj = sites?.find((s: any) => s.id === selectedSiteId);
 
@@ -1819,6 +1921,7 @@ export default function ChallanPage() {
       queryClient.invalidateQueries({ queryKey: ["daybooks"] });
       queryClient.invalidateQueries({ queryKey: ["ledgers"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["allDaybooks"] });
       toast.success("Challan item updated successfully");
     },
     onError: (err: any) => {
@@ -1834,6 +1937,7 @@ export default function ChallanPage() {
       queryClient.invalidateQueries({ queryKey: ["daybooks"] });
       queryClient.invalidateQueries({ queryKey: ["ledgers"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["allDaybooks"] });
       toast.success("Challan item deleted successfully");
     },
     onError: (err: any) => {
@@ -1841,18 +1945,24 @@ export default function ChallanPage() {
     }
   });
 
-  const handleSaveRow = (id: string, material: string, qty: number, unit: string, rate: number, rawItem: any) => {
+  const handleSaveRow = (id: string, material: string, qty: number, unit: string, rate: number, rawItem: any, itemType?: "TO" | "BY", newAmount?: number) => {
     if (!material.trim()) {
       toast.error("Material name is required");
       return;
     }
-    if (qty <= 0) {
-      toast.error("Quantity must be greater than zero");
-      return;
-    }
-    if (rate <= 0) {
-      toast.error("Rate must be greater than zero");
-      return;
+
+    const isCreditEntry = itemType === "BY" || (!itemType && rawItem && (rawItem.expenseType || "").toUpperCase().startsWith("BY "));
+    const isDirectCredit = directChallan && (!itemType ? directChallan.items.find(it => it.id === id)?.type === "BY" : itemType === "BY");
+
+    if (!(isCreditEntry || isDirectCredit)) {
+      if (qty <= 0) {
+        toast.error("Quantity must be greater than zero");
+        return;
+      }
+      if (rate <= 0) {
+        toast.error("Rate must be greater than zero");
+        return;
+      }
     }
 
     if (directChallan) {
@@ -1860,13 +1970,15 @@ export default function ChallanPage() {
         if (!prev) return null;
         const updatedItems = prev.items.map((item) => {
           if (item.id === id) {
+            const isItemCredit = itemType === "BY" || item.type === "BY";
             return {
               ...item,
               material: material.trim().toUpperCase(),
               qty: qty,
               unit: unit.trim().toUpperCase(),
               rate: rate,
-              amount: qty * rate
+              amount: newAmount !== undefined ? newAmount : (isItemCredit ? (qty > 0 && rate > 0 ? qty * rate : item.amount) : qty * rate),
+              type: itemType || item.type
             };
           }
           return item;
@@ -1900,15 +2012,27 @@ export default function ChallanPage() {
       material: material.trim().toUpperCase(),
       qty: qty,
       unit: unit.trim().toUpperCase(),
-      rate: rate
+      rate: rate,
+      crDr: itemType === "TO" ? "DR" : (itemType === "BY" ? "CR" : (originalParsedDetails.crDr || "DR"))
     });
 
-    const calculatedAmount = qty * rate;
+    const calculatedAmount = newAmount !== undefined ? newAmount : ((isCreditEntry || isDirectCredit) ? (qty > 0 && rate > 0 ? qty * rate : (rawItem?.amount || qty * rate)) : qty * rate);
+
+    let updatedExpenseType = rawItem.expenseType;
+    if (itemType) {
+      let ledgerName = rawItem.expenseType || "";
+      if (ledgerName.toUpperCase().startsWith("TO ")) {
+        ledgerName = ledgerName.substring(3).trim();
+      } else if (ledgerName.toUpperCase().startsWith("BY ")) {
+        ledgerName = ledgerName.substring(3).trim();
+      }
+      updatedExpenseType = itemType === "TO" ? `To ${ledgerName}` : `By ${ledgerName}`;
+    }
 
     const payload = {
       siteId: rawItem.siteId,
       date: rawItem.date,
-      expenseType: rawItem.expenseType,
+      expenseType: updatedExpenseType,
       amount: calculatedAmount,
       paymentMode: updatedPaymentMode,
       description: rawItem.description,
@@ -1954,6 +2078,345 @@ export default function ChallanPage() {
     }
   };
 
+  const handleAddNewRow = async () => {
+    if (directChallan) {
+      const newItem = {
+        id: `direct-item-${Date.now()}-${Math.random()}`,
+        date: directChallan.date,
+        type: "TO" as const,
+        material: "NEW MATERIAL",
+        qty: 0,
+        unit: "CFT",
+        rate: 0,
+        amount: 0,
+        particulars: "DIRECT SALE / CASH",
+        reference: "DIRECT_CHALLAN"
+      };
+      const updatedChallan = {
+        ...directChallan,
+        items: [...directChallan.items, newItem]
+      };
+      setDirectChallan(updatedChallan);
+      setLocalDirectChallans((prevList) => {
+        const updated = prevList.map(c => c.challanNo === directChallan.challanNo ? updatedChallan : c);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("today_direct_challans", JSON.stringify(updated));
+        }
+        return updated;
+      });
+      toast.success("New item added to direct challan");
+      return;
+    }
+
+    if (!selectedSiteId || !selectedLedgerId || !challanData.items.length) {
+      toast.error("No active company challan selected to add item to");
+      return;
+    }
+
+    const firstItem = challanData.items[0];
+    const rawItem = firstItem.rawItem;
+
+    const serializedPaymentMode = JSON.stringify({
+      type: "CompanyTransaction",
+      address: supplierAddress.trim().toUpperCase() || "N/A",
+      mobile: supplierPhone.trim() || "N/A",
+      material: "NEW MATERIAL",
+      qty: 0,
+      unit: "CFT",
+      crDr: "DR",
+      rate: 0
+    });
+
+    const daybookPayload = {
+      siteId: selectedSiteId,
+      date: rawItem.date,
+      expenseType: rawItem.expenseType,
+      amount: 0,
+      paymentMode: serializedPaymentMode,
+      description: "COMPANY_LEDGER_ENTRY",
+      referenceNumber: rawItem.referenceNumber,
+    };
+
+    try {
+      await api.post("/daybooks", daybookPayload);
+      queryClient.invalidateQueries({ queryKey: ["daybooks", selectedSiteId] });
+      queryClient.invalidateQueries({ queryKey: ["ledgers", selectedSiteId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      toast.success("New item added to challan successfully");
+    } catch (err) {
+      toast.error("Failed to add new item to challan");
+    }
+  };
+
+  const openCreditPopup = () => {
+    setCreditDate(getTodayDateStr());
+    setCreditParticulars("CREDIT AMOUNT");
+    setCreditAmount("");
+    setShowCreditPopup(true);
+    setTimeout(() => {
+      const el = document.getElementById("credit-date-input") as HTMLInputElement | null;
+      if (el) { el.focus(); el.select(); }
+    }, 50);
+  };
+
+  const handleSaveCreditEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(creditAmount) || 0;
+    if (amt <= 0) {
+      toast.error("Credit amount must be greater than zero");
+      return;
+    }
+    if (!creditDate.trim()) {
+      toast.error("Credit date is required");
+      return;
+    }
+
+    let parsedDate = new Date();
+    try {
+      parsedDate = parseInputDate(creditDate);
+      if (isNaN(parsedDate.getTime())) {
+        parsedDate = new Date();
+      }
+    } catch {
+      toast.error("Invalid Date format. Use DD.MM.YY");
+      return;
+    }
+
+    if (directChallan) {
+      const newItem = {
+        id: `direct-item-${Date.now()}-${Math.random()}`,
+        date: parsedDate.toISOString(),
+        type: "BY" as const,
+        material: creditParticulars.trim().toUpperCase() || "CREDIT AMOUNT",
+        qty: 0,
+        unit: "BAGS",
+        rate: 0,
+        amount: amt,
+        particulars: "CREDIT ENTRY",
+        reference: directChallan.challanNo
+      };
+      const updatedChallan = {
+        ...directChallan,
+        items: [...directChallan.items, newItem]
+      };
+      setDirectChallan(updatedChallan);
+      setLocalDirectChallans((prevList) => {
+        const updated = prevList.map(c => c.challanNo === directChallan.challanNo ? updatedChallan : c);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("today_direct_challans", JSON.stringify(updated));
+        }
+        return updated;
+      });
+      setShowCreditPopup(false);
+      toast.success("Credit entry added to direct challan");
+      return;
+    }
+
+    if (!selectedSiteId || !selectedLedgerObj) {
+      toast.error("No active site or company ledger selected");
+      return;
+    }
+
+    const cleanCustomerName = selectedLedgerObj.name.toUpperCase();
+    const serializedPaymentMode = JSON.stringify({
+      type: "CompanyTransaction",
+      address: supplierAddress.trim().toUpperCase() || "N/A",
+      mobile: supplierPhone.trim() || "N/A",
+      material: creditParticulars.trim().toUpperCase() || "CREDIT AMOUNT",
+      qty: 0,
+      unit: "BAGS",
+      crDr: "CR",
+      rate: 0
+    });
+
+    const daybookPayload = {
+      siteId: selectedSiteId,
+      date: parsedDate.toISOString(),
+      expenseType: `By ${cleanCustomerName}`,
+      amount: amt,
+      paymentMode: serializedPaymentMode,
+      description: "COMPANY_LEDGER_ENTRY",
+      referenceNumber: challanSerial,
+    };
+
+    try {
+      await api.post("/daybooks", daybookPayload);
+      queryClient.invalidateQueries({ queryKey: ["daybooks", selectedSiteId] });
+      queryClient.invalidateQueries({ queryKey: ["ledgers", selectedSiteId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["allDaybooks"] });
+      setShowCreditPopup(false);
+      toast.success("Credit entry added successfully");
+    } catch (err) {
+      toast.error("Failed to save credit entry");
+    }
+  };
+
+  const openAddRowPopup = () => {
+    setAddRowMaterial("");
+    setAddRowQty("");
+    setAddRowUnit("CFT");
+    setAddRowRate("");
+    setShowAddRowPopup(true);
+    setTimeout(() => {
+      const el = document.getElementById("add-row-material-input") as HTMLInputElement | null;
+      if (el) { el.focus(); el.select(); }
+    }, 50);
+  };
+
+  const handleSaveNewRow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const qtyVal = parseFloat(addRowQty) || 0;
+    const rateVal = parseFloat(addRowRate) || 0;
+    const amtVal = qtyVal * rateVal;
+
+    if (!addRowMaterial.trim()) {
+      toast.error("Material name is required");
+      return;
+    }
+    if (qtyVal <= 0) {
+      toast.error("Quantity must be greater than zero");
+      return;
+    }
+    if (rateVal <= 0) {
+      toast.error("Rate must be greater than zero");
+      return;
+    }
+
+    if (directChallan) {
+      const newItem = {
+        id: `direct-item-${Date.now()}-${Math.random()}`,
+        date: directChallan.date,
+        type: "TO" as const,
+        material: addRowMaterial.trim().toUpperCase(),
+        qty: qtyVal,
+        unit: addRowUnit.trim().toUpperCase() || "CFT",
+        rate: rateVal,
+        amount: amtVal,
+        particulars: "DIRECT SALE / CASH",
+        reference: "DIRECT_CHALLAN"
+      };
+      const updatedChallan = {
+        ...directChallan,
+        items: [...directChallan.items, newItem]
+      };
+      setDirectChallan(updatedChallan);
+      setLocalDirectChallans((prevList) => {
+        const updated = prevList.map(c => c.challanNo === directChallan.challanNo ? updatedChallan : c);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("today_direct_challans", JSON.stringify(updated));
+        }
+        return updated;
+      });
+      setShowAddRowPopup(false);
+      toast.success("New item added to direct challan");
+      return;
+    }
+
+    if (!selectedSiteId || !selectedLedgerId || !challanData.items.length) {
+      toast.error("No active company challan selected to add item to");
+      return;
+    }
+
+    const firstItem = challanData.items[0];
+    const rawItem = firstItem.rawItem;
+
+    const serializedPaymentMode = JSON.stringify({
+      type: "CompanyTransaction",
+      address: supplierAddress.trim().toUpperCase() || "N/A",
+      mobile: supplierPhone.trim() || "N/A",
+      material: addRowMaterial.trim().toUpperCase(),
+      qty: qtyVal,
+      unit: addRowUnit.trim().toUpperCase() || "CFT",
+      crDr: "DR",
+      rate: rateVal
+    });
+
+    const daybookPayload = {
+      siteId: selectedSiteId,
+      date: rawItem.date,
+      expenseType: rawItem.expenseType,
+      amount: amtVal,
+      paymentMode: serializedPaymentMode,
+      description: "COMPANY_LEDGER_ENTRY",
+      referenceNumber: rawItem.referenceNumber,
+    };
+
+    try {
+      await api.post("/daybooks", daybookPayload);
+      queryClient.invalidateQueries({ queryKey: ["daybooks", selectedSiteId] });
+      queryClient.invalidateQueries({ queryKey: ["ledgers", selectedSiteId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["allDaybooks"] });
+      setShowAddRowPopup(false);
+      toast.success("New item added to challan successfully");
+    } catch (err) {
+      toast.error("Failed to add new item to challan");
+    }
+  };
+
+  const handleAddRowMaterialKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, suggestions: any[]) => {
+    if (!isAddRowMaterialSuggestionsOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setIsAddRowMaterialSuggestionsOpen(true);
+        e.preventDefault();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowAddRowPopup(false);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = highlightedAddRowMaterialIndex + 1;
+      const index = next >= suggestions.length ? suggestions.length - 1 : next;
+      setHighlightedAddRowMaterialIndex(index);
+      setTimeout(() => {
+        const el = document.getElementById(`add-row-mat-opt-${index}`);
+        if (el) el.scrollIntoView({ block: "nearest" });
+      }, 10);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = highlightedAddRowMaterialIndex - 1;
+      const index = next < 0 ? 0 : next;
+      setHighlightedAddRowMaterialIndex(index);
+      setTimeout(() => {
+        const el = document.getElementById(`add-row-mat-opt-${index}`);
+        if (el) el.scrollIntoView({ block: "nearest" });
+      }, 10);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      let sIdx = highlightedAddRowMaterialIndex;
+      if (sIdx === -1 && suggestions.length > 0) {
+        sIdx = 0;
+      }
+      if (sIdx >= 0 && sIdx < suggestions.length) {
+        const mat = suggestions[sIdx];
+        setAddRowMaterial(mat.name.toUpperCase());
+        setAddRowUnit(mat.unit?.toUpperCase() || "CFT");
+        setIsAddRowMaterialSuggestionsOpen(false);
+        setHighlightedAddRowMaterialIndex(-1);
+      } else {
+        setIsAddRowMaterialSuggestionsOpen(false);
+        setHighlightedAddRowMaterialIndex(-1);
+      }
+      setTimeout(() => {
+        const qtyEl = document.getElementById("add-row-qty-input") as HTMLInputElement | null;
+        if (qtyEl) {
+          qtyEl.focus();
+          qtyEl.select();
+        }
+      }, 50);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsAddRowMaterialSuggestionsOpen(false);
+      setHighlightedAddRowMaterialIndex(-1);
+    }
+  };
+
   const handlePrintWithoutRate = () => {
     setPrintCopy("copy1");
     setTimeout(() => {
@@ -1977,6 +2440,30 @@ export default function ChallanPage() {
   // Connect hotkeys (1: Print Without Rate, 2: Print With Rate, F3: Excel)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // F2 and F4 switch modes / open modal (work even when inputs are focused)
+      if (e.key === "F2") {
+        e.preventDefault();
+        openDirectChallanModal("COMPANY");
+        setShowDirectChallanModal(true);
+        return;
+      }
+      if (e.key === "F4") {
+        e.preventDefault();
+        openDirectChallanModal("DIRECT");
+        setShowDirectChallanModal(true);
+        return;
+      }
+      // F6 opens the Add Credit popup directly (works even when inputs are focused)
+      if (e.key === "F6") {
+        e.preventDefault();
+        if (challanData && challanData.items && challanData.items.length > 0) {
+          openCreditPopup();
+        } else {
+          toast.error("Please load a challan first to add a credit entry");
+        }
+        return;
+      }
+
       const activeEl = document.activeElement;
       const isInputFocused = activeEl && (
         activeEl.tagName === "INPUT" || 
@@ -1991,6 +2478,28 @@ export default function ChallanPage() {
         const submitBtn = document.getElementById("modal-submit-btn") as HTMLButtonElement | null;
         if (submitBtn) {
           submitBtn.click();
+        }
+        return;
+      }
+
+      if (showCreditPopup && e.key === "Escape") {
+        e.preventDefault();
+        setShowCreditPopup(false);
+        return;
+      }
+
+      if (showAddRowPopup && e.key === "Escape") {
+        e.preventDefault();
+        setShowAddRowPopup(false);
+        return;
+      }
+
+      if (!showDirectChallanModal && !showCreditPopup && !showAddRowPopup && (e.key === "n" || e.key === "N") && !isInputFocused) {
+        e.preventDefault();
+        if (challanData && challanData.items && challanData.items.length > 0) {
+          openAddRowPopup();
+        } else {
+          toast.error("Please load a challan first to add a row");
         }
         return;
       }
@@ -2380,7 +2889,7 @@ export default function ChallanPage() {
                 <div className="border border-slate-850 p-3 bg-slate-50/50">
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-bold font-mono">
                     <div className="sm:col-span-2 space-y-1">
-                      <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || "")}</span>
+                      <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
                       <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
                         <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
                         {translateBilingual(supplierAddress)}
@@ -2415,11 +2924,40 @@ export default function ChallanPage() {
                       <tbody className="divide-y divide-slate-300 font-black text-[12px]">
                         {challanData.items.filter((item: any) => item.qty > 0).length > 0 ? (
                           challanData.items.filter((item: any) => item.qty > 0).map((item: any, idx: number) => (
-                            <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900">
-                              <td className="py-1.5 px-3 border-r border-slate-300 text-center text-slate-700">{idx + 1}</td>
-                              <td className="py-1.5 px-3 border-r border-slate-300 text-slate-955 font-extrabold">{translateBilingual(item.material)}</td>
-                              <td className="py-1.5 px-3 border-r border-slate-300 text-right font-mono text-slate-955">{item.qty > 0 ? item.qty : "-"}</td>
-                              <td className="py-1.5 px-3 text-center font-bold text-slate-500">{item.qty > 0 ? item.unit : "-"}</td>
+                            <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900 group/row">
+                              <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 relative w-12 shrink-0">
+                                <span className="group-hover/row:hidden">{idx + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRow(item.id)}
+                                  className="hidden group-hover/row:block absolute inset-0 m-auto text-red-655 font-black hover:text-red-700 text-sm no-print"
+                                  title="Delete Row"
+                                >
+                                  ×
+                                </button>
+                              </td>
+                              <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
+                                <EditableCell
+                                  value={item.material}
+                                  displayValue={translateBilingual(item.material)}
+                                  onSave={(newVal) => handleSaveRow(item.id, newVal, item.qty, item.unit, item.rate, item.rawItem)}
+                                />
+                              </td>
+                              <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
+                                <EditableCell
+                                  value={item.qty}
+                                  type="number"
+                                  className="text-right font-mono"
+                                  onSave={(newVal) => handleSaveRow(item.id, item.material, parseFloat(newVal) || 0, item.unit, item.rate, item.rawItem)}
+                                />
+                              </td>
+                              <td className="py-1 px-2 text-center font-bold text-slate-500 w-20">
+                                <EditableCell
+                                  value={item.unit}
+                                  className="text-center"
+                                  onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, newVal, item.rate, item.rawItem)}
+                                />
+                              </td>
                             </tr>
                           ))
                         ) : (
@@ -2441,12 +2979,19 @@ export default function ChallanPage() {
 
                 {/* COPY 1 Action buttons bar (directly below copy 1 content) */}
                 <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-between no-print select-none">
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 1 PRINT ESTIMATE | F3 EXCEL</div>
+                  <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 1 PRINT ESTIMATE | F3 EXCEL | N ADD ROW</div>
                   <div className="flex items-center gap-3">
-                    <button type="button" onClick={handlePrintWithoutRate} className="px-4 py-2 bg-slate-900 text-white border-2 border-slate-955 font-bold text-xs uppercase hover:bg-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={openAddRowPopup}
+                      className="px-4 py-2 bg-blue-750 bg-blue-700 text-white border-2 border-blue-955 font-bold text-xs uppercase hover:bg-blue-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer rounded"
+                    >
+                      <span>+ Add Row / नया आइटम (N)</span>
+                    </button>
+                    <button type="button" onClick={handlePrintWithoutRate} className="px-4 py-2 bg-slate-900 text-white border-2 border-slate-955 font-bold text-xs uppercase hover:bg-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer">
                       <Printer className="h-4 w-4" /> <span>[1] PRINT ESTIMATE</span>
                     </button>
-                    <button type="button" onClick={handleExportExcel} className="px-4 py-2 bg-emerald-700 text-white border-2 border-emerald-950 font-bold text-xs uppercase hover:bg-emerald-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2">
+                    <button type="button" onClick={handleExportExcel} className="px-4 py-2 bg-emerald-700 text-white border-2 border-emerald-950 font-bold text-xs uppercase hover:bg-emerald-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer">
                       <FileSpreadsheet className="h-4 w-4" /> <span>[F3] EXCEL</span>
                     </button>
                   </div>
@@ -2465,7 +3010,7 @@ export default function ChallanPage() {
                 <div className="border border-slate-850 p-3 bg-slate-50/50">
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-bold font-mono">
                     <div className="sm:col-span-2 space-y-1">
-                      <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || "")}</span>
+                      <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
                       <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
                         <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
                         {translateBilingual(supplierAddress)}
@@ -2496,19 +3041,87 @@ export default function ChallanPage() {
                           <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
                           <th className="py-1.5 px-3 border-r border-slate-800 text-center w-20">Unit</th>
                           <th className="py-1.5 px-3 border-r border-slate-800 text-right w-20">Rate</th>
-                          <th className="py-1.5 px-3 text-right w-28">Amount</th>
+                          <th className="py-1.5 px-3 text-right w-36">Amount</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-300 font-black text-[12px]">
                         {challanData.items.length > 0 ? (
                           challanData.items.map((item: any, idx: number) => (
-                            <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900">
-                              <td className="py-1.5 px-3 border-r border-slate-300 text-center text-slate-700">{idx + 1}</td>
-                              <td className="py-1.5 px-3 border-r border-slate-300 text-slate-955 font-extrabold">{translateBilingual(item.material)}</td>
-                              <td className="py-1.5 px-3 border-r border-slate-300 text-right font-mono text-slate-955">{item.qty > 0 ? item.qty : "-"}</td>
-                              <td className="py-1.5 px-3 border-r border-slate-300 text-center font-bold text-slate-500">{item.qty > 0 ? item.unit : "-"}</td>
-                              <td className="py-1.5 px-3 border-r border-slate-300 text-right font-mono text-slate-650">{item.rate > 0 ? item.rate : "-"}</td>
-                              <td className="py-1.5 px-3 text-right font-mono text-slate-955">{item.amount > 0 ? item.amount : "-"}</td>
+                            <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900 group/row">
+                              <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 relative w-12 shrink-0">
+                                <span className="group-hover/row:hidden">{idx + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRow(item.id)}
+                                  className="hidden group-hover/row:block absolute inset-0 m-auto text-red-655 font-black hover:text-red-700 text-sm no-print"
+                                  title="Delete Row"
+                                >
+                                  ×
+                                </button>
+                              </td>
+                              <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
+                                <EditableCell
+                                  value={item.material}
+                                  displayValue={translateBilingual(item.material)}
+                                  onSave={(newVal) => handleSaveRow(item.id, newVal, item.qty, item.unit, item.rate, item.rawItem)}
+                                />
+                              </td>
+                              <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
+                                <EditableCell
+                                  value={item.qty}
+                                  type="number"
+                                  className="text-right font-mono"
+                                  onSave={(newVal) => handleSaveRow(item.id, item.material, parseFloat(newVal) || 0, item.unit, item.rate, item.rawItem)}
+                                />
+                              </td>
+                              <td className="py-1 px-2 border-r border-slate-300 text-center font-bold text-slate-500 w-20">
+                                <EditableCell
+                                  value={item.unit}
+                                  className="text-center"
+                                  onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, newVal, item.rate, item.rawItem)}
+                                />
+                              </td>
+                              <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-655 w-20">
+                                <EditableCell
+                                  value={item.rate}
+                                  type="number"
+                                  className="text-right font-mono"
+                                  onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, item.unit, parseFloat(newVal) || 0, item.rawItem)}
+                                />
+                              </td>
+                              <td className="py-1 px-2 text-right font-mono text-slate-955 w-36">
+                                <div className="flex items-center justify-end gap-1.5 h-full">
+                                  {item.qty === 0 && item.rate === 0 ? (
+                                    <EditableCell
+                                      value={item.amount}
+                                      type="number"
+                                      className="text-right font-mono"
+                                      onSave={(newVal) => {
+                                        const parsedAmt = parseFloat(newVal) || 0;
+                                        handleSaveRow(item.id, item.material, item.qty, item.unit, item.rate, item.rawItem, item.type, parsedAmt);
+                                      }}
+                                    />
+                                  ) : (
+                                    <span>{item.amount > 0 ? item.amount.toFixed(2) : "-"}</span>
+                                  )}
+                                  {item.amount > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const nextType = item.type === "TO" ? "BY" : "TO";
+                                        handleSaveRow(item.id, item.material, item.qty, item.unit, item.rate, item.rawItem, nextType);
+                                      }}
+                                      className={`px-1 py-0.5 text-[9px] font-black rounded border cursor-pointer hover:bg-slate-100 print:border-none print:bg-transparent print:p-0 ${
+                                        item.type === "TO"
+                                          ? "bg-red-50 text-red-700 border-red-200"
+                                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      }`}
+                                    >
+                                      {item.type === "TO" ? "DR" : "CR"}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
                             </tr>
                           ))
                         ) : (
@@ -2532,8 +3145,15 @@ export default function ChallanPage() {
 
                 {/* COPY 2 Action buttons bar (directly below copy 2 content) */}
                 <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-between no-print select-none">
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 2 PRINT WITH RATE</div>
+                  <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 2 PRINT WITH RATE | F6 ADD CREDIT</div>
                   <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={openCreditPopup}
+                      className="px-4 py-2 bg-emerald-700 text-white border-2 border-emerald-950 font-bold text-xs uppercase hover:bg-emerald-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer rounded"
+                    >
+                      <span>Add Credit / क्रेडिट जोड़ें (F6)</span>
+                    </button>
                     <button type="button" onClick={handlePrintWithRate} className="px-4 py-2 bg-[#2B547E] text-white border-2 border-slate-955 font-bold text-xs uppercase hover:bg-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2">
                       <Printer className="h-4 w-4" /> <span>[2] PRINT WITH RATE</span>
                     </button>
@@ -2545,35 +3165,7 @@ export default function ChallanPage() {
           </div>
         </div>
 
-        {/* EDIT CHALLAN SECTION (BOTTOM OF PAGE) */}
-        {challanData.items.length > 0 && (
-          <div className="bg-[#E5ECF4] border-2 border-slate-800 p-6 rounded shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-4 print:hidden select-none mt-6">
-            <div className="flex items-center gap-2 border-b-2 border-slate-350 pb-2 mb-2 bg-[#2B547E] text-white p-3 rounded">
-              <Printer className="h-4 w-4" />
-              <span className="font-bold text-xs uppercase tracking-wider">EDIT CURRENT CHALLAN DETAILS (NO: {challanSerial})</span>
-            </div>
 
-            <div className="overflow-x-auto border-2 border-slate-800 bg-white">
-              <table className="w-full text-left border-collapse text-xs font-mono">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
-                    <th className="py-2.5 px-4 border-r border-slate-800">Material Name</th>
-                    <th className="py-2.5 px-4 border-r border-slate-800 text-right w-28">Qty</th>
-                    <th className="py-2.5 px-4 border-r border-slate-800 text-center w-24">Unit</th>
-                    <th className="py-2.5 px-4 border-r border-slate-800 text-right w-28">Rate</th>
-                    <th className="py-2.5 px-4 border-r border-slate-800 text-right w-32">Amount</th>
-                    <th className="py-2.5 px-4 text-center w-40">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-300 font-bold text-xs">
-                  {challanData.items.map((item) => (
-                    <ChallanRowEditor key={item.id} item={item} onSave={handleSaveRow} onDelete={handleDeleteRow} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
         </>
       ) : (
         <div className="bg-white border-2 border-slate-800 p-16 text-center space-y-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] select-none">
@@ -2634,7 +3226,7 @@ export default function ChallanPage() {
                             loadCompanyChallan(ch.siteId, ch.customerName, ch.challanNo);
                           }
                         }}
-                        className={`cursor-pointer uppercase border-b border-slate-200 last:border-0 hover:bg-[#ECC30B]/20 transition-colors ${
+                        className={`group cursor-pointer uppercase border-b border-slate-200 last:border-0 hover:bg-[#ECC30B]/20 transition-colors ${
                           isFocused 
                             ? "bg-[#ECC30B] hover:bg-[#ECC30B] text-slate-955 border-l-4 border-l-slate-955 font-black font-mono" 
                             : isSelected
@@ -2647,11 +3239,21 @@ export default function ChallanPage() {
                         </td>
                         <td className="py-1.5 px-2 font-black text-slate-950 flex items-center justify-between min-w-0" title={ch.customerName}>
                           <span className="truncate">{ch.customerName}</span>
-                          {ch.type === "DIRECT" && (
-                            <span className="text-[8px] bg-emerald-600 text-white px-1 py-0.5 rounded font-extrabold ml-1.5 shrink-0">
-                              DIRECT
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+                            {ch.type === "DIRECT" && (
+                              <span className="text-[8px] bg-emerald-600 text-white px-1 py-0.5 rounded font-extrabold shrink-0">
+                                DIRECT
+                              </span>
+                            )}
+                             <button
+                              type="button"
+                              onClick={(e) => handleDeleteWholeChallan(ch, e)}
+                              className="text-red-600 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 p-0.5 rounded transition-all duration-150 cursor-pointer flex items-center justify-center"
+                              title="Delete Challan"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2671,15 +3273,28 @@ export default function ChallanPage() {
       {showDirectChallanModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-200">
           <div className="bg-[#D3DFEE] border-2 border-slate-955 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[840px] max-w-[95vw] font-mono flex flex-col select-none">
-            {/* Title Bar */}
-            <div className={`border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0 ${challanFormMode === "COMPANY" ? "bg-[#2B547E]" : "bg-emerald-700"}`}>
-              <span className="text-xs font-black uppercase tracking-wider">
-                {challanFormMode === "COMPANY" ? "Create Company Ledger Challan / कंपनी लेजर चालान बनाएँ" : "Create Direct Challan / डायरेक्ट चालान बनाएँ"}
-              </span>
+            {/* Title Bar / Mode Switcher */}
+            <div className={`border-b-2 border-slate-950 p-1 flex items-center justify-between text-white shrink-0 ${challanFormMode === "COMPANY" ? "bg-[#2B547E]" : "bg-emerald-700"}`}>
+              <div className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider">
+                <button
+                  type="button"
+                  onClick={() => openDirectChallanModal("COMPANY")}
+                  className={`px-3 py-1.5 border border-slate-950 rounded transition-all cursor-pointer font-extrabold ${challanFormMode === "COMPANY" ? "bg-white text-[#2B547E] shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]" : "bg-transparent text-slate-200 border-transparent hover:text-white hover:border-slate-300"}`}
+                >
+                  Company Ledger [F2] / कंपनी लेजर
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openDirectChallanModal("DIRECT")}
+                  className={`px-3 py-1.5 border border-slate-950 rounded transition-all cursor-pointer font-extrabold ${challanFormMode === "DIRECT" ? "bg-white text-emerald-700 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]" : "bg-transparent text-slate-200 border-transparent hover:text-white hover:border-slate-300"}`}
+                >
+                  Direct Challan [F4] / डायरेक्ट चालान
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowDirectChallanModal(false)}
-                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2 py-0.5 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer"
+                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2.5 py-1 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer mr-1 font-bold"
               >
                 X
               </button>
@@ -2771,7 +3386,7 @@ export default function ChallanPage() {
                   </div>
                 </div>
 
-                {/* Customer Name Row */}
+                {/* Customer Name and Address Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Customer Name */}
                   <div className="relative" ref={modalCustomerSelectorRef}>
@@ -2781,7 +3396,7 @@ export default function ChallanPage() {
                       type="text"
                       required={challanFormMode === "COMPANY"}
                       value={directCustomer}
-                      disabled={!selectedSiteId}
+                      disabled={challanFormMode === "COMPANY" && !selectedSiteId}
                       onChange={(e) => {
                         setDirectCustomer(e.target.value.toUpperCase());
                         setIsModalCustomerSuggestionsOpen(true);
@@ -2798,7 +3413,7 @@ export default function ChallanPage() {
                       }}
                       onKeyDown={handleModalCustomerKeyDown}
                       placeholder={
-                        !selectedSiteId
+                        challanFormMode === "COMPANY" && !selectedSiteId
                           ? "SELECT SITE FIRST..."
                           : challanFormMode === "COMPANY"
                             ? "ENTER CUSTOMER / SUPPLIER NAME"
@@ -2837,73 +3452,67 @@ export default function ChallanPage() {
                     )}
                   </div>
 
-                  {/* Address if COMPANY mode */}
-                  {challanFormMode === "COMPANY" ? (
-                    <div>
-                      <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Address / पता (Optional):</label>
-                      <input
-                        id="modal-address-input"
-                        type="text"
-                        disabled={!selectedSiteId}
-                        value={directAddress}
-                        onChange={(e) => setDirectAddress(e.target.value.toUpperCase())}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            const mobEl = document.getElementById("modal-mobile-input") as HTMLInputElement | null;
-                            if (mobEl) {
-                              mobEl.focus();
-                              mobEl.select();
-                            }
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            modalCustomerInputRef.current?.focus();
-                            modalCustomerInputRef.current?.select();
+                  {/* Address */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Address / पता (Optional):</label>
+                    <input
+                      id="modal-address-input"
+                      type="text"
+                      disabled={challanFormMode === "COMPANY" && !selectedSiteId}
+                      value={directAddress}
+                      onChange={(e) => setDirectAddress(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const mobEl = document.getElementById("modal-mobile-input") as HTMLInputElement | null;
+                          if (mobEl) {
+                            mobEl.focus();
+                            mobEl.select();
                           }
-                        }}
-                        placeholder="ENTER ADDRESS"
-                        className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-[#2B547E] disabled:bg-slate-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
-                  ) : (
-                    <div /> // placeholder to keep grid aligned
-                  )}
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          modalCustomerInputRef.current?.focus();
+                          modalCustomerInputRef.current?.select();
+                        }
+                      }}
+                      placeholder="ENTER ADDRESS"
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                    />
+                  </div>
                 </div>
 
-                {/* Additional Row for Mobile if COMPANY mode */}
-                {challanFormMode === "COMPANY" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Mobile No / मोबाइल नंबर (Optional):</label>
-                      <input
-                        id="modal-mobile-input"
-                        type="text"
-                        disabled={!selectedSiteId}
-                        value={directMobile}
-                        onChange={(e) => setDirectMobile(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            const matEl = document.getElementById("direct-material-input-0") as HTMLInputElement | null;
-                            if (matEl) {
-                              matEl.focus();
-                              matEl.select();
-                            }
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            const addrEl = document.getElementById("modal-address-input") as HTMLInputElement | null;
-                            if (addrEl) {
-                              addrEl.focus();
-                              addrEl.select();
-                            }
+                {/* Mobile No */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Mobile No / मोबाइल नंबर (Optional):</label>
+                    <input
+                      id="modal-mobile-input"
+                      type="text"
+                      disabled={challanFormMode === "COMPANY" && !selectedSiteId}
+                      value={directMobile}
+                      onChange={(e) => setDirectMobile(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const matEl = document.getElementById("direct-material-input-0") as HTMLInputElement | null;
+                          if (matEl) {
+                            matEl.focus();
+                            matEl.select();
                           }
-                        }}
-                        placeholder="ENTER MOBILE NO."
-                        className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-[#2B547E] disabled:bg-slate-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          const addrEl = document.getElementById("modal-address-input") as HTMLInputElement | null;
+                          if (addrEl) {
+                            addrEl.focus();
+                            addrEl.select();
+                          }
+                        }
+                      }}
+                      placeholder="ENTER MOBILE NO."
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                    />
                   </div>
-                )}
+                </div>
 
                 {/* Items Section Title */}
                 <div className="border-b-2 border-slate-355 border-slate-400 pb-1 flex justify-between items-center">
@@ -3116,79 +3725,363 @@ export default function ChallanPage() {
           </div>
         </div>
       )}
+
+      {/* Credit Entry Modal */}
+      {showCreditPopup && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-200">
+          <div className="bg-[#D3DFEE] border-2 border-slate-955 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[400px] max-w-[95vw] font-mono flex flex-col select-none">
+            <div className="border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0 bg-emerald-700">
+              <span className="text-xs font-black uppercase tracking-wider">Add Credit Entry / क्रेडिट प्रविष्टि जोड़ें</span>
+              <button
+                type="button"
+                onClick={() => setShowCreditPopup(false)}
+                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2.5 py-1 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer font-bold"
+              >
+                X
+              </button>
+            </div>
+            <form onSubmit={handleSaveCreditEntry} className="p-6 bg-[#E5ECF4] space-y-4 text-slate-955">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Date / दिनांक (DD.MM.YY):</label>
+                  <input
+                    id="credit-date-input"
+                    type="text"
+                    required
+                    value={creditDate}
+                    onChange={(e) => setCreditDate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const nextEl = document.getElementById("credit-particulars-input") as HTMLInputElement | null;
+                        if (nextEl) { nextEl.focus(); nextEl.select(); }
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        setShowCreditPopup(false);
+                      }
+                    }}
+                    placeholder="DD.MM.YY"
+                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Particulars / विवरण:</label>
+                  <input
+                    id="credit-particulars-input"
+                    type="text"
+                    required
+                    value={creditParticulars}
+                    onChange={(e) => setCreditParticulars(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const nextEl = document.getElementById("credit-amount-input") as HTMLInputElement | null;
+                        if (nextEl) { nextEl.focus(); nextEl.select(); }
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const prevEl = document.getElementById("credit-date-input") as HTMLInputElement | null;
+                        if (prevEl) { prevEl.focus(); prevEl.select(); }
+                      }
+                    }}
+                    placeholder="Particulars"
+                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600 uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Credit Amount / क्रेडिट राशि:</label>
+                  <input
+                    id="credit-amount-input"
+                    type="number"
+                    step="any"
+                    required
+                    value={creditAmount}
+                    onChange={(e) => setCreditAmount(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSaveCreditEntry(e);
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const prevEl = document.getElementById("credit-particulars-input") as HTMLInputElement | null;
+                        if (prevEl) { prevEl.focus(); prevEl.select(); }
+                      }
+                    }}
+                    placeholder="Amount"
+                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+              <div className="bg-white border-t border-slate-300 -mx-6 -mb-6 p-4 mt-4">
+                <button
+                  id="credit-submit-btn"
+                  type="submit"
+                  className="w-full text-white font-extrabold text-[10px] py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-955 cursor-pointer uppercase tracking-wider text-center bg-emerald-600 hover:bg-emerald-700"
+                >
+                  Save Credit Entry / क्रेडिट प्रविष्टि सहेजें
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Row Modal */}
+      {showAddRowPopup && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-200">
+          <div className="bg-[#D3DFEE] border-2 border-slate-955 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[400px] max-w-[95vw] font-mono flex flex-col select-none">
+            <div className="border-b-2 border-slate-955 px-3 py-2 flex items-center justify-between text-white shrink-0 bg-blue-700">
+              <span className="text-xs font-black uppercase tracking-wider">Add Material Row / नया आइटम जोड़ें</span>
+              <button
+                type="button"
+                onClick={() => setShowAddRowPopup(false)}
+                className="bg-red-655 hover:bg-red-700 text-white font-black text-xs px-2.5 py-1 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer font-bold animate-pulse"
+              >
+                X
+              </button>
+            </div>
+            <form onSubmit={handleSaveNewRow} className="p-6 bg-[#E5ECF4] space-y-4 text-slate-955">
+              <div className="space-y-4">
+                {/* Material Input with Autocomplete */}
+                <div className="relative" ref={addRowMaterialSelectorRef}>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Material Name / सामग्री:</label>
+                  <input
+                    id="add-row-material-input"
+                    type="text"
+                    required
+                    value={addRowMaterial}
+                    onChange={(e) => {
+                      setAddRowMaterial(e.target.value.toUpperCase());
+                      setIsAddRowMaterialSuggestionsOpen(true);
+                      setHighlightedAddRowMaterialIndex(-1);
+                    }}
+                    onFocus={() => {
+                      setIsAddRowMaterialSuggestionsOpen(true);
+                      setHighlightedAddRowMaterialIndex(-1);
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setIsAddRowMaterialSuggestionsOpen(false), 200);
+                    }}
+                    onKeyDown={(e) => {
+                      const suggestions = (() => {
+                        const q = addRowMaterial.trim().toUpperCase();
+                        if (!existingMaterials) return [];
+                        if (!q) return existingMaterials;
+                        return existingMaterials.filter((m: any) => matchesFuzzy(m.name, q));
+                      })();
+                      handleAddRowMaterialKeyDown(e, suggestions);
+                    }}
+                    placeholder="Type Material..."
+                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-blue-600 uppercase font-mono"
+                  />
+                  {isAddRowMaterialSuggestionsOpen && (
+                    (() => {
+                      const suggestions = (() => {
+                        const q = addRowMaterial.trim().toUpperCase();
+                        if (!existingMaterials) return [];
+                        if (!q) return existingMaterials;
+                        return existingMaterials.filter((m: any) => matchesFuzzy(m.name, q));
+                      })();
+                      if (suggestions.length === 0) return null;
+                      return (
+                        <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-955 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto">
+                          {suggestions.map((mat: any, sIdx: number) => {
+                            const isHighlighted = sIdx === highlightedAddRowMaterialIndex;
+                            return (
+                              <button
+                                key={mat.id || sIdx}
+                                id={`add-row-mat-opt-${sIdx}`}
+                                type="button"
+                                onMouseDown={() => {
+                                  setAddRowMaterial(mat.name.toUpperCase());
+                                  setAddRowUnit(mat.unit?.toUpperCase() || "CFT");
+                                  setIsAddRowMaterialSuggestionsOpen(false);
+                                  setHighlightedAddRowMaterialIndex(-1);
+                                  setTimeout(() => {
+                                    const qtyEl = document.getElementById("add-row-qty-input") as HTMLInputElement | null;
+                                    if (qtyEl) {
+                                      qtyEl.focus();
+                                      qtyEl.select();
+                                    }
+                                  }, 50);
+                                }}
+                                className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 ${
+                                  isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
+                                }`}
+                              >
+                                {mat.name.toUpperCase()} ({mat.unit || "CFT"})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+
+                {/* Qty Input */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Quantity / मात्रा:</label>
+                  <input
+                    id="add-row-qty-input"
+                    type="number"
+                    step="any"
+                    required
+                    value={addRowQty}
+                    onChange={(e) => setAddRowQty(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const nextEl = document.getElementById("add-row-unit-input") as HTMLInputElement | null;
+                        if (nextEl) { nextEl.focus(); nextEl.select(); }
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const prevEl = document.getElementById("add-row-material-input") as HTMLInputElement | null;
+                        if (prevEl) { prevEl.focus(); prevEl.select(); }
+                      }
+                    }}
+                    placeholder="Qty"
+                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold font-mono text-right focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+
+                {/* Unit Input */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Unit / इकाई:</label>
+                  <input
+                    id="add-row-unit-input"
+                    type="text"
+                    required
+                    value={addRowUnit}
+                    onChange={(e) => setAddRowUnit(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const nextEl = document.getElementById("add-row-rate-input") as HTMLInputElement | null;
+                        if (nextEl) { nextEl.focus(); nextEl.select(); }
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const prevEl = document.getElementById("add-row-qty-input") as HTMLInputElement | null;
+                        if (prevEl) { prevEl.focus(); prevEl.select(); }
+                      }
+                    }}
+                    placeholder="Unit"
+                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold text-center focus:outline-none focus:border-blue-600 uppercase"
+                  />
+                </div>
+
+                {/* Rate Input */}
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Rate / दर:</label>
+                  <input
+                    id="add-row-rate-input"
+                    type="number"
+                    step="any"
+                    required
+                    value={addRowRate}
+                    onChange={(e) => setAddRowRate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSaveNewRow(e);
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const prevEl = document.getElementById("add-row-unit-input") as HTMLInputElement | null;
+                        if (prevEl) { prevEl.focus(); prevEl.select(); }
+                      }
+                    }}
+                    placeholder="Rate"
+                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold font-mono text-right focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+              </div>
+              <div className="bg-white border-t border-slate-300 -mx-6 -mb-6 p-4 mt-4">
+                <button
+                  id="add-row-submit-btn"
+                  type="submit"
+                  className="w-full text-white font-extrabold text-[10px] py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-955 cursor-pointer uppercase tracking-wider text-center bg-blue-600 hover:bg-blue-700"
+                >
+                  Save Material Row / आइटम सहेजें
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-interface ChallanRowEditorProps {
-  item: any;
-  onSave: (id: string, material: string, qty: number, unit: string, rate: number, rawItem: any) => void;
-  onDelete: (id: string) => void;
+interface EditableCellProps {
+  value: string | number;
+  onSave: (newVal: string) => void;
+  type?: "text" | "number";
+  className?: string;
+  displayValue?: string;
 }
 
-function ChallanRowEditor({ item, onSave, onDelete }: ChallanRowEditorProps) {
-  const [material, setMaterial] = useState(item.material);
-  const [qty, setQty] = useState(String(item.qty));
-  const [unit, setUnit] = useState(item.unit);
-  const [rate, setRate] = useState(String(item.rate));
+function EditableCell({
+  value,
+  onSave,
+  type = "text",
+  className = "",
+  displayValue
+}: EditableCellProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [localValue, setLocalValue] = useState(String(value));
 
-  const amount = (parseFloat(qty) || 0) * (parseFloat(rate) || 0);
+  useEffect(() => {
+    setLocalValue(String(value));
+  }, [value]);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (localValue !== String(value)) {
+      onSave(localValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setIsEditing(false);
+      if (localValue !== String(value)) {
+        onSave(localValue);
+      }
+    } else if (e.key === "Escape") {
+      setLocalValue(String(value));
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        type={type}
+        step="any"
+        value={localValue}
+        onChange={(e) => setLocalValue(type === "number" ? e.target.value : e.target.value.toUpperCase())}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        autoFocus
+        className={`w-full bg-white border border-slate-350 rounded px-1.5 py-0.5 text-xs font-bold focus:outline-none focus:border-slate-800 uppercase ${className}`}
+      />
+    );
+  }
+
+  const showVal = displayValue !== undefined ? displayValue : (value === 0 || value === "0" ? "-" : String(value));
 
   return (
-    <tr className="hover:bg-slate-50 uppercase text-slate-900 border-b border-slate-300 last:border-0">
-      <td className="py-2 px-3 border-r border-slate-300">
-        <input
-          type="text"
-          value={material}
-          onChange={(e) => setMaterial(e.target.value.toUpperCase())}
-          className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800"
-        />
-      </td>
-      <td className="py-2 px-3 border-r border-slate-300 text-right">
-        <input
-          type="number"
-          step="any"
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-right focus:outline-none focus:border-slate-800 font-mono"
-        />
-      </td>
-      <td className="py-2 px-3 border-r border-slate-300 text-center">
-        <input
-          type="text"
-          value={unit}
-          onChange={(e) => setUnit(e.target.value.toUpperCase())}
-          className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-slate-800 font-mono"
-        />
-      </td>
-      <td className="py-2 px-3 border-r border-slate-300 text-right">
-        <input
-          type="number"
-          step="any"
-          value={rate}
-          onChange={(e) => setRate(e.target.value)}
-          className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-right focus:outline-none focus:border-slate-800 font-mono"
-        />
-      </td>
-      <td className="py-2 px-3 border-r border-slate-300 text-right font-mono font-bold text-slate-800">
-        {amount > 0 ? amount.toFixed(2) : "-"}
-      </td>
-      <td className="py-2 px-3 text-center flex items-center justify-center gap-2 h-full">
-        <button
-          type="button"
-          onClick={() => onSave(item.id, material, parseFloat(qty) || 0, unit, parseFloat(rate) || 0, item.rawItem)}
-          className="px-3 py-1 bg-emerald-750 bg-emerald-700 text-white border border-emerald-950 text-[10px] font-black uppercase rounded shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] hover:shadow-none hover:bg-emerald-800 active:translate-y-0.5 transition-all cursor-pointer"
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(item.id)}
-          className="px-3 py-1 bg-red-600 text-white border border-slate-950 text-[10px] font-black uppercase rounded shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] hover:shadow-none hover:bg-red-755 hover:bg-red-700 active:translate-y-0.5 transition-all cursor-pointer"
-        >
-          Delete
-        </button>
-      </td>
-    </tr>
+    <div
+      onClick={() => setIsEditing(true)}
+      className={`cursor-pointer hover:bg-slate-100/80 rounded px-1 py-0.5 min-h-[20px] transition-colors ${className}`}
+      title="Click to edit"
+    >
+      {showVal || "-"}
+    </div>
   );
 }
