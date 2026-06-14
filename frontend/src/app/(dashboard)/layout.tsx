@@ -170,7 +170,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isDashboard) {
+      if (!isDashboard && pathname !== "/challan") {
         if (e.key === "Escape") {
           // If a nested modal (z-[9999] or z-50 overlay) is open, let it handle Escape.
           if (document.querySelector('.z-\\[9999\\]') || document.querySelector('.z-50')) {
@@ -244,7 +244,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isDashboard, focusedColumn, focusedMainIndex, focusedSubIndex, activeMainMenu, router]);
+  }, [isDashboard, focusedColumn, focusedMainIndex, focusedSubIndex, activeMainMenu, router, pathname]);
 
   const handleSubMenuExit = () => {
     setActiveMainMenu(0);
