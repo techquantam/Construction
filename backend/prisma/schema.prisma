@@ -85,6 +85,7 @@ model Material {
   unit         String   // bags, pieces, tons, liters, etc.
   currentStock Float    @default(0)
   lowStockAlert Float   @default(10)
+  rate         Float?   @default(0)
   
   transactions MaterialTransaction[]
   

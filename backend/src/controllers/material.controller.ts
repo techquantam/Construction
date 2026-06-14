@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
 import { prisma } from '../server';
 
+const parseRate = (val: any) => {
+  if (val === undefined || val === null || val === "") return null;
+  const num = parseFloat(val);
+  return isNaN(num) ? null : num;
+};
+
 export const getMaterials = async (req: Request, res: Response) => {
   try {
     const materials = await prisma.material.findMany({
@@ -37,14 +43,14 @@ export const getMaterialById = async (req: Request, res: Response) => {
 
 export const createMaterial = async (req: Request, res: Response) => {
   try {
-    const { name, unit, openingStock, lowStockAlert } = req.body;
-
+    const { name, unit, openingStock, lowStockAlert, rate } = req.body;
     const material = await prisma.material.create({
       data: {
-        name,
-        unit,
+        name: name?.trim().toUpperCase(),
+        unit: unit?.trim().toUpperCase(),
         currentStock: parseFloat(openingStock) || 0,
-        lowStockAlert: parseFloat(lowStockAlert) || 10
+        lowStockAlert: parseFloat(lowStockAlert) || 10,
+        rate: parseRate(rate)
       }
     });
 
@@ -112,6 +118,25 @@ export const deleteMaterial = async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, message: 'Material deleted successfully', data: material });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateMaterial = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { name, unit, rate } = req.body;
+    const material = await prisma.material.update({
+      where: { id },
+      data: {
+        name: name?.trim().toUpperCase(),
+        unit: unit?.trim().toUpperCase(),
+        rate: rate !== undefined ? parseRate(rate) : undefined
+      }
+    });
+
+    res.json({ success: true, data: material });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

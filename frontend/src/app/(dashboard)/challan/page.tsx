@@ -755,12 +755,14 @@ export default function ChallanPage() {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         updateDirectItem(idx, { isMaterialSuggestionsOpen: true });
         e.preventDefault();
+        e.stopPropagation();
       }
       return;
     }
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      e.stopPropagation();
       const next = item.highlightedMaterialIndex + 1;
       const index = next >= suggestions.length ? suggestions.length - 1 : next;
       updateDirectItem(idx, { highlightedMaterialIndex: index });
@@ -770,6 +772,7 @@ export default function ChallanPage() {
       }, 10);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      e.stopPropagation();
       const next = item.highlightedMaterialIndex - 1;
       const index = next < 0 ? 0 : next;
       updateDirectItem(idx, { highlightedMaterialIndex: index });
@@ -779,6 +782,7 @@ export default function ChallanPage() {
       }, 10);
     } else if (e.key === "Enter") {
       e.preventDefault();
+      e.stopPropagation();
       let sIdx = item.highlightedMaterialIndex;
       if (sIdx === -1 && suggestions.length > 0) {
         sIdx = 0;
@@ -788,6 +792,7 @@ export default function ChallanPage() {
         updateDirectItem(idx, {
           material: mat.name.toUpperCase(),
           unit: mat.unit?.toUpperCase() || "CFT",
+          rate: mat.rate !== undefined && mat.rate !== null ? String(mat.rate) : "",
           isMaterialSuggestionsOpen: false,
           highlightedMaterialIndex: -1
         });
@@ -2396,6 +2401,9 @@ export default function ChallanPage() {
         const mat = suggestions[sIdx];
         setAddRowMaterial(mat.name.toUpperCase());
         setAddRowUnit(mat.unit?.toUpperCase() || "CFT");
+        if (mat.rate !== undefined && mat.rate !== null && mat.rate !== 0) {
+          setAddRowRate(String(mat.rate));
+        }
         setIsAddRowMaterialSuggestionsOpen(false);
         setHighlightedAddRowMaterialIndex(-1);
       } else {
@@ -3580,10 +3588,12 @@ export default function ChallanPage() {
                                     key={mat.id || sIdx}
                                     id={`mat-opt-${idx}-${sIdx}`}
                                     type="button"
-                                    onMouseDown={() => {
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
                                       updateDirectItem(idx, {
                                         material: mat.name.toUpperCase(),
                                         unit: mat.unit?.toUpperCase() || "CFT",
+                                        rate: mat.rate !== undefined && mat.rate !== null ? String(mat.rate) : "",
                                         isMaterialSuggestionsOpen: false,
                                         highlightedMaterialIndex: -1
                                       });
@@ -3893,9 +3903,13 @@ export default function ChallanPage() {
                                 key={mat.id || sIdx}
                                 id={`add-row-mat-opt-${sIdx}`}
                                 type="button"
-                                onMouseDown={() => {
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
                                   setAddRowMaterial(mat.name.toUpperCase());
                                   setAddRowUnit(mat.unit?.toUpperCase() || "CFT");
+                                  if (mat.rate !== undefined && mat.rate !== null && mat.rate !== 0) {
+                                    setAddRowRate(String(mat.rate));
+                                  }
                                   setIsAddRowMaterialSuggestionsOpen(false);
                                   setHighlightedAddRowMaterialIndex(-1);
                                   setTimeout(() => {

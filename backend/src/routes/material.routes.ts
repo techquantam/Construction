@@ -1,5 +1,5 @@
 import express from 'express';
-import { getMaterials, getMaterialById, createMaterial, addMaterialTransaction, deleteMaterial } from '../controllers/material.controller';
+import { getMaterials, getMaterialById, createMaterial, addMaterialTransaction, deleteMaterial, updateMaterial } from '../controllers/material.controller';
 import { protect } from '../middleware/auth.middleware';
 
 const router = express.Router();
@@ -12,6 +12,7 @@ router.route('/')
 
 router.route('/:id')
   .get(getMaterialById)
+  .put(updateMaterial)
   .delete(deleteMaterial);
 
 router.route('/:id/transactions')

@@ -12,7 +12,7 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 
 const PORT = process.env.PORT || 5000;
-// Trigger restart to load new prisma schema
+// Trigger restart to load new prisma schema and update route PUT v2
 export const prisma = new PrismaClient({ adapter });
 
 async function startServer() {

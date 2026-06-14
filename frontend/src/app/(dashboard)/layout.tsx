@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   FileText,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -52,9 +53,12 @@ function SearchParamsSync() {
     } else if (pathname.includes("/challan")) {
       setActiveMainMenu(3);
       setActiveSubMenu("3.1");
-    } else if (pathname.includes("/backup")) {
+    } else if (pathname.includes("/materials")) {
       setActiveMainMenu(4);
       setActiveSubMenu("4.1");
+    } else if (pathname.includes("/backup")) {
+      setActiveMainMenu(5);
+      setActiveSubMenu("5.1");
     }
   }, [pathname, searchParams, setActiveMainMenu, setActiveSubMenu]);
 
@@ -113,7 +117,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       case "2.2": return "2.2. PRINT LEDGER";
       case "2.3": return "2.3. PRINT DAYBOOK";
       case "3.1": return "3.1. PRINT CHALLAN";
-      case "4.1": return "4.1. BACKUP DATABASE";
+      case "4.1": return "4.1. MATERIAL";
+      case "5.1": return "5.1. BACKUP DATABASE";
       default: return "";
     }
   };
@@ -150,8 +155,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ];
       case 4:
         return [
-          { label: "4.1. BACKUP DATABASE", href: "/backup?action=backup", code: "4.1" },
+          { label: "4.1. MATERIAL", href: "/materials", code: "4.1" },
           { label: "4.2. EXIT", href: "exit", code: "exit" },
+        ];
+      case 5:
+        return [
+          { label: "5.1. BACKUP DATABASE", href: "/backup?action=backup", code: "5.1" },
+          { label: "5.2. EXIT", href: "exit", code: "exit" },
         ];
       default:
         return [];
@@ -170,7 +180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isDashboard && pathname !== "/challan") {
+      if (!isDashboard && pathname !== "/challan" && pathname !== "/materials") {
         if (e.key === "Escape") {
           // If a nested modal (z-[9999] or z-50 overlay) is open, let it handle Escape.
           if (document.querySelector('.z-\\[9999\\]') || document.querySelector('.z-50')) {
@@ -181,13 +191,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return;
       }
 
+      // Prevent global menu navigation hotkeys when typing in form inputs
+      const activeEl = document.activeElement;
+      const isInputFocused = activeEl && (
+        activeEl.tagName === "INPUT" ||
+        activeEl.tagName === "TEXTAREA" ||
+        activeEl.hasAttribute("contenteditable")
+      );
+      if (isInputFocused) return;
+
       if (focusedColumn === "main") {
         if (e.key === "ArrowDown") {
           e.preventDefault();
-          setFocusedMainIndex((prev) => (prev + 1) % 5);
+          setFocusedMainIndex((prev) => (prev + 1) % 6);
         } else if (e.key === "ArrowUp") {
           e.preventDefault();
-          setFocusedMainIndex((prev) => (prev - 1 + 5) % 5);
+          setFocusedMainIndex((prev) => (prev - 1 + 6) % 6);
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
           if (activeMainMenu && activeMainMenu !== 0) {
@@ -196,12 +215,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }
         } else if (e.key === "Enter") {
           e.preventDefault();
-          if (focusedMainIndex === 4) {
+          if (focusedMainIndex === 5) {
             handleLogout();
           } else if (focusedMainIndex === 2) {
             setActiveMainMenu(3);
             setActiveSubMenu("3.1");
             router.push("/challan");
+          } else if (focusedMainIndex === 3) {
+            setActiveMainMenu(4);
+            setActiveSubMenu("4.1");
+            router.push("/materials");
           } else {
             const nextMenu = focusedMainIndex + 1;
             setActiveMainMenu(nextMenu);
@@ -253,7 +276,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const handleMainMenuClick = (menuNum: number) => {
-    if (menuNum === 5) {
+    if (menuNum === 6) {
       handleLogout();
       return;
     }
@@ -262,6 +285,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setActiveMainMenu(3);
       setActiveSubMenu("3.1");
       router.push("/challan");
+      return;
+    }
+
+    if (menuNum === 4) {
+      setActiveMainMenu(4);
+      setActiveSubMenu("4.1");
+      router.push("/materials");
       return;
     }
 
@@ -283,7 +313,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       activeMainMenu === 1 ? "1. MAINTAINANCE" :
         activeMainMenu === 2 ? "2. PRINT" :
           activeMainMenu === 3 ? "3. CHALLAN" :
-            activeMainMenu === 4 ? "4. DATA BACKUP" : "";
+            activeMainMenu === 4 ? "4. MATERIAL" :
+              activeMainMenu === 5 ? "5. DATA BACKUP" : "";
 
     return (
       <div className="flex flex-col h-full bg-slate-50 border-r border-slate-300 w-full animate-in fade-in slide-in-from-left-4 duration-200">
@@ -364,7 +395,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               { label: "1. MAINTAINANCE", menuNum: 1, icon: Building2 },
               { label: "2. PRINT", menuNum: 2, icon: Printer },
               { label: "3. CHALLAN", menuNum: 3, icon: FileText },
-              { label: "4. DATA BACKUP", menuNum: 4, icon: Database },
+              { label: "4. MATERIAL", menuNum: 4, icon: Package },
+              { label: "5. DATA BACKUP", menuNum: 5, icon: Database },
             ].map((menu, idx) => {
               const isActive = activeMainMenu === menu.menuNum;
               const isFocused = focusedColumn === "main" && focusedMainIndex === idx;
@@ -388,17 +420,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* EXIT / LOGOUT BUTTON IN MAIN MENU */}
             <div className="pt-8 border-t border-slate-800 mt-4">
               <button
-                onClick={() => handleMainMenuClick(5)}
-                className={`w-full flex items-center justify-between px-4 py-3 font-bold transition-all text-left border border-transparent ${focusedColumn === "main" && focusedMainIndex === 4
+                onClick={() => handleMainMenuClick(6)}
+                className={`w-full flex items-center justify-between px-4 py-3 font-bold transition-all text-left border border-transparent ${focusedColumn === "main" && focusedMainIndex === 5
                   ? "bg-red-600 text-white border-slate-950 shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]"
                   : "text-red-400 hover:bg-red-950/40 hover:text-red-300"
                   }`}
               >
                 <div className="flex items-center gap-3">
-                  <LogOut className={`h-5 w-5 ${focusedColumn === "main" && focusedMainIndex === 4 ? "text-white" : "text-red-500"}`} />
-                  <span>5. EXIT</span>
+                  <LogOut className={`h-5 w-5 ${focusedColumn === "main" && focusedMainIndex === 5 ? "text-white" : "text-red-500"}`} />
+                  <span>6. EXIT</span>
                 </div>
-                <XCircle className={`h-4 w-4 ${focusedColumn === "main" && focusedMainIndex === 4 ? "text-white" : "text-red-500"}`} />
+                <XCircle className={`h-4 w-4 ${focusedColumn === "main" && focusedMainIndex === 5 ? "text-white" : "text-red-500"}`} />
               </button>
             </div>
           </nav>

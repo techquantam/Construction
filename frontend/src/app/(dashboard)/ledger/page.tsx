@@ -2853,15 +2853,29 @@ function LedgerContent() {
                                     <span className="text-[10px] font-extrabold uppercase w-12">UNIT:</span>
                                     <select
                                       value={newMaterialUnit}
-                                      onChange={(e) => setNewMaterialUnit(e.target.value.toUpperCase())}
-                                      className="bg-white border border-slate-950 rounded px-1.5 py-0.5 focus:outline-none cursor-pointer font-black text-[10px] h-6 text-slate-900"
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === "ADD_NEW") {
+                                          const newU = window.prompt("ENTER NEW MEASUREMENT UNIT / नई मापन इकाई दर्ज करें (e.g. COIL, BUNDLE, NOS):");
+                                          if (newU && newU.trim()) {
+                                            const cleanU = newU.trim().toUpperCase();
+                                            if (!availableUnits.includes(cleanU)) {
+                                              setAvailableUnits((prev) => [...prev, cleanU]);
+                                            }
+                                            setNewMaterialUnit(cleanU);
+                                          } else {
+                                            e.target.value = newMaterialUnit;
+                                          }
+                                        } else {
+                                          setNewMaterialUnit(val.toUpperCase());
+                                        }
+                                      }}
+                                      className="bg-white border border-slate-955 rounded px-1.5 py-0.5 focus:outline-none cursor-pointer font-black text-[10px] h-6 text-slate-900"
                                     >
-                                      <option value="CFT">CFT</option>
-                                      <option value="SFT">SFT</option>
-                                      <option value="BAG">BAG</option>
-                                      <option value="KG">KG</option>
-                                      <option value="TON">TON</option>
-                                      <option value="NOS">NOS</option>
+                                      {availableUnits.map((u) => (
+                                        <option key={u} value={u}>{u}</option>
+                                      ))}
+                                      <option value="ADD_NEW" className="text-emerald-700 font-bold">+ ADD NEW UNIT</option>
                                     </select>
                                     
                                     <button
@@ -3767,7 +3781,23 @@ function LedgerContent() {
                                 <select
                                   id="edit-inline-unit"
                                   value={editUnit}
-                                  onChange={(e) => setEditUnit(e.target.value)}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === "ADD_NEW") {
+                                      const newU = window.prompt("ENTER NEW MEASUREMENT UNIT / नई मापन इकाई दर्ज करें (e.g. COIL, BUNDLE, NOS):");
+                                      if (newU && newU.trim()) {
+                                        const cleanU = newU.trim().toUpperCase();
+                                        if (!availableUnits.includes(cleanU)) {
+                                          setAvailableUnits((prev) => [...prev, cleanU]);
+                                        }
+                                        setEditUnit(cleanU);
+                                      } else {
+                                        e.target.value = editUnit;
+                                      }
+                                    } else {
+                                      setEditUnit(val);
+                                    }
+                                  }}
                                   className="w-full bg-white border border-slate-300 rounded px-1 py-1 text-xs font-bold font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
@@ -3783,6 +3813,7 @@ function LedgerContent() {
                                   {availableUnits.map((u) => (
                                     <option key={u} value={u}>{u}</option>
                                   ))}
+                                  <option value="ADD_NEW" className="text-emerald-700 font-bold">+ ADD NEW</option>
                                 </select>
                               </td>
 
