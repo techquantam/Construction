@@ -43,14 +43,15 @@ export const getMaterialById = async (req: Request, res: Response) => {
 
 export const createMaterial = async (req: Request, res: Response) => {
   try {
-    const { name, unit, openingStock, lowStockAlert, rate } = req.body;
+    const { name, unit, openingStock, lowStockAlert, rate, purchaseRate } = req.body;
     const material = await prisma.material.create({
       data: {
         name: name?.trim().toUpperCase(),
         unit: unit?.trim().toUpperCase(),
         currentStock: parseFloat(openingStock) || 0,
         lowStockAlert: parseFloat(lowStockAlert) || 10,
-        rate: parseRate(rate)
+        rate: parseRate(rate),
+        purchaseRate: parseRate(purchaseRate)
       }
     });
 
@@ -126,13 +127,14 @@ export const deleteMaterial = async (req: Request, res: Response) => {
 export const updateMaterial = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { name, unit, rate } = req.body;
+    const { name, unit, rate, purchaseRate } = req.body;
     const material = await prisma.material.update({
       where: { id },
       data: {
         name: name?.trim().toUpperCase(),
         unit: unit?.trim().toUpperCase(),
-        rate: rate !== undefined ? parseRate(rate) : undefined
+        rate: rate !== undefined ? parseRate(rate) : undefined,
+        purchaseRate: purchaseRate !== undefined ? parseRate(purchaseRate) : undefined
       }
     });
 

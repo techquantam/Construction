@@ -26,6 +26,7 @@ export default function MaterialsPage() {
     name: "",
     unit: "CFT",
     rate: "",
+    purchaseRate: "",
   });
 
   // Search filter query
@@ -40,11 +41,13 @@ export default function MaterialsPage() {
     name: "",
     unit: "",
     rate: "",
+    purchaseRate: "",
   });
 
   // Refs for keyboard transitions in Create Form
   const nameInputRef = useRef<HTMLInputElement>(null);
   const unitSelectRef = useRef<HTMLSelectElement>(null);
+  const purchaseRateInputRef = useRef<HTMLInputElement>(null);
   const rateInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +81,7 @@ export default function MaterialsPage() {
         name: "",
         unit: "CFT",
         rate: "",
+        purchaseRate: "",
       });
       nameInputRef.current?.focus();
     },
@@ -125,6 +129,7 @@ export default function MaterialsPage() {
       name: formData.name.trim().toUpperCase(),
       unit: formData.unit.trim().toUpperCase(),
       rate: formData.rate === "" ? null : parseFloat(formData.rate) || 0,
+      purchaseRate: formData.purchaseRate === "" ? null : parseFloat(formData.purchaseRate) || 0,
       openingStock: 0,
       lowStockAlert: 0
     });
@@ -136,6 +141,7 @@ export default function MaterialsPage() {
       name: material.name,
       unit: material.unit || "CFT",
       rate: material.rate !== null && material.rate !== undefined && material.rate !== 0 ? String(material.rate) : "",
+      purchaseRate: material.purchaseRate !== null && material.purchaseRate !== undefined && material.purchaseRate !== 0 ? String(material.purchaseRate) : "",
     });
   };
 
@@ -150,6 +156,7 @@ export default function MaterialsPage() {
         name: editFormData.name.trim().toUpperCase(),
         unit: editFormData.unit.trim().toUpperCase(),
         rate: editFormData.rate === "" ? null : parseFloat(editFormData.rate) || 0,
+        purchaseRate: editFormData.purchaseRate === "" ? null : parseFloat(editFormData.purchaseRate) || 0,
       },
     });
   };
@@ -330,8 +337,8 @@ export default function MaterialsPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    rateInputRef.current?.focus();
-                    rateInputRef.current?.select();
+                    purchaseRateInputRef.current?.focus();
+                    purchaseRateInputRef.current?.select();
                   } else if (e.key === "Escape") {
                     e.preventDefault();
                     nameInputRef.current?.focus();
@@ -349,6 +356,30 @@ export default function MaterialsPage() {
               </select>
             </div>
 
+            {/* Purchase Rate Input */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-black uppercase text-slate-655">Purchase Rate / खरीद दर:</Label>
+              <Input
+                ref={purchaseRateInputRef}
+                type="number"
+                step="any"
+                value={formData.purchaseRate}
+                onChange={(e) => setFormData({ ...formData, purchaseRate: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    rateInputRef.current?.focus();
+                    rateInputRef.current?.select();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    unitSelectRef.current?.focus();
+                  }
+                }}
+                placeholder="0.00"
+                className="bg-white border-2 border-slate-800 rounded font-bold text-xs font-mono focus:border-[#2B547E]"
+              />
+            </div>
+
             {/* Rate Input */}
             <div className="space-y-1.5">
               <Label className="text-xs font-black uppercase text-slate-655">Default Rate / डिफ़ॉल्ट दर:</Label>
@@ -364,7 +395,8 @@ export default function MaterialsPage() {
                     handleCreateMaterial(e);
                   } else if (e.key === "Escape") {
                     e.preventDefault();
-                    unitSelectRef.current?.focus();
+                    purchaseRateInputRef.current?.focus();
+                    purchaseRateInputRef.current?.select();
                   }
                 }}
                 placeholder="0.00"
@@ -386,8 +418,10 @@ export default function MaterialsPage() {
 
         {/* Right Column - Registered Materials Table */}
         <div className="lg:col-span-8 bg-[#E5ECF4] border-2 border-slate-800 p-5 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-4 rounded">
-          <div className="border-b-2 border-slate-350 pb-2 mb-2 flex items-center justify-between">
-            <span className="font-bold text-xs uppercase text-slate-700">2. REGISTERED MATERIALS LIST / पंजीकृत सामग्री सूची</span>
+          <div className="border-b-2 border-slate-350 pb-2.5 mb-2 flex items-center justify-between">
+            <span className="font-extrabold text-xs uppercase bg-amber-300 text-slate-900 border-2 border-slate-900 px-3 py-1 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] rounded select-none">
+              2. REGISTERED MATERIALS LIST / पंजीकृत सामग्री सूची
+            </span>
             <span className="text-[10px] bg-slate-300 px-2 py-0.5 border border-slate-400 text-slate-700 font-bold rounded">
               TOTAL: {filteredMaterials.length} / {materials.length} ITEMS
             </span>
@@ -415,19 +449,20 @@ export default function MaterialsPage() {
           ) : (
             <div className="overflow-x-auto border-2 border-slate-800 bg-white">
               <Table>
-                <TableHeader className="bg-slate-100 border-b-2 border-slate-800 font-black text-slate-800 text-[10px] select-none">
+                <TableHeader className="bg-amber-300 border-b-2 border-slate-800 select-none">
                   <TableRow>
-                    <TableHead className="w-12 text-center border-r border-slate-300">S.No</TableHead>
-                    <TableHead className="border-r border-slate-300">Material Name</TableHead>
-                    <TableHead className="w-24 text-center border-r border-slate-300">Unit</TableHead>
-                    <TableHead className="w-28 text-right border-r border-slate-300">Default Rate</TableHead>
-                    <TableHead className="w-28 text-center no-print">Actions</TableHead>
+                    <TableHead className="w-12 text-center border-r border-slate-800 font-black text-slate-950 text-xs uppercase">S.No</TableHead>
+                    <TableHead className="border-r border-slate-800 font-black text-slate-950 text-xs uppercase">Material Name</TableHead>
+                    <TableHead className="w-24 text-center border-r border-slate-800 font-black text-slate-950 text-xs uppercase">Unit</TableHead>
+                    <TableHead className="w-28 text-right border-r border-slate-800 font-black text-slate-950 text-xs uppercase">Purchase Rate</TableHead>
+                    <TableHead className="w-28 text-right border-r border-slate-800 font-black text-slate-950 text-xs uppercase">Default Rate</TableHead>
+                    <TableHead className="w-28 text-center no-print font-black text-slate-950 text-xs uppercase">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="font-bold text-xs">
                   {filteredMaterials.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-slate-400 font-extrabold uppercase">
+                      <TableCell colSpan={6} className="text-center py-8 text-slate-400 font-extrabold uppercase">
                         {searchQuery ? "No matching materials found." : "No materials registered yet."}
                       </TableCell>
                     </TableRow>
@@ -469,7 +504,7 @@ export default function MaterialsPage() {
                           </td>
 
                           {/* Unit */}
-                          <td className={`text-center border-r border-slate-300 py-1.5 px-2 ${isFocused ? "text-slate-950 font-black" : ""}`}>
+                          <td className={`text-center border-r border-slate-300 py-1.5 px-2 ${isFocused ? "text-slate-955 font-black" : ""}`}>
                             {isEditing ? (
                               <select
                                 value={editFormData.unit}
@@ -489,6 +524,30 @@ export default function MaterialsPage() {
                               </select>
                             ) : (
                               <span className={isFocused ? "text-slate-955 font-black" : "text-slate-550"}>{material.unit}</span>
+                            )}
+                          </td>
+
+                          {/* Purchase Rate */}
+                          <td className={`text-right border-r border-slate-300 py-1.5 px-3 font-mono font-black ${isFocused ? "text-slate-950" : "text-slate-900"}`}>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                step="any"
+                                value={editFormData.purchaseRate}
+                                onChange={(e) => setEditFormData({ ...editFormData, purchaseRate: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveEdit(material.id);
+                                  if (e.key === "Escape") setEditingId(null);
+                                }}
+                                placeholder="0.00"
+                                className="w-full h-7 py-0.5 px-2 text-xs font-bold font-mono border-2 border-slate-800 rounded text-right bg-amber-50 focus:outline-none focus:border-[#2B547E]"
+                              />
+                            ) : (
+                              <span>
+                                {material.purchaseRate !== null && material.purchaseRate !== undefined && material.purchaseRate !== 0 
+                                  ? (material.purchaseRate as number).toFixed(2) 
+                                  : ""}
+                              </span>
                             )}
                           </td>
 
