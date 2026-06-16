@@ -112,14 +112,37 @@ function formatRenderDate(dateISO: string) {
 }
 
 const HINDI_DICTIONARY: { [key: string]: string } = {
-  // Materials
+  // Materials & Brands
   "BALU GANGA": "गंगा बालू",
+  "BALU GHAGHRA": "घाघरा बालू",
   "BALU": "बालू",
   "GANGA": "गंगा",
+  "GHAGHRA": "घाघरा",
+  "BLADE STEEL CUTTING": "ब्लेड स्टील कटिंग",
+  "BLADE": "ब्लेड",
+  "CUTTING": "कटिंग",
+  "TATA": "टाटा",
+  "RHL": "आर.एच.एल.",
+  "FARAWA": "फावड़ा",
+  "CHETAK": "चेतक",
+  "J BOX DEEP": "जे. बॉक्स डीप",
+  "J BOX": "जे. बॉक्स",
+  "BOX DEEP": "बॉक्स डीप",
+  "BOX": "बॉक्स",
+  "DEEP": "डीप",
+  "J": "जे.",
+  "ACC CONCRETE": "एसीसी कंक्रीट",
+  "ACC GOLD": "एसीसी गोल्ड",
+  "ACC": "एसीसी",
+  "CONCRETE": "कंक्रीट",
+  "GOLD": "गोल्ड",
+  "GALLANT": "गैलेंट",
+  "BEND": "बेंड",
+  "HEAVY": "हैवी",
   "CART": "गाड़ी",
   "CEMENT": "सीमेंट",
   "SAND": "बालू / रेत",
-  "STEEL": "स्टील / लोहा",
+  "STEEL": "स्टील",
   "IRON": "लोहा",
   "BRICKS": "ईंट",
   "BRICK": "ईंट",
@@ -143,7 +166,6 @@ const HINDI_DICTIONARY: { [key: string]: string } = {
   "COARSE SAND": "मोटा बालू",
   "FINE SAND": "महीन रेत",
   "JUNCTION": "जंक्शन",
-  "BOX": "बॉक्स",
   "SURFACE": "सरफेस",
   "RAFT": "राफ्ट",
   "SLAB": "स्लैब",
@@ -163,6 +185,20 @@ const HINDI_DICTIONARY: { [key: string]: string } = {
   "MTR": "मीटर",
   "FEET": "फिट",
   "FT": "फिट",
+
+  // Cash / Payments
+  "RECD CASH": "प्राप्त नकद",
+  "RECD": "प्राप्त",
+  "CASH": "नकद",
+  "RECEIVED CASH": "प्राप्त नकद",
+  "RECEIVED": "प्राप्त",
+  "PAYMENT": "भुगतान",
+  "PAID": "भुगतान किया",
+  "BALANCE": "शेष",
+
+  // General terms
+  "TEST": "टेस्ट",
+  "TESTING": "टेस्टिंग",
 
   // Suppliers & Names
   "SADA SHIV": "सदा शिव",
