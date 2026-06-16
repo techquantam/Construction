@@ -111,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const allowedPaths = ["/reports"];
       const isAllowed = allowedPaths.some(p => pathname.startsWith(p));
       if (!isAllowed && pathname !== "/login") {
-        router.push("/reports?type=ledger");
+        router.push("/reports");
       }
     }
   }, [router, pathname]);
@@ -206,6 +206,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (pathname.startsWith("/reports") && isSidebarCollapsed) {
+          // If a nested modal or suggestion box (z-50) is open, let it handle Escape.
+          if (document.querySelector('.z-\\[9999\\]') || document.querySelector('.z-50')) {
+            return;
+          }
+          e.preventDefault();
+          setIsSidebarCollapsed(false);
+          router.push("/reports");
+          setFocusedColumn("sub");
+          return;
+        }
+      }
+
       if (!isDashboard && pathname !== "/challan" && pathname !== "/materials") {
         if (e.key === "Escape") {
           // If a nested modal (z-[9999] or z-50 overlay) is open, let it handle Escape.
@@ -293,7 +307,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isDashboard, focusedColumn, focusedMainIndex, focusedSubIndex, activeMainMenu, router, pathname]);
+  }, [isDashboard, focusedColumn, focusedMainIndex, focusedSubIndex, activeMainMenu, router, pathname, isSidebarCollapsed]);
 
   const handleSubMenuExit = () => {
     if (userRole === "PRINTER") {
@@ -339,6 +353,81 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const renderSubMenu = () => {
     if (activeMainMenu === 0 || activeMainMenu === null) return null;
     const items = getSubMenuItems(activeMainMenu);
+
+    if (userRole === "PRINTER") {
+      return (
+        <div className="flex flex-col h-full bg-slate-900 border-r border-slate-950 w-full animate-in fade-in slide-in-from-left-4 duration-200 text-slate-100 font-mono">
+          {/* App Title / Header */}
+          <div className="h-16 flex items-center gap-3 px-6 bg-slate-950 border-b border-slate-800 shrink-0 font-sans">
+            <div className="h-8 w-8 rounded-lg bg-amber-400 flex items-center justify-center text-slate-950 font-bold border border-slate-800 shadow-[2px_2px_0px_0px_rgba(255,255,255,0.15)]">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="font-extrabold text-sm tracking-widest uppercase">CONSTRUCTION ERP</h1>
+              <p className="text-[10px] text-amber-400 font-semibold tracking-wider uppercase font-mono">Tally Console v1.0</p>
+            </div>
+          </div>
+
+          {/* Menu Section Header */}
+          <div className="p-4 border-b border-slate-800 bg-slate-900/40 flex justify-between items-center font-sans">
+            <span className="font-bold text-xs tracking-wider text-amber-400 uppercase">2. PRINT MENU</span>
+            <ChevronRight className="h-4 w-4 text-slate-400" />
+          </div>
+
+          {/* Menu Items */}
+          <div className="flex-1 p-3 space-y-2 bg-slate-900 overflow-y-auto">
+            {items.map((item, idx) => {
+              const isExit = item.code === "exit";
+              const isHighlighted = focusedColumn === "sub" && focusedSubIndex === idx;
+
+              if (isExit) {
+                return (
+                  <button
+                    key={item.code}
+                    onClick={handleSubMenuExit}
+                    className={`w-full text-left px-4 py-3 transition-all font-bold font-mono text-sm flex justify-between items-center border border-transparent mt-4 ${isHighlighted
+                      ? "bg-red-600 text-white border-slate-950 shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]"
+                      : "text-red-400 hover:bg-red-950/40 hover:text-red-300"
+                      }`}
+                  >
+                    <span>{item.label}</span>
+                    <XCircle className={`h-4 w-4 ${isHighlighted ? "text-white" : "text-red-500"}`} />
+                  </button>
+                );
+              }
+
+              const isActive = activeSubMenu === item.code;
+              return (
+                <Link key={item.code} href={item.href} className="block">
+                  <button
+                    onClick={() => {
+                      setActiveSubMenu(item.code);
+                      setFocusedSubIndex(idx);
+                      setIsSidebarCollapsed(true);
+                    }}
+                    className={`w-full text-left px-4 py-3 transition-all font-bold select-none border border-transparent ${isHighlighted
+                      ? "bg-amber-400 text-slate-950 border-slate-950 shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]"
+                      : isActive
+                        ? "bg-slate-800 text-amber-400 border-amber-400/50 shadow-[4px_4px_0px_0px_rgba(245,158,11,0.2)]"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      }`}
+                  >
+                    {item.label}
+                  </button>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Footer info */}
+          <div className="p-4 border-t border-slate-800 bg-slate-950/40 font-mono text-[10px] text-slate-500 text-center shrink-0">
+            Logged in as: <span className="text-slate-300 font-semibold">Printer (TESTING)</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Default admin rendering
     const headerLabel =
       activeMainMenu === 1 ? "1. MAINTAINANCE" :
         activeMainMenu === 2 ? "2. PRINT" :
@@ -347,7 +436,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               activeMainMenu === 5 ? "5. DATA BACKUP" : "";
 
     return (
-      <div className="flex flex-col h-full bg-slate-50 border-r border-slate-300 w-full animate-in fade-in slide-in-from-left-4 duration-200">
+      <div className="flex flex-col h-full bg-slate-50 border-r border-slate-300 w-full animate-in fade-in slide-in-from-left-4 duration-200 font-sans">
         <div className="p-4 border-b border-slate-200 bg-slate-100 flex justify-between items-center">
           <span className="font-bold text-xs tracking-wider text-slate-500 uppercase">{headerLabel}</span>
           <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -405,7 +494,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </Suspense>
 
       {/* COLUMN 1: Main Menu Block */}
-      {isDashboard && !isSidebarCollapsed && (
+      {isDashboard && !isSidebarCollapsed && userRole !== "PRINTER" && (
         <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col shrink-0 border-r border-slate-950">
 
           {/* App Title / Header */}
