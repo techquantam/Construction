@@ -2745,19 +2745,9 @@ export default function ChallanPage() {
               <span>{item.amount > 0 ? item.amount.toFixed(2) : "-"}</span>
             )}
             {item.amount > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  const nextType = item.type === "TO" ? "BY" : "TO";
-                  handleSaveRow(item.id, item.material, item.qty, item.unit, item.rate, item.rawItem, nextType);
-                }}
-                className={`px-1 py-0.5 text-[9px] font-black rounded border cursor-pointer hover:bg-slate-100 print:border-none print:bg-transparent print:p-0 ${item.type === "TO"
-                  ? "bg-red-50 text-red-700 border-red-200"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  }`}
-              >
+              <span className={`ml-1 text-[11px] font-bold ${item.type === "TO" ? "text-red-750" : "text-emerald-750"}`}>
                 {item.type === "TO" ? "DR" : "CR"}
-              </button>
+              </span>
             )}
           </div>
         </td>
@@ -3227,7 +3217,7 @@ export default function ChallanPage() {
                                       <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
                                         <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
                                         <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
-                                        <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit.toFixed(2)}</td>
+                                        <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit.toFixed(2)} DR</td>
                                       </tr>
 
                                       {creditItems.map((item: any, idx: number) => renderItemRow(item, debitItems.length + idx + 1))}
