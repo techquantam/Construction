@@ -107,7 +107,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (role === "PRINTER") {
       const allowedPaths = ["/reports", "/dashboard"];
       const isAllowed = allowedPaths.some(p => pathname === p || pathname.startsWith(p));
-      if (!isAllowed && pathname !== "/login") {
+      
+      let isDaybookQuery = false;
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (pathname.startsWith("/reports") && params.get("type") === "daybook") {
+          isDaybookQuery = true;
+        }
+      }
+
+      if ((!isAllowed || isDaybookQuery) && pathname !== "/login") {
         router.push("/dashboard");
       }
     }
@@ -165,6 +174,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           { label: "1.9. EXIT", href: "exit", code: "exit" },
         ];
       case 2:
+        if (userRole === "PRINTER") {
+          return [
+            { label: "2.1. PRINT SUMMARY", href: "/reports?type=summary", code: "2.1" },
+            { label: "2.2. PRINT LEDGER", href: "/reports?type=ledger", code: "2.2" },
+            { label: "2.3. EXIT", href: "exit", code: "exit" },
+          ];
+        }
         return [
           { label: "2.1. PRINT SUMMARY", href: "/reports?type=summary", code: "2.1" },
           { label: "2.2. PRINT LEDGER", href: "/reports?type=ledger", code: "2.2" },
