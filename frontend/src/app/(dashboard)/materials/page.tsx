@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Package, Trash2, Edit3, Save, X, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function MaterialsPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Create Form State (Rate defaults to empty string)
   const [formData, setFormData] = useState({
@@ -186,6 +188,46 @@ export default function MaterialsPage() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (editingId !== null) {
+          setEditingId(null);
+          return;
+        }
+
+        if (activeEl === rateInputRef.current) {
+          purchaseRateInputRef.current?.focus();
+          purchaseRateInputRef.current?.select();
+          return;
+        }
+        if (activeEl === purchaseRateInputRef.current) {
+          unitSelectRef.current?.focus();
+          return;
+        }
+        if (activeEl === unitSelectRef.current) {
+          nameInputRef.current?.focus();
+          nameInputRef.current?.select();
+          return;
+        }
+        if (activeEl === nameInputRef.current) {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+          return;
+        }
+
+        if (focusedRowIndex >= 0) {
+          setFocusedRowIndex(-1);
+          searchInputRef.current?.focus();
+          return;
+        }
+
+        router.push("/dashboard");
+        return;
+      }
+
       const isFormInputFocused = activeEl && (
         activeEl === nameInputRef.current ||
         activeEl === rateInputRef.current ||
@@ -229,18 +271,6 @@ export default function MaterialsPage() {
           e.preventDefault();
           e.stopPropagation();
           handleStartEdit(filteredMaterials[focusedRowIndex]);
-        }
-      } else if (e.key === "Escape") {
-        if (focusedRowIndex >= 0) {
-          e.preventDefault();
-          e.stopPropagation();
-          setFocusedRowIndex(-1);
-          searchInputRef.current?.focus();
-        } else if (activeEl === searchInputRef.current) {
-          e.preventDefault();
-          e.stopPropagation();
-          nameInputRef.current?.focus();
-          nameInputRef.current?.select();
         }
       }
     };
