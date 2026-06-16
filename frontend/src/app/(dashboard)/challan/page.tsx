@@ -2675,7 +2675,7 @@ export default function ChallanPage() {
       <tr
         key={item.id}
         className={isCredit
-          ? "bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px] uppercase"
+          ? "bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px] uppercase group/row"
           : "hover:bg-slate-50 uppercase text-slate-900 group/row"
         }
       >
@@ -2733,6 +2733,7 @@ export default function ChallanPage() {
             {item.qty === 0 && item.rate === 0 ? (
               <EditableCell
                 value={item.amount}
+                displayValue={item.amount.toFixed(2)}
                 type="number"
                 className="text-right font-mono"
                 onSave={(newVal) => {
@@ -3226,7 +3227,7 @@ export default function ChallanPage() {
                                       <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
                                         <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
                                         <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
-                                        <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit}</td>
+                                        <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit.toFixed(2)}</td>
                                       </tr>
 
                                       {creditItems.map((item: any, idx: number) => renderItemRow(item, debitItems.length + idx + 1))}
