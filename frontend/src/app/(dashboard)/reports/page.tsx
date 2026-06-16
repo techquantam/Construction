@@ -633,7 +633,7 @@ function ReportsContent() {
         balance: Math.abs(balance),
         status
       };
-    });
+    }).filter((item: any) => item.balance !== 0);
   })();
 
   // Keyboard controls for site dropdown in PRINT DAYBOOK
