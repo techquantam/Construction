@@ -752,8 +752,154 @@ export default function ChallanPage() {
       return next;
     });
   };
+  
+  const validateRowInline = (idx: number): boolean => {
+    const item = directItems[idx];
+    if (!item) return true;
+
+    if (!item.material.trim()) {
+      toast.error(`Please enter Material Name in row ${idx + 1}`);
+      setTimeout(() => {
+        const el = document.getElementById(`direct-material-input-${idx}`);
+        if (el) {
+          el.focus();
+          (el as HTMLInputElement).select();
+        }
+      }, 50);
+      return false;
+    }
+
+    const qtyVal = parseFloat(item.qty);
+    if (!item.qty.trim() || isNaN(qtyVal) || qtyVal <= 0) {
+      toast.error(`Please enter Quantity (> 0) in row ${idx + 1}`);
+      setTimeout(() => {
+        const el = document.getElementById(`direct-qty-input-${idx}`);
+        if (el) {
+          el.focus();
+          (el as HTMLInputElement).select();
+        }
+      }, 50);
+      return false;
+    }
+
+    if (!item.unit.trim()) {
+      toast.error(`Please enter Unit in row ${idx + 1}`);
+      setTimeout(() => {
+        const el = document.getElementById(`direct-unit-input-${idx}`);
+        if (el) {
+          el.focus();
+          (el as HTMLInputElement).select();
+        }
+      }, 50);
+      return false;
+    }
+
+    const rateVal = parseFloat(item.rate);
+    if (!item.rate.trim() || isNaN(rateVal) || rateVal <= 0) {
+      toast.error(`Please enter Rate (> 0) in row ${idx + 1}`);
+      setTimeout(() => {
+        const el = document.getElementById(`direct-rate-input-${idx}`);
+        if (el) {
+          el.focus();
+          (el as HTMLInputElement).select();
+        }
+      }, 50);
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleGridKeyDown = (
+    idx: number,
+    colName: "material" | "qty" | "unit" | "rate",
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    const focusInput = (rowIdx: number, column: "material" | "qty" | "unit" | "rate") => {
+      const elId = `direct-${column}-input-${rowIdx}`;
+      const el = document.getElementById(elId) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
+        return true;
+      }
+      return false;
+    };
+
+    if (e.key === "ArrowUp") {
+      if (idx > 0) {
+        e.preventDefault();
+        focusInput(idx - 1, colName);
+      }
+    } else if (e.key === "ArrowDown") {
+      if (idx < directItems.length - 1) {
+        // Validate current row before going down
+        if (!validateRowInline(idx)) {
+          e.preventDefault();
+          return;
+        }
+        e.preventDefault();
+        focusInput(idx + 1, colName);
+      }
+    } else if (e.key === "ArrowLeft") {
+      const target = e.currentTarget;
+      const isAtStart = target.selectionStart === 0 && target.selectionEnd === 0;
+      const isNumberInput = target.type === "number";
+
+      if (isAtStart || target.value === "" || isNumberInput) {
+        if (colName === "qty") {
+          e.preventDefault();
+          focusInput(idx, "material");
+        } else if (colName === "unit") {
+          e.preventDefault();
+          focusInput(idx, "qty");
+        } else if (colName === "rate") {
+          e.preventDefault();
+          focusInput(idx, "unit");
+        } else if (colName === "material") {
+          if (idx > 0) {
+            e.preventDefault();
+            focusInput(idx - 1, "rate");
+          }
+        }
+      }
+    } else if (e.key === "ArrowRight") {
+      const target = e.currentTarget;
+      const isAtEnd =
+        target.selectionStart === target.value.length && target.selectionEnd === target.value.length;
+      const isNumberInput = target.type === "number";
+
+      if (isAtEnd || target.value === "" || isNumberInput) {
+        if (colName === "material") {
+          e.preventDefault();
+          focusInput(idx, "qty");
+        } else if (colName === "qty") {
+          e.preventDefault();
+          focusInput(idx, "unit");
+        } else if (colName === "unit") {
+          e.preventDefault();
+          focusInput(idx, "rate");
+        } else if (colName === "rate") {
+          if (idx < directItems.length - 1) {
+            // Validate current row before going to next row
+            if (!validateRowInline(idx)) {
+              e.preventDefault();
+              return;
+            }
+            e.preventDefault();
+            focusInput(idx + 1, "material");
+          }
+        }
+      }
+    }
+  };
 
   const handleAddDirectItem = () => {
+    if (directItems.length > 0) {
+      if (!validateRowInline(directItems.length - 1)) {
+        return;
+      }
+    }
     setDirectItems((prev) => {
       const nextIdx = prev.length;
       setTimeout(() => {
@@ -789,11 +935,12 @@ export default function ChallanPage() {
   const handleMaterialKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>, suggestions: any[]) => {
     const item = directItems[idx];
     if (!item.isMaterialSuggestionsOpen) {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        updateDirectItem(idx, { isMaterialSuggestionsOpen: true });
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      handleGridKeyDown(idx, "material", e);
+      return;
+    }
+
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      handleGridKeyDown(idx, "material", e);
       return;
     }
 
@@ -1137,29 +1284,50 @@ export default function ChallanPage() {
       return;
     }
 
-    const validItems = directItems.filter(item => item.material.trim() !== "");
-    if (validItems.length === 0) {
+    // 1. Filter out completely empty items
+    const nonBlankItems = directItems.filter(item => 
+      item.material.trim() !== "" || item.qty.trim() !== "" || item.rate.trim() !== ""
+    );
+
+    if (nonBlankItems.length === 0) {
       toast.error("Please add at least one material");
+      const firstMat = document.getElementById("direct-material-input-0");
+      if (firstMat) {
+        firstMat.focus();
+        (firstMat as HTMLInputElement).select();
+      }
       return;
     }
 
-    const items = validItems.map((item) => {
-      const qtyVal = parseFloat(item.qty) || 0;
-      const rateVal = parseFloat(item.rate) || 0;
-      let amtVal = parseFloat(item.amount) || 0;
-      if (amtVal <= 0 && qtyVal > 0 && rateVal > 0) {
-        amtVal = qtyVal * rateVal;
+    // 2. Validate all rows that are not completely empty
+    for (let i = 0; i < directItems.length; i++) {
+      const item = directItems[i];
+      const isCompletelyEmpty = !item.material.trim() && !item.qty.trim() && !item.rate.trim();
+      if (isCompletelyEmpty) {
+        continue;
       }
+      if (!validateRowInline(i)) {
+        return;
+      }
+    }
 
-      return {
-        material: item.material.trim().toUpperCase(),
-        qty: qtyVal,
-        unit: item.unit.trim().toUpperCase() || "CFT",
-        rate: rateVal,
-        amount: amtVal,
-        type: item.type || "TO"
-      };
-    });
+    // 3. Prepare items payload (excluding completely empty items)
+    const items = directItems
+      .filter(item => !(!item.material.trim() && !item.qty.trim() && !item.rate.trim()))
+      .map((item) => {
+        const qtyVal = parseFloat(item.qty) || 0;
+        const rateVal = parseFloat(item.rate) || 0;
+        const amtVal = qtyVal * rateVal;
+
+        return {
+          material: item.material.trim().toUpperCase(),
+          qty: qtyVal,
+          unit: item.unit.trim().toUpperCase() || "CFT",
+          rate: rateVal,
+          amount: parseFloat(amtVal.toFixed(2)),
+          type: item.type || "TO"
+        };
+      });
 
     if (challanFormMode === "COMPANY") {
       createChallanMutation.mutate({
@@ -3744,6 +3912,7 @@ export default function ChallanPage() {
                             value={item.qty}
                             onChange={(e) => updateDirectItem(idx, { qty: e.target.value })}
                             onKeyDown={(e) => {
+                              handleGridKeyDown(idx, 'qty', e);
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 const el = document.getElementById(`direct-unit-input-${idx}`);
@@ -3768,6 +3937,7 @@ export default function ChallanPage() {
                             value={item.unit}
                             onChange={(e) => updateDirectItem(idx, { unit: e.target.value.toUpperCase() })}
                             onKeyDown={(e) => {
+                              handleGridKeyDown(idx, 'unit', e);
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 const el = document.getElementById(`direct-rate-input-${idx}`);
@@ -3793,12 +3963,16 @@ export default function ChallanPage() {
                             value={item.rate}
                             onChange={(e) => updateDirectItem(idx, { rate: e.target.value })}
                             onKeyDown={(e) => {
+                              handleGridKeyDown(idx, 'rate', e);
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 const isLastRow = idx === directItems.length - 1;
                                 if (isLastRow) {
                                   handleAddDirectItem();
                                 } else {
+                                  if (!validateRowInline(idx)) {
+                                    return;
+                                  }
                                   const nextMatInput = document.getElementById(`direct-material-input-${idx + 1}`);
                                   if (nextMatInput) {
                                     nextMatInput.focus();
