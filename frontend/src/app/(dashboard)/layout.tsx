@@ -83,12 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("userRole");
-    }
-    return null;
-  });
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     setUserRole(localStorage.getItem("userRole"));

@@ -3841,9 +3841,6 @@ function LedgerContent() {
                                       }
                                       if (e.key === "Enter") {
                                         let targetIndex = highlightedEditMaterialIndex;
-                                        if (targetIndex === -1 && editMaterial.trim() !== "" && filteredEditMaterialSuggestions.length > 0) {
-                                          targetIndex = 0;
-                                        }
                                         if (targetIndex >= 0 && targetIndex < filteredEditMaterialSuggestions.length) {
                                           e.preventDefault();
                                           e.stopPropagation();
@@ -4265,7 +4262,9 @@ function LedgerContent() {
                             <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}>{qty > 0 ? qty.toString() : "-"}</td>
                             <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-800 group-focus:text-white font-bold`}>{unit || "-"}</td>
                             <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}>{rate > 0 ? rate.toFixed(2) : "-"}</td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-650 group-focus:text-white`}>{tx.isDebit ? "DR" : "CR"}</td>
+                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-650 group-focus:text-white`}>
+                              {tx.isDebit ? "DR" : "CR"}
+                            </td>
                             <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-red-700 group-focus:text-white/90`}>
                               {tx.debit > 0 ? tx.debit.toFixed(2) : "0.00"}
                             </td>
@@ -4339,7 +4338,7 @@ function LedgerContent() {
                                   setTimeout(() => compMaterialInputRef.current?.focus(), 50);
                                 } else {
                                   setCompActiveStep("NAME");
-                                  setTimeout(() => compTypeSelectRef.current?.focus(), 50);
+                                  setTimeout(() => compNameInputRef.current?.focus(), 50);
                                 }
                               } else if (e.key === "Escape") {
                                 e.preventDefault();
@@ -4360,39 +4359,7 @@ function LedgerContent() {
                         {/* Particulars (Name / Mob / Addr) */}
                         {!isParticularLedgerOpen && (
                           <td className="relative bg-slate-50 border-t-2 border-slate-400 border-r border-slate-400 p-1.5 w-72 relative z-10">
-                            <div className="flex gap-1.5 items-center w-full relative">
-                            <select
-                              ref={compTypeSelectRef}
-                              value={compType}
-                              onChange={(e) => {
-                                const val = e.target.value as "BY" | "TO";
-                                setCompType(val);
-                                setCompCrDr(val === "TO" ? "DR" : "CR");
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  compNameInputRef.current?.focus();
-                                  compNameInputRef.current?.select();
-                                } else if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setCompActiveStep("DATE");
-                                  setTimeout(() => {
-                                    if (compDateInputRef.current) {
-                                      compDateInputRef.current.focus();
-                                      compDateInputRef.current.setSelectionRange(0, 2);
-                                    }
-                                  }, 50);
-                                }
-                              }}
-                              className="bg-white border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
-                            >
-                              <option value="TO">DR</option>
-                              <option value="BY">CR</option>
-                            </select>
-
-                            <div className="relative flex-1 flex items-center bg-white border border-slate-300 rounded overflow-hidden h-7">
+                            <div className="relative flex items-center bg-white border border-slate-300 rounded overflow-hidden h-7">
                               <input 
                                 type="text"
                                 ref={compNameInputRef}
@@ -4432,9 +4399,6 @@ function LedgerContent() {
                                     }
                                     if (e.key === "Enter") {
                                       let targetIndex = highlightedCompNameIndex;
-                                      if (targetIndex === -1 && filteredCompNameSuggestions.length > 0) {
-                                        targetIndex = 0;
-                                      }
                                       if (targetIndex >= 0 && targetIndex < filteredCompNameSuggestions.length) {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -4484,7 +4448,8 @@ function LedgerContent() {
                                   } else if (e.key === "Escape") {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    compTypeSelectRef.current?.focus();
+                                    setCompActiveStep("DATE");
+                                    compDateInputRef.current?.focus();
                                   }
                                 }}
                                 className="flex-1 bg-white px-2 py-0.5 text-xs font-bold uppercase focus:outline-none placeholder:text-slate-400 font-mono"
@@ -4593,7 +4558,6 @@ function LedgerContent() {
                                 })}
                               </div>
                             )}
-                          </div>
                         </td>
                       )}
 
@@ -4637,9 +4601,6 @@ function LedgerContent() {
                                 }
                                 if (e.key === "Enter") {
                                   let targetIndex = highlightedCompMaterialIndex;
-                                  if (targetIndex === -1 && compMaterial.trim() !== "" && filteredCompMaterialSuggestions.length > 0) {
-                                    targetIndex = 0;
-                                  }
                                   if (targetIndex >= 0 && targetIndex < filteredCompMaterialSuggestions.length) {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -5071,13 +5032,8 @@ function LedgerContent() {
                               } else if (e.key === "Escape") {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (!compMaterial.trim()) {
-                                  setCompActiveStep("MATERIAL");
-                                  compMaterialInputRef.current?.focus();
-                                } else {
-                                  setCompActiveStep("RATE");
-                                  compRateInputRef.current?.focus();
-                                }
+                                setCompActiveStep("RATE");
+                                compRateInputRef.current?.focus();
                               }
                             }}
                             className="w-full bg-white border border-slate-300 rounded px-1 py-1 text-xs font-bold font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7 text-center"
@@ -5108,8 +5064,8 @@ function LedgerContent() {
                                   } else if (e.key === "Escape") {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    setCompActiveStep("CRDR");
-                                    compCrDrSelectRef.current?.focus();
+                                    setCompActiveStep("RATE");
+                                    compRateInputRef.current?.focus();
                                   }
                                 }}
                                 className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-slate-800 h-7"
@@ -5139,8 +5095,8 @@ function LedgerContent() {
                                   } else if (e.key === "Escape") {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    setCompActiveStep("CRDR");
-                                    compCrDrSelectRef.current?.focus();
+                                    setCompActiveStep("RATE");
+                                    compRateInputRef.current?.focus();
                                   }
                                 }}
                                 className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-slate-800 h-7"
@@ -5267,9 +5223,6 @@ function LedgerContent() {
                                         }
                                         if (e.key === "Enter") {
                                           let targetIndex = highlightedEntryAccountIndex;
-                                          if (targetIndex === -1 && filteredEntryAccountSuggestions.length > 0) {
-                                            targetIndex = 0;
-                                          }
                                           if (targetIndex >= 0 && targetIndex < filteredEntryAccountSuggestions.length) {
                                             e.preventDefault();
                                             e.stopPropagation();
