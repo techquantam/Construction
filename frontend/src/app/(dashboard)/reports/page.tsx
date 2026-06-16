@@ -1896,7 +1896,7 @@ function ReportsContent() {
     const singleAccountCredit = selectedLedgerObj ? selectedLedgerObj.totalCredit : 0;
 
     return (
-      <div className={`font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4 ${userRole === "PRINTER" ? "pt-10" : ""}`}>
+      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
         
         {/* PRINT SUMMARY PANEL */}
         <div className="bg-white border-2 border-slate-800 rounded shadow-lg overflow-hidden">
@@ -2360,7 +2360,7 @@ function ReportsContent() {
       : "";
 
     return (
-      <div className={`font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4 ${userRole === "PRINTER" ? "pt-10" : ""}`}>
+      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
         
         {/* PRINT LEDGER PANEL */}
         <div className="bg-white border-2 border-slate-800 rounded shadow-lg overflow-hidden">
@@ -2881,7 +2881,7 @@ function ReportsContent() {
     const ledgerPrintData = getGroupedLedgersData();
 
     return (
-      <div className={`font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4 ${userRole === "PRINTER" ? "pt-10" : ""}`}>
+      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
         
         <div className={printLayoutMode ? "no-print" : ""}>
           {/* PRINT DAYBOOK PANEL */}
@@ -3412,26 +3412,7 @@ function ReportsContent() {
     );
   }
 
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 h-[80vh] font-mono text-slate-800">
-      <div className="w-full max-w-xl bg-white border-2 border-slate-900 rounded p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-center space-y-4">
-        <div className="text-sm font-black border-b-2 border-slate-900 pb-2 uppercase tracking-widest text-[#2B547E]">
-          📁 Reports Selection Console
-        </div>
-        <div className="text-xs text-left space-y-2 py-4 leading-relaxed font-bold">
-          <p className="text-center text-[#2B547E] font-black text-sm mb-3">WELCOME TO TALLY REPORTS CONSOLE</p>
-          <div className="border border-dashed border-slate-400 p-4 rounded bg-slate-50 space-y-2.5">
-            <p>👉 Use <span className="bg-slate-200 px-1.5 py-0.5 border-2 border-slate-400 rounded text-[10px] font-mono shadow-xs">↑</span> / <span className="bg-slate-200 px-1.5 py-0.5 border-2 border-slate-400 rounded text-[10px] font-mono shadow-xs">↓</span> arrow keys to navigate the left menu.</p>
-            <p>👉 Press <span className="bg-slate-200 px-1.5 py-0.5 border-2 border-slate-400 rounded text-[10px] font-mono shadow-xs">Enter</span> or click to open the selected report in full screen.</p>
-            <p>👉 Press <span className="bg-slate-200 px-1.5 py-0.5 border-2 border-slate-400 rounded text-[10px] font-mono shadow-xs">ESC</span> key on any report page to exit and return to the menu.</p>
-          </div>
-        </div>
-        <div className="text-[10px] text-slate-500 font-extrabold uppercase border-t pt-2">
-          Construction ERP v1.0
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 export default function ReportsPage() {
