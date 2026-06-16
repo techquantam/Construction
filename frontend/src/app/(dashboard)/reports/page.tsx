@@ -668,9 +668,6 @@ function ReportsContent() {
     if (!smSelectedSiteId || !summaryDaybookData) return [];
 
     let targetLedgers = summaryActiveSiteLedgers;
-    if (userRole === "PRINTER" && allowedLedgerId) {
-      targetLedgers = summaryActiveSiteLedgers.filter(ledger => String(ledger.id) === String(allowedLedgerId));
-    }
 
     return targetLedgers.map((ledger) => {
       const details = parsePartyDetails(ledger.contactPerson);
@@ -1937,14 +1934,13 @@ function ReportsContent() {
                       type="text"
                       value={smSiteSearchVal}
                       placeholder="TYPE TO SEARCH SITE..."
-                      disabled={userRole === "PRINTER"}
+                      disabled={false}
                       onChange={(e) => {
                         setSmSiteSearchVal(e.target.value);
                         setIsSmSiteSuggestionsOpen(true);
                         setHighlightedSmSiteIndex(-1);
                       }}
                       onFocus={() => {
-                        if (userRole === "PRINTER") return;
                         setIsSmSiteSuggestionsOpen(true);
                         setHighlightedSmSiteIndex(-1);
                         setIsSmSiteFocused(true);
@@ -1957,7 +1953,7 @@ function ReportsContent() {
                         isSmSiteFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
                       }`}
                     />
-                    {userRole !== "PRINTER" && (
+                    {true && (
                       <button 
                         type="button"
                         onClick={() => {
@@ -2402,14 +2398,13 @@ function ReportsContent() {
                       type="text"
                       value={lgSiteSearchVal}
                       placeholder="TYPE TO SEARCH SITE..."
-                      disabled={userRole === "PRINTER"}
+                      disabled={false}
                       onChange={(e) => {
                         setLgSiteSearchVal(e.target.value);
                         setIsLgSiteSuggestionsOpen(true);
                         setHighlightedLgSiteIndex(-1);
                       }}
                       onFocus={() => {
-                        if (userRole === "PRINTER") return;
                         setIsLgSiteSuggestionsOpen(true);
                         setHighlightedLgSiteIndex(-1);
                         setIsLgSiteFocused(true);
@@ -2422,7 +2417,7 @@ function ReportsContent() {
                         isLgSiteFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
                       }`}
                     />
-                    {userRole !== "PRINTER" && (
+                    {true && (
                       <button 
                         type="button"
                         onClick={() => {
@@ -2485,7 +2480,7 @@ function ReportsContent() {
                       type="text"
                       value={lgLedgerSearchVal}
                       placeholder="SELECT ACCOUNT"
-                      disabled={userRole === "PRINTER"}
+                      disabled={false}
                       onChange={(e) => {
                         const val = e.target.value;
                         setLgLedgerSearchVal(val);
@@ -2505,7 +2500,6 @@ function ReportsContent() {
                         }
                       }}
                       onFocus={(e) => {
-                        if (userRole === "PRINTER") return;
                         setIsLgLedgerSuggestionsOpen(true);
                         setHighlightedLgLedgerIndex(-1);
                         setIsLgLedgerFocused(true);
@@ -2519,7 +2513,7 @@ function ReportsContent() {
                         isLgLedgerFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
                       }`}
                     />
-                    {userRole !== "PRINTER" && (
+                    {true && (
                       <button 
                         type="button"
                         onClick={() => {
@@ -2904,21 +2898,20 @@ function ReportsContent() {
                     type="text"
                     value={dbSiteSearchVal}
                     placeholder="TYPE SITE NAME..."
-                    disabled={userRole === "PRINTER"}
+                    disabled={false}
                     onChange={(e) => {
                       setDbSiteSearchVal(e.target.value);
                       setIsDbSiteSuggestionsOpen(true);
                       setHighlightedDbSiteIndex(-1);
                     }}
                     onFocus={() => {
-                      if (userRole === "PRINTER") return;
                       setIsDbSiteSuggestionsOpen(true);
                       setHighlightedDbSiteIndex(-1);
                     }}
                     onKeyDown={handleDbSiteKeyDown}
                     className="w-full px-3 py-1.5 text-xs font-black bg-[#FFE600] text-slate-955 focus:outline-none placeholder:text-slate-700/60 uppercase font-mono tracking-wider h-8.5 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                   />
-                  {userRole !== "PRINTER" && (
+                  {true && (
                     <button 
                       type="button"
                       onClick={() => {

@@ -463,7 +463,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Footer info */}
           <div className="p-4 border-t border-slate-800 bg-slate-950/40 font-mono text-[10px] text-slate-500 text-center shrink-0">
-            Logged in as: <span className="text-slate-300 font-semibold">{userRole === "PRINTER" ? "Printer (OM NAMAH SHIVAY)" : "Admin"}</span>
+            Logged in as: <span className="text-slate-300 font-semibold">{userRole === "PRINTER" ? "Printer (TESTING)" : "Admin"}</span>
           </div>
         </aside>
       )}

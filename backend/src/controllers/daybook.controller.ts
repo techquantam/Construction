@@ -21,17 +21,10 @@ export const getDayBooks = async (req: Request, res: Response) => {
         const allowedLedger = await prisma.ledger.findUnique({
           where: { id: allowedLedgerId }
         });
-        if (allowedLedger) {
-          const nameUpper = allowedLedger.name.trim().toUpperCase();
-          whereClause.OR = [
-            { expenseType: { startsWith: `To ${nameUpper}`, mode: 'insensitive' } },
-            { expenseType: { startsWith: `By ${nameUpper}`, mode: 'insensitive' } }
-          ];
-        } else {
-          whereClause.id = 'NONE';
-        }
+        const allowedSiteId = allowedLedger ? allowedLedger.siteId : 'NONE';
+        whereClause.siteId = allowedSiteId;
       } else {
-        whereClause.id = 'NONE';
+        whereClause.siteId = 'NONE';
       }
     }
 

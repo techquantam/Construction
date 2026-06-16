@@ -16,19 +16,29 @@ async function main() {
     await prisma.$connect();
     console.log('Connected to database.');
 
-    // 1. Get the first site
-    const site = await prisma.site.findFirst();
+    // 1. Get the site named "TESTING" or fallback to first site
+    let site = await prisma.site.findFirst({
+      where: {
+        name: {
+          equals: 'TESTING',
+          mode: 'insensitive'
+        }
+      }
+    });
+    if (!site) {
+      site = await prisma.site.findFirst();
+    }
     if (!site) {
       console.error('No sites found. Please create a site first.');
       return;
     }
     console.log(`Using site: ${site.name} (${site.id})`);
 
-    // 2. Ensure "OM NAMAH SHIVAY" ledger exists
+    // 2. Ensure "TESTING" ledger exists
     let ledger = await prisma.ledger.findFirst({
       where: {
         name: {
-          equals: 'OM NAMAH SHIVAY',
+          equals: 'TESTING',
           mode: 'insensitive'
         }
       }
@@ -38,7 +48,7 @@ async function main() {
       ledger = await prisma.ledger.create({
         data: {
           type: 'Company',
-          name: 'OM NAMAH SHIVAY',
+          name: 'TESTING',
           contactPerson: JSON.stringify({
             address: 'LUCKNOW',
             mobileNo: '9999999999',
@@ -51,9 +61,9 @@ async function main() {
           siteId: site.id
         }
       });
-      console.log(`Created ledger "OM NAMAH SHIVAY" with ID: ${ledger.id}`);
+      console.log(`Created ledger "TESTING" with ID: ${ledger.id}`);
     } else {
-      console.log(`Ledger "OM NAMAH SHIVAY" already exists with ID: ${ledger.id}`);
+      console.log(`Ledger "TESTING" already exists with ID: ${ledger.id}`);
     }
 
     // 3. Create or update sub-user "prabhakar"

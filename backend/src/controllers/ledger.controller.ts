@@ -10,7 +10,19 @@ export const getLedgers = async (req: Request, res: Response) => {
 
     const admin = (req as any).admin;
     if (admin && admin.role === 'PRINTER') {
-      whereClause.id = admin.allowedLedgerId || 'NONE';
+      const allowedLedgerId = admin.allowedLedgerId;
+      if (allowedLedgerId) {
+        const allowedLedger = await prisma.ledger.findUnique({
+          where: { id: allowedLedgerId }
+        });
+        if (allowedLedger) {
+          whereClause.siteId = allowedLedger.siteId;
+        } else {
+          whereClause.siteId = 'NONE';
+        }
+      } else {
+        whereClause.siteId = 'NONE';
+      }
     }
 
     const ledgers = await prisma.ledger.findMany({
@@ -27,8 +39,22 @@ export const getLedgerById = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const admin = (req as any).admin;
-    if (admin && admin.role === 'PRINTER' && id !== admin.allowedLedgerId) {
-      return res.status(403).json({ success: false, message: 'Forbidden: You do not have access to this ledger.' });
+    if (admin && admin.role === 'PRINTER') {
+      const allowedLedgerId = admin.allowedLedgerId;
+      if (allowedLedgerId) {
+        const allowedLedger = await prisma.ledger.findUnique({
+          where: { id: allowedLedgerId }
+        });
+        const allowedSiteId = allowedLedger ? allowedLedger.siteId : 'NONE';
+        const requestedLedger = await prisma.ledger.findUnique({
+          where: { id }
+        });
+        if (!requestedLedger || requestedLedger.siteId !== allowedSiteId) {
+          return res.status(403).json({ success: false, message: 'Forbidden: You do not have access to this ledger.' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'Forbidden: You do not have access to this ledger.' });
+      }
     }
 
     const ledger = await prisma.ledger.findUnique({
