@@ -2621,6 +2621,96 @@ export default function ChallanPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId, showDirectChallanModal, handleAddDirectItem, directItems, todayChallansList, directChallan, focusedChallanIndex]);
 
+  const renderItemRow = (item: any, displayIndex: number) => {
+    const isCredit = item.type === "BY";
+    return (
+      <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900 group/row">
+        <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 relative w-12 shrink-0">
+          <span className="group-hover/row:hidden">{displayIndex}</span>
+          <button
+            type="button"
+            onClick={() => handleDeleteRow(item.id)}
+            className="hidden group-hover/row:block absolute inset-0 m-auto text-red-655 font-black hover:text-red-700 text-sm no-print"
+            title="Delete Row"
+          >
+            ×
+          </button>
+        </td>
+        <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
+          <EditableCell
+            value={item.material}
+            displayValue={translateBilingual(item.material)}
+            onSave={(newVal) => handleSaveRow(item.id, newVal, item.qty, item.unit, item.rate, item.rawItem)}
+          />
+        </td>
+        <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
+          <EditableCell
+            value={item.qty}
+            type="number"
+            className="text-right font-mono"
+            onSave={(newVal) => handleSaveRow(item.id, item.material, parseFloat(newVal) || 0, item.unit, item.rate, item.rawItem)}
+          />
+        </td>
+        <td className="py-1 px-2 border-r border-slate-300 text-center font-bold text-slate-500 w-20">
+          {isCredit ? (
+            "-"
+          ) : (
+            <EditableCell
+              value={item.unit}
+              className="text-center"
+              onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, newVal, item.rate, item.rawItem)}
+            />
+          )}
+        </td>
+        <td className={`py-1 px-2 border-r border-slate-300 w-20 ${isCredit ? "text-center font-bold text-slate-500" : "text-right font-mono text-slate-655"}`}>
+          {isCredit ? (
+            "RECEIVED"
+          ) : (
+            <EditableCell
+              value={item.rate}
+              type="number"
+              className="text-right font-mono"
+              onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, item.unit, parseFloat(newVal) || 0, item.rawItem)}
+            />
+          )}
+        </td>
+        <td className="py-1 px-2 text-right font-mono text-slate-955 w-36">
+          <div className="flex items-center justify-end gap-1.5 h-full">
+            {item.qty === 0 && item.rate === 0 ? (
+              <EditableCell
+                value={item.amount}
+                type="number"
+                className="text-right font-mono"
+                onSave={(newVal) => {
+                  const parsedAmt = parseFloat(newVal) || 0;
+                  handleSaveRow(item.id, item.material, item.qty, item.unit, item.rate, item.rawItem, item.type, parsedAmt);
+                }}
+              />
+            ) : (
+              <span>{item.amount > 0 ? item.amount.toFixed(2) : "-"}</span>
+            )}
+            {item.amount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const nextType = item.type === "TO" ? "BY" : "TO";
+                  handleSaveRow(item.id, item.material, item.qty, item.unit, item.rate, item.rawItem, nextType);
+                }}
+                className={`px-1 py-0.5 text-[9px] font-black rounded border cursor-pointer hover:bg-slate-100 print:border-none print:bg-transparent print:p-0 ${
+                  item.type === "TO"
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}
+              >
+                {item.type === "TO" ? "DR" : "CR"}
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -3060,101 +3150,33 @@ export default function ChallanPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-300 font-black text-[12px]">
                         {challanData.items.length > 0 ? (
-                          challanData.items.map((item: any, idx: number) => (
-                            <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900 group/row">
-                              <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 relative w-12 shrink-0">
-                                <span className="group-hover/row:hidden">{idx + 1}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteRow(item.id)}
-                                  className="hidden group-hover/row:block absolute inset-0 m-auto text-red-655 font-black hover:text-red-700 text-sm no-print"
-                                  title="Delete Row"
-                                >
-                                  ×
-                                </button>
-                              </td>
-                              <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
-                                <EditableCell
-                                  value={item.material}
-                                  displayValue={translateBilingual(item.material)}
-                                  onSave={(newVal) => handleSaveRow(item.id, newVal, item.qty, item.unit, item.rate, item.rawItem)}
-                                />
-                              </td>
-                              <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
-                                <EditableCell
-                                  value={item.qty}
-                                  type="number"
-                                  className="text-right font-mono"
-                                  onSave={(newVal) => handleSaveRow(item.id, item.material, parseFloat(newVal) || 0, item.unit, item.rate, item.rawItem)}
-                                />
-                              </td>
-                              <td className="py-1 px-2 border-r border-slate-300 text-center font-bold text-slate-500 w-20">
-                                <EditableCell
-                                  value={item.unit}
-                                  className="text-center"
-                                  onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, newVal, item.rate, item.rawItem)}
-                                />
-                              </td>
-                              <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-655 w-20">
-                                <EditableCell
-                                  value={item.rate}
-                                  type="number"
-                                  className="text-right font-mono"
-                                  onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, item.unit, parseFloat(newVal) || 0, item.rawItem)}
-                                />
-                              </td>
-                              <td className="py-1 px-2 text-right font-mono text-slate-955 w-36">
-                                <div className="flex items-center justify-end gap-1.5 h-full">
-                                  {item.qty === 0 && item.rate === 0 ? (
-                                    <EditableCell
-                                      value={item.amount}
-                                      type="number"
-                                      className="text-right font-mono"
-                                      onSave={(newVal) => {
-                                        const parsedAmt = parseFloat(newVal) || 0;
-                                        handleSaveRow(item.id, item.material, item.qty, item.unit, item.rate, item.rawItem, item.type, parsedAmt);
-                                      }}
-                                    />
-                                  ) : (
-                                    <span>{item.amount > 0 ? item.amount.toFixed(2) : "-"}</span>
-                                  )}
-                                  {item.amount > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const nextType = item.type === "TO" ? "BY" : "TO";
-                                        handleSaveRow(item.id, item.material, item.qty, item.unit, item.rate, item.rawItem, nextType);
-                                      }}
-                                      className={`px-1 py-0.5 text-[9px] font-black rounded border cursor-pointer hover:bg-slate-100 print:border-none print:bg-transparent print:p-0 ${
-                                        item.type === "TO"
-                                          ? "bg-red-50 text-red-700 border-red-200"
-                                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                      }`}
-                                    >
-                                      {item.type === "TO" ? "DR" : "CR"}
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))
+                          (() => {
+                            const debitItems = challanData.items.filter((item: any) => item.type === "TO");
+                            const creditItems = challanData.items.filter((item: any) => item.type === "BY");
+                            return (
+                              <>
+                                {debitItems.map((item: any, idx: number) => renderItemRow(item, idx + 1))}
+                                
+                                <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
+                                  <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
+                                  <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
+                                  <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit}</td>
+                                </tr>
+                                
+                                {creditItems.map((item: any, idx: number) => renderItemRow(item, debitItems.length + idx + 1))}
+                              </>
+                            );
+                          })()
                         ) : (
                           <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
                         )}
                       </tbody>
                       {challanData.items.length > 0 && (
                         <tfoot>
-                          {/* Row 1: TOTAL */}
-                          <tr className="bg-slate-100 border-t border-slate-800 font-black text-slate-955 text-[11px]">
-                            <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
-                            <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit}</td>
-                          </tr>
-                          {/* Row 2: TOTAL PAID & TOTAL REMAIN */}
+                          {/* Row 2: TOTAL REMAIN */}
                           <tr className="bg-slate-50 border-t border-slate-300 font-black text-slate-955 text-[11px]">
-                            <td colSpan={2} className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-emerald-800">TOTAL PAID:</td>
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-right text-emerald-800 font-black font-mono total-value">{challanData.totalPaid}</td>
-                            <td colSpan={2} className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-amber-900">TOTAL REMAIN:</td>
+                            <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
+                            <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-amber-900">TOTAL REMAIN:</td>
                             <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">
                               {challanData.totalAmount < 0 
                                 ? `${Math.abs(challanData.totalAmount).toFixed(2)} CR` 
