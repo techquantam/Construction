@@ -29,6 +29,8 @@ export const loginAdmin = async (req: Request, res: Response): Promise<void> => 
           id: admin.id,
           username: admin.username,
           email: admin.email,
+          role: admin.role,
+          allowedLedgerId: admin.allowedLedgerId,
           token: generateToken(admin.id),
         },
       });
@@ -44,7 +46,7 @@ export const getMe = async (req: any, res: Response): Promise<void> => {
   try {
     const admin = await prisma.admin.findUnique({
       where: { id: req.admin.id },
-      select: { id: true, username: true, email: true, createdAt: true },
+      select: { id: true, username: true, email: true, role: true, allowedLedgerId: true, createdAt: true },
     });
 
     res.json({ success: true, data: admin });

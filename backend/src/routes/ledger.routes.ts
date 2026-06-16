@@ -1,6 +1,6 @@
 import express from 'express';
 import { getLedgers, getLedgerById, createLedger, addLedgerTransaction, updateLedger, deleteLedger, deleteLedgerData } from '../controllers/ledger.controller';
-import { protect } from '../middleware/auth.middleware';
+import { protect, restrictTo } from '../middleware/auth.middleware';
 
 const router = express.Router();
 
@@ -8,17 +8,17 @@ router.use(protect);
 
 router.route('/')
   .get(getLedgers)
-  .post(createLedger);
+  .post(restrictTo('ADMIN'), createLedger);
 
 router.route('/:id/data')
-  .delete(deleteLedgerData);
+  .delete(restrictTo('ADMIN'), deleteLedgerData);
 
 router.route('/:id/transactions')
-  .post(addLedgerTransaction);
+  .post(restrictTo('ADMIN'), addLedgerTransaction);
 
 router.route('/:id')
   .get(getLedgerById)
-  .put(updateLedger)
-  .delete(deleteLedger);
+  .put(restrictTo('ADMIN'), updateLedger)
+  .delete(restrictTo('ADMIN'), deleteLedger);
 
 export default router;

@@ -14,6 +14,27 @@ export const getDayBooks = async (req: Request, res: Response) => {
       if (endDate) whereClause.date.lte = new Date(String(endDate));
     }
 
+    const admin = (req as any).admin;
+    if (admin && admin.role === 'PRINTER') {
+      const allowedLedgerId = admin.allowedLedgerId;
+      if (allowedLedgerId) {
+        const allowedLedger = await prisma.ledger.findUnique({
+          where: { id: allowedLedgerId }
+        });
+        if (allowedLedger) {
+          const nameUpper = allowedLedger.name.trim().toUpperCase();
+          whereClause.OR = [
+            { expenseType: { startsWith: `To ${nameUpper}`, mode: 'insensitive' } },
+            { expenseType: { startsWith: `By ${nameUpper}`, mode: 'insensitive' } }
+          ];
+        } else {
+          whereClause.id = 'NONE';
+        }
+      } else {
+        whereClause.id = 'NONE';
+      }
+    }
+
     const dayBooks = await prisma.dayBook.findMany({
       where: whereClause,
       orderBy: { date: 'desc' },

@@ -45,6 +45,8 @@ export default function LoginPage() {
     },
     onSuccess: (data) => {
       localStorage.setItem("token", data.data.token);
+      localStorage.setItem("userRole", data.data.role || "ADMIN");
+      localStorage.setItem("allowedLedgerId", data.data.allowedLedgerId || "");
       toast.success("Login successful");
       router.push("/dashboard");
     },

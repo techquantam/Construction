@@ -8,6 +8,11 @@ export const getLedgers = async (req: Request, res: Response) => {
     if (type) whereClause.type = String(type);
     if (siteId) whereClause.siteId = String(siteId);
 
+    const admin = (req as any).admin;
+    if (admin && admin.role === 'PRINTER') {
+      whereClause.id = admin.allowedLedgerId || 'NONE';
+    }
+
     const ledgers = await prisma.ledger.findMany({
       where: whereClause,
       orderBy: { updatedAt: 'desc' }
@@ -21,6 +26,11 @@ export const getLedgers = async (req: Request, res: Response) => {
 export const getLedgerById = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const admin = (req as any).admin;
+    if (admin && admin.role === 'PRINTER' && id !== admin.allowedLedgerId) {
+      return res.status(403).json({ success: false, message: 'Forbidden: You do not have access to this ledger.' });
+    }
+
     const ledger = await prisma.ledger.findUnique({
       where: { id },
       include: {

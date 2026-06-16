@@ -83,16 +83,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUserRole(localStorage.getItem("userRole"));
+  }, []);
+
   // Sync route and search parameters with AppContext states on first load or changes
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       router.push("/login");
+      return;
     }
-  }, [router]);
+
+    const role = localStorage.getItem("userRole");
+    if (role === "PRINTER") {
+      const allowedPaths = ["/reports"];
+      const isAllowed = allowedPaths.some(p => pathname.startsWith(p));
+      if (!isAllowed && pathname !== "/login") {
+        router.push("/reports?type=ledger");
+      }
+    }
+  }, [router, pathname]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.clear();
     toast.success("Logged out successfully");
     router.push("/login");
   };
@@ -128,6 +144,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [focusedSubIndex, setFocusedSubIndex] = useState<number>(0);
 
   const getSubMenuItems = (menuNum: number) => {
+    if (userRole === "PRINTER" && menuNum !== 2) return [];
     switch (menuNum) {
       case 1:
         return [
@@ -397,7 +414,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               { label: "3. CHALLAN", menuNum: 3, icon: FileText },
               { label: "4. MATERIAL", menuNum: 4, icon: Package },
               { label: "5. DATA BACKUP", menuNum: 5, icon: Database },
-            ].map((menu, idx) => {
+            ].filter((menu) => {
+              if (userRole === "PRINTER") {
+                return menu.menuNum === 2;
+              }
+              return true;
+            }).map((menu, idx) => {
               const isActive = activeMainMenu === menu.menuNum;
               const isFocused = focusedColumn === "main" && focusedMainIndex === idx;
               return (
@@ -437,7 +459,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Footer info */}
           <div className="p-4 border-t border-slate-800 bg-slate-950/40 font-mono text-[10px] text-slate-500 text-center shrink-0">
-            Logged in as: <span className="text-slate-300 font-semibold">Admin</span>
+            Logged in as: <span className="text-slate-300 font-semibold">{userRole === "PRINTER" ? "Printer (OM NAMAH SHIVAY)" : "Admin"}</span>
           </div>
         </aside>
       )}

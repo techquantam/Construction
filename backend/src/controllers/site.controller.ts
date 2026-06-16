@@ -3,7 +3,26 @@ import { prisma } from '../server';
 
 export const getSites = async (req: Request, res: Response) => {
   try {
+    let whereClause: any = {};
+    const admin = (req as any).admin;
+    if (admin && admin.role === 'PRINTER') {
+      const allowedLedgerId = admin.allowedLedgerId;
+      if (allowedLedgerId) {
+        const allowedLedger = await prisma.ledger.findUnique({
+          where: { id: allowedLedgerId }
+        });
+        if (allowedLedger && allowedLedger.siteId) {
+          whereClause.id = allowedLedger.siteId;
+        } else {
+          whereClause.id = 'NONE';
+        }
+      } else {
+        whereClause.id = 'NONE';
+      }
+    }
+
     const sites = await prisma.site.findMany({
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -20,6 +39,21 @@ export const getSites = async (req: Request, res: Response) => {
 export const getSiteById = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const admin = (req as any).admin;
+    if (admin && admin.role === 'PRINTER') {
+      const allowedLedgerId = admin.allowedLedgerId;
+      if (allowedLedgerId) {
+        const allowedLedger = await prisma.ledger.findUnique({
+          where: { id: allowedLedgerId }
+        });
+        if (!allowedLedger || allowedLedger.siteId !== id) {
+          return res.status(403).json({ success: false, message: 'Forbidden: You do not have access to this site.' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'Forbidden: You do not have access to this site.' });
+      }
+    }
+
     const site = await prisma.site.findUnique({
       where: { id },
       include: {

@@ -1,6 +1,6 @@
 import express from 'express';
 import { getDayBooks, createDayBook, updateDayBook, deleteDayBook, deleteDayBooksBySite } from '../controllers/daybook.controller';
-import { protect } from '../middleware/auth.middleware';
+import { protect, restrictTo } from '../middleware/auth.middleware';
 
 const router = express.Router();
 
@@ -8,13 +8,13 @@ router.use(protect);
 
 router.route('/')
   .get(getDayBooks)
-  .post(createDayBook);
+  .post(restrictTo('ADMIN'), createDayBook);
 
 router.route('/site/:siteId')
-  .delete(deleteDayBooksBySite);
+  .delete(restrictTo('ADMIN'), deleteDayBooksBySite);
 
 router.route('/:id')
-  .put(updateDayBook)
-  .delete(deleteDayBook);
+  .put(restrictTo('ADMIN'), updateDayBook)
+  .delete(restrictTo('ADMIN'), deleteDayBook);
 
 export default router;

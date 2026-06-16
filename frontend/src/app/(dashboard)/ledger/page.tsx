@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useRef } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Wallet, History, ArrowDown, ArrowUpRight, ArrowDownLeft, Edit, Trash2, User, Phone, Settings, X, Eraser } from "lucide-react";
@@ -167,7 +167,7 @@ function LedgerContent() {
   // Selected Ledger ID state
   const [selectedLedgerId, setSelectedLedgerId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const isParticularLedgerOpen = !!selectedLedgerId && selectedLedgerId !== "all";
+  const isParticularLedgerOpen = !!selectedLedgerId && selectedLedgerId !== "all" && selectedLedgerId !== "all_records";
 
   // Auto-close sidebar when both site and account are selected
   useEffect(() => {
@@ -242,16 +242,19 @@ function LedgerContent() {
   const creditAmountRef = useRef<HTMLInputElement>(null);
   const isSubmittingRef = useRef(false);
   const lastSubmitTimeRef = useRef(0);
+  const newlyCreatedLedgerIdRef = useRef<string | null>(null);
   const [focusDateTrigger, setFocusDateTrigger] = useState(0);
 
   // Standard React post-render focus trigger
   useEffect(() => {
     if (focusDateTrigger > 0) {
-      const input = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
-      if (input) {
-        input.focus();
-        input.setSelectionRange(0, 2);
-      }
+      setTimeout(() => {
+        const input = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
+        if (input) {
+          input.focus();
+          input.setSelectionRange(0, 2);
+        }
+      }, 50);
     }
   }, [focusDateTrigger, ledgerTypeTab]);
 
@@ -368,6 +371,7 @@ function LedgerContent() {
 
   // Step-by-step active step / popup control
   const [compActiveStep, setCompActiveStep] = useState<"DATE" | "TYPE" | "NAME" | "ADDRESS_MOBILE" | "MATERIAL" | "QTY" | "UNIT" | "RATE" | "CRDR" | "AMOUNT" | "DEBIT" | "CREDIT">("DATE");
+  const [plotActiveStep, setPlotActiveStep] = useState<"DATE" | "NAME" | "ADDRESS_MOBILE" | "NARRATION" | "CREDIT">("DATE");
 
   // Ledger Metadata Edit States
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
@@ -634,7 +638,7 @@ function LedgerContent() {
   const siteDaybooks: any[] = dayBooks || [];
 
   // Derive list of ledger accounts (all registered accounts of active tab + virtual accounts)
-  const filteredLedgers = (() => {
+  const filteredLedgers = useMemo(() => {
     if (!selectedSiteId || selectedSiteId === "all") return [];
     
     // Find all unique account names from the site's daybook
@@ -699,7 +703,7 @@ function LedgerContent() {
     });
 
     return list;
-  })();
+  }, [selectedSiteId, siteDaybooks, ledgerTypeTab, ledgers]);
 
   // Sync site autocomplete text with globally active site
   useEffect(() => {
@@ -714,30 +718,44 @@ function LedgerContent() {
   }, [selectedSiteId, sites]);
 
   // Sync account autocomplete text with currently active ledger
+  const lastSelectedLedgerIdRef = useRef<string | null>(null);
+  const lastLedgerTypeTabRef = useRef<"PLOT" | "COMPANY" | null>(null);
+
   useEffect(() => {
-    if (selectedLedgerId === "all") {
-      const typedName = accountSearchVal.trim();
-      const hasTypedVal = typedName && 
-                          typedName.toUpperCase() !== "+ CREATE NEW ACCOUNT" && 
-                          typedName.toUpperCase() !== "ALL ACCOUNTS";
-                          
-      setAccountSearchVal(ledgerTypeTab === "COMPANY" ? "+ CREATE NEW ACCOUNT" : "ALL ACCOUNTS");
-      
-      if (ledgerTypeTab === "COMPANY") {
-        if (hasTypedVal) {
-          setCompName(typedName.toUpperCase());
+    if (selectedLedgerId === "all" || selectedLedgerId === "all_records") {
+      const isAllRecords = selectedLedgerId === "all_records";
+      if (lastSelectedLedgerIdRef.current !== selectedLedgerId || lastLedgerTypeTabRef.current !== ledgerTypeTab) {
+        const typedName = accountSearchVal.trim();
+        const hasTypedVal = typedName && 
+                            typedName.toUpperCase() !== "+ CREATE NEW ACCOUNT" && 
+                            typedName.toUpperCase() !== "ALL ACCOUNTS";
+                            
+        setAccountSearchVal(isAllRecords ? "ALL ACCOUNTS" : "+ CREATE NEW ACCOUNT");
+        
+        if (ledgerTypeTab === "COMPANY") {
+          if (hasTypedVal) {
+            setCompName(typedName.toUpperCase());
+          } else {
+            setCompName("");
+          }
+          setCompAddress("");
+          setCompMobile("");
         } else {
-          setCompName("");
-        }
-        setCompAddress("");
-        setCompMobile("");
-      } else {
-        if (hasTypedVal) {
-          setEntryAccountSearchVal(typedName.toUpperCase());
-        } else {
-          setEntryAccountSearchVal("");
+          if (!isAllRecords) {
+            if (hasTypedVal) {
+              setEntryAccountSearchVal(typedName.toUpperCase());
+            } else {
+              setEntryAccountSearchVal("");
+            }
+            setCompAddress("");
+            setCompMobile("");
+          } else {
+            setEntryAccountSearchVal("");
+          }
         }
       }
+      lastSelectedLedgerIdRef.current = selectedLedgerId;
+      lastLedgerTypeTabRef.current = ledgerTypeTab;
     } else if (selectedLedgerId) {
       const activeLedger = filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId);
       if (activeLedger) {
@@ -758,6 +776,9 @@ function LedgerContent() {
         } else {
           setLedgerTypeTab("PLOT");
         }
+        
+        lastSelectedLedgerIdRef.current = selectedLedgerId;
+        lastLedgerTypeTabRef.current = activeLedger.type === "Company" ? "COMPANY" : "PLOT";
       }
     } else {
       // Only clear if the input is not currently focused (meaning the user isn't typing)
@@ -767,9 +788,11 @@ function LedgerContent() {
         setCompAddress("");
         setCompMobile("");
       }
+      lastSelectedLedgerIdRef.current = null;
+      lastLedgerTypeTabRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLedgerId, ledgerTypeTab]);
+  }, [selectedLedgerId, ledgerTypeTab, filteredLedgers, existingLedgers]);
 
   // Global Escape interceptor inside Ledger to cancel metadata editing before the layout's global handler can close the page
   useEffect(() => {
@@ -874,7 +897,13 @@ function LedgerContent() {
     
     if (selectedSiteId && selectedSiteId !== "all" && selectedLedgerId && selectedLedgerId !== "all") {
       const exists = filteredLedgers.some((l: any) => l.id === selectedLedgerId);
-      if (!exists) {
+      if (exists) {
+        newlyCreatedLedgerIdRef.current = null;
+      } else {
+        if (selectedLedgerId === newlyCreatedLedgerIdRef.current) {
+          // This is a recently created ledger that is still loading in the background query. Do not fallback.
+          return;
+        }
         if (filteredLedgers.length > 0) {
           setSelectedLedgerId(filteredLedgers[0].id);
         } else {
@@ -894,9 +923,12 @@ function LedgerContent() {
 
   // Filter account suggestions from the site's used accounts, prepending "ALL ACCOUNTS" or "+ CREATE NEW ACCOUNT"
   const filteredAccountSuggestions = (() => {
-    const isAll = selectedLedgerId === "all";
-    const firstOptionName = ledgerTypeTab === "COMPANY" ? "+ CREATE NEW ACCOUNT" : "ALL ACCOUNTS";
-    const selectedLedger = isAll ? { name: firstOptionName } : (filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
+    const isAll = selectedLedgerId === "all" || selectedLedgerId === "all_records";
+    const selectedLedger = selectedLedgerId === "all"
+      ? { name: "+ CREATE NEW ACCOUNT" }
+      : selectedLedgerId === "all_records"
+        ? { name: "ALL ACCOUNTS" }
+        : (filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
     const activeLedger = selectedLedger && !isAll ? (
       existingLedgers.find((l: any) => l.name.toUpperCase() === selectedLedger.name.toUpperCase()) || selectedLedger
     ) : selectedLedger;
@@ -943,14 +975,22 @@ function LedgerContent() {
           .filter(Boolean) as any[];
       }
       const hasSelected = selectedLedgerId && initialLedgers.some((l: any) => l.id === selectedLedgerId);
-      if (selectedLedgerId && selectedLedgerId !== "all" && !hasSelected) {
+      if (selectedLedgerId && selectedLedgerId !== "all" && selectedLedgerId !== "all_records" && !hasSelected) {
         const selObj = filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId);
         if (selObj) {
           initialLedgers.push(selObj);
         }
       }
 
-      return [{ id: "all", name: firstOptionName }, ...initialLedgers];
+      if (ledgerTypeTab === "COMPANY") {
+        return [{ id: "all", name: "+ CREATE NEW ACCOUNT" }, ...initialLedgers];
+      } else {
+        return [
+          { id: "all", name: "+ CREATE NEW ACCOUNT" },
+          { id: "all_records", name: "ALL ACCOUNTS" },
+          ...initialLedgers
+        ];
+      }
     }
     
     // In entry mode, if the user is searching, we allow selecting globally from existingLedgers
@@ -999,11 +1039,15 @@ function LedgerContent() {
       })
       .map((item: any) => item.ledger);
     
-    // Prepend special option if action is not entry and it matches query
-    if (action !== "entry" && matchesFuzzy(firstOptionName, accountSearchVal)) {
-      return [{ id: "all", name: firstOptionName }, ...matches];
+    // Prepend matching special options
+    const prependedOptions = [];
+    if (matchesFuzzy("+ CREATE NEW ACCOUNT", accountSearchVal)) {
+      prependedOptions.push({ id: "all", name: "+ CREATE NEW ACCOUNT" });
     }
-    return matches;
+    if (ledgerTypeTab !== "COMPANY" && matchesFuzzy("ALL ACCOUNTS", accountSearchVal)) {
+      prependedOptions.push({ id: "all_records", name: "ALL ACCOUNTS" });
+    }
+    return [...prependedOptions, ...matches];
   })();
 
   // Auto-scroll and highlight selected account when dropdown is opened
@@ -1236,7 +1280,7 @@ function LedgerContent() {
   });
 
   // Handle Add Entry action (Ledger Direct Entry)
-  const handleAddEntrySubmit = (e: React.FormEvent) => {
+  const handleAddEntrySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const now = Date.now();
     if (now - lastSubmitTimeRef.current < 1000) {
@@ -1252,16 +1296,48 @@ function LedgerContent() {
     }
     
     // Determine the target ledger
-    const targetLedger = selectedLedgerId === "all"
+    let targetLedger = selectedLedgerId === "all"
       ? existingLedgers.find((l: any) => l.id === selectedEntryLedgerId || l.name.toUpperCase() === entryAccountSearchVal.trim().toUpperCase())
       : selectedLedger;
 
+    // Check if we need to create a new Plot ledger
+    if (selectedLedgerId === "all" && !targetLedger) {
+      const activeName = entryAccountSearchVal.trim().toUpperCase();
+      if (!activeName) {
+        toast.error("Account name is required");
+        return;
+      }
+      
+      isSubmittingRef.current = true;
+      try {
+        const ledgerRes = await api.post("/ledgers", {
+          type: "Party",
+          name: activeName,
+          contactPerson: JSON.stringify({
+            address: compAddress,
+            mobileNo: compMobile,
+            customerExtra: "CUSTOMER",
+            measurementType: "PLOT",
+            plotUnit: "SFT"
+          }),
+          phone: compMobile,
+          openingBalance: 0,
+          siteId: selectedSiteId
+        });
+        
+        if (ledgerRes.data && ledgerRes.data.data) {
+          targetLedger = ledgerRes.data.data;
+          toast.success(`Created new Plot Ledger Account "${activeName}"`);
+        }
+      } catch (err: any) {
+        isSubmittingRef.current = false;
+        toast.error(err.response?.data?.message || "Failed to create Plot Ledger Account");
+        return;
+      }
+    }
+
     if (!targetLedger) {
       toast.error("Please select a specific Account Ledger to post transactions");
-      return;
-    }
-    if (!particularText.trim()) {
-      toast.error("Particular/Narration detail is required");
       return;
     }
 
@@ -1276,27 +1352,42 @@ function LedgerContent() {
       parsedDate = new Date();
     }
 
-    // Determine final amount
-    let amount = 0.0;
-    if (entryType === "TO") {
-      amount = parseFloat(debitAmount) || 0;
-    } else {
-      amount = parseFloat(creditAmount) || 0;
-    }
+    // Determine final amount (Plot ledger direct entry is forced Credit only)
+    const amount = parseFloat(creditAmount) || 0.0;
 
-    // Validate amount
+    // If zero amount, just redirect and don't create transaction
     if (amount <= 0) {
-      toast.error(entryType === "TO" ? "Debit amount must be greater than zero" : "Credit amount must be greater than zero");
+      isSubmittingRef.current = false;
+      queryClient.invalidateQueries({ queryKey: ["ledgers"] });
+      queryClient.invalidateQueries({ queryKey: ["daybooks"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+      
+      // Reset inputs but keep Date for fast entry flow
+      setParticularText("");
+      setDebitAmount("");
+      setCreditAmount("");
+      setEntryAccountSearchVal("");
+      setSelectedEntryLedgerId(null);
+      setPlotActiveStep("DATE");
+      
+      if (targetLedger && targetLedger.id) {
+        newlyCreatedLedgerIdRef.current = targetLedger.id;
+        setSelectedLedgerId(targetLedger.id);
+        setAccountSearchVal(targetLedger.name.toUpperCase());
+        setLedgerTypeTab("PLOT");
+      }
+      
+      // Trigger robust state-based refocusing
+      setFocusDateTrigger((prev) => prev + 1);
       return;
     }
 
-    const prefix = entryType === "TO" ? "To " : "By ";
-    const combinedExpenseType = `${prefix}${targetLedger.name.trim().toUpperCase()}`;
+    const combinedExpenseType = `By ${targetLedger.name.trim().toUpperCase()}`;
 
     const payload = {
       siteId: selectedSiteId,
       date: parsedDate.toISOString(),
-      expenseType: combinedExpenseType, // e.g. "To 001 RAM SINGH"
+      expenseType: combinedExpenseType, // e.g. "By 001 RAM SINGH"
       amount,
       paymentMode: particularText.trim().toUpperCase() || "CASH", // Narration
       description: "LEDGER DIRECT ENTRY",
@@ -1304,7 +1395,35 @@ function LedgerContent() {
     };
 
     isSubmittingRef.current = true;
-    createMutation.mutate(payload);
+    createMutation.mutate(payload, {
+      onSuccess: () => {
+        isSubmittingRef.current = false;
+        queryClient.invalidateQueries({ queryKey: ["daybooks"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+        toast.success("Entry added successfully");
+        
+        // Reset inputs but keep Date for fast entry flow
+        setParticularText("");
+        setDebitAmount("");
+        setCreditAmount("");
+        setEntryAccountSearchVal("");
+        setSelectedEntryLedgerId(null);
+        setPlotActiveStep("DATE");
+        
+        if (targetLedger) {
+          newlyCreatedLedgerIdRef.current = targetLedger.id;
+          setSelectedLedgerId(targetLedger.id);
+          setAccountSearchVal(targetLedger.name.toUpperCase());
+          setLedgerTypeTab("PLOT");
+        }
+        
+        setFocusDateTrigger((prev) => prev + 1);
+      },
+      onError: (error: any) => {
+        isSubmittingRef.current = false;
+        toast.error(error.response?.data?.message || "Failed to add entry");
+      }
+    });
   };
 
   const handleCompanyVoucherSubmit = async () => {
@@ -1346,11 +1465,6 @@ function LedgerContent() {
 
     if (calculatedAmount <= 0) {
       calculatedAmount = parseFloat(compAmount) || 0;
-    }
-
-    if (calculatedAmount <= 0) {
-      toast.error("Amount must be greater than zero");
-      return;
     }
 
     let parsedDate = new Date();
@@ -1400,6 +1514,36 @@ function LedgerContent() {
         ledgerId = existing.id;
       }
 
+      if (calculatedAmount <= 0) {
+        isSubmittingRef.current = false;
+        queryClient.invalidateQueries({ queryKey: ["ledgers"] });
+        queryClient.invalidateQueries({ queryKey: ["daybooks"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+        
+        setCompMaterial("");
+        setCompQty("");
+        setCompRate("");
+        setCompAmount("");
+        setCompActiveStep("DATE");
+        
+        if (ledgerId) {
+          newlyCreatedLedgerIdRef.current = ledgerId;
+          setSelectedLedgerId(ledgerId);
+          setAccountSearchVal(activeLedgerDetails.name.toUpperCase());
+          setCompName(activeLedgerDetails.name.toUpperCase());
+          setCompAddress(activeLedgerDetails.address);
+          setCompMobile(activeLedgerDetails.mobile);
+          setLedgerTypeTab("COMPANY");
+        } else {
+          setCompName("");
+          setCompAddress("");
+          setCompMobile("");
+        }
+        
+        setFocusDateTrigger((prev) => prev + 1);
+        return;
+      }
+
       // 2. Submit the Daybook entry
       const prefix = compType === "TO" ? "To " : "By ";
       const combinedExpenseType = `${prefix}${activeLedgerDetails.name.trim().toUpperCase()}`;
@@ -1433,9 +1577,6 @@ function LedgerContent() {
           queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
           toast.success("Company Voucher saved successfully");
           // Reset states but preserve Date for fast data entry
-          setCompName("");
-          setCompAddress("");
-          setCompMobile("");
           setCompMaterial("");
           setCompQty("");
           setCompRate("");
@@ -1443,7 +1584,17 @@ function LedgerContent() {
           setCompActiveStep("DATE");
           
           if (ledgerId) {
+            newlyCreatedLedgerIdRef.current = ledgerId;
             setSelectedLedgerId(ledgerId);
+            setAccountSearchVal(activeLedgerDetails.name.toUpperCase());
+            setCompName(activeLedgerDetails.name.toUpperCase());
+            setCompAddress(activeLedgerDetails.address);
+            setCompMobile(activeLedgerDetails.mobile);
+            setLedgerTypeTab("COMPANY");
+          } else {
+            setCompName("");
+            setCompAddress("");
+            setCompMobile("");
           }
           
           // Trigger robust state-based refocusing
@@ -1613,7 +1764,7 @@ function LedgerContent() {
       return { transactions: [], finalBalance: 0, balanceSign: "Nil" };
     }
 
-    const isAll = selectedLedgerId === "all";
+    const isAll = selectedLedgerId === "all_records";
     const selectedLedger = isAll ? null : (filteredLedgers.find((l) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
     const activeLedger = selectedLedger && !isAll ? (
       existingLedgers.find((l: any) => l.name.toUpperCase() === selectedLedger.name.toUpperCase()) || selectedLedger
@@ -1629,7 +1780,10 @@ function LedgerContent() {
       const matchesTab = ledgerTypeTab === null || (ledgerTypeTab === "COMPANY" ? isCompanyEntry : !isCompanyEntry);
       if (!matchesTab) return false;
 
-      if (isAll) return true;
+      if (isAll) {
+        if (ledgerTypeTab === "COMPANY") return false;
+        return true;
+      }
 
       const typeText = item.expenseType || "";
       let name = "";
@@ -1994,18 +2148,14 @@ function LedgerContent() {
 
 
 
-  const selectedLedger = selectedLedgerId === "all"
+  const selectedLedger = selectedLedgerId === "all_records"
     ? { name: "ALL ACCOUNTS STATEMENT", contactPerson: "CONSOLIDATED SITE VIEW", phone: "N/A" }
-    : (filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
+    : selectedLedgerId === "all"
+      ? { name: "+ CREATE NEW ACCOUNT", contactPerson: "", phone: "" }
+      : (filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
 
   const triggerNewEstimatePrompt = (callback: () => void) => {
-    if (ledgerTypeTab !== "COMPANY" || !selectedSiteId || selectedSiteId === "all") {
-      callback();
-      return;
-    }
-
-    setPendingEstimateCallback(() => callback);
-    setShowNewEstimatePrompt(true);
+    callback();
   };
 
   const handleConfirmNewEstimate = () => {
@@ -2415,7 +2565,7 @@ function LedgerContent() {
                           e.preventDefault();
                           const ledger = filteredAccountSuggestions[targetIndex];
                           setSelectedLedgerId(ledger.id);
-                          if (ledger.id !== "all") {
+                          if (ledger.id !== "all" && ledger.id !== "all_records") {
                             setAccountSearchVal(ledger.name.toUpperCase());
                           }
                           setIsAccountSuggestionsOpen(false);
@@ -2424,7 +2574,11 @@ function LedgerContent() {
                            if (action === "entry") {
                             if (ledger.id === "all") {
                               setTimeout(() => {
-                                compNameInputRef.current?.focus();
+                                const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
+                                if (dateInput) {
+                                  dateInput.focus();
+                                  dateInput.setSelectionRange(0, 2);
+                                }
                               }, 50);
                             } else {
                               triggerNewEstimatePrompt(() => {
@@ -2491,16 +2645,20 @@ function LedgerContent() {
                             type="button"
                             onClick={() => {
                               setSelectedLedgerId(ledger.id);
-                              if (ledger.id !== "all") {
+                              if (ledger.id !== "all" && ledger.id !== "all_records") {
                                 setAccountSearchVal(ledger.name.toUpperCase());
                               }
                               setIsAccountSuggestionsOpen(false);
                               setHighlightedAccountIndex(-1);
                               
-                               if (action === "entry") {
+                              if (action === "entry") {
                                 if (ledger.id === "all") {
                                   setTimeout(() => {
-                                    compNameInputRef.current?.focus();
+                                    const dateInput = ledgerTypeTab === "COMPANY" ? compDateInputRef.current : dateInputRef.current;
+                                    if (dateInput) {
+                                      dateInput.focus();
+                                      dateInput.setSelectionRange(0, 2);
+                                    }
                                   }, 50);
                                 } else {
                                   triggerNewEstimatePrompt(() => {
@@ -4161,7 +4319,7 @@ function LedgerContent() {
                   })}
 
                   {selectedSiteId && selectedSiteId !== "all" && action === "entry" ? (
-                    (ledgerTypeTab === "COMPANY" && isParticularLedgerOpen) ? (
+                    (ledgerTypeTab === "COMPANY" && (isParticularLedgerOpen || selectedLedgerId === "all")) ? (
                       <tr className="bg-slate-50 border-t-2 border-slate-400 font-bold text-xs uppercase h-11">
                         {/* Date Input */}
                         <td className="relative bg-slate-50 border-t-2 border-slate-400 border-r border-slate-400 p-1.5 w-24 z-10">
@@ -4304,6 +4462,7 @@ function LedgerContent() {
                                   if (e.key === "Enter") {
                                     e.preventDefault();
                                     e.stopPropagation();
+                                    if (!compName.trim()) return;
                                     const existing = (ledgers || []).find((l: any) => l.name.toUpperCase() === compName.trim().toUpperCase() && l.type === "Company");
                                     if (existing) {
                                       const parsed = parsePartyDetails(existing.contactPerson);
@@ -4314,12 +4473,14 @@ function LedgerContent() {
                                         setCompAddress(existing.contactPerson || "");
                                         setCompMobile(existing.phone || "");
                                       }
-                                    }
-                                    
-                                    triggerNewEstimatePrompt(() => {
+                                      triggerNewEstimatePrompt(() => {
+                                        setCompActiveStep("ADDRESS_MOBILE");
+                                        setTimeout(() => compAddressInputRef.current?.focus(), 50);
+                                      });
+                                    } else {
                                       setCompActiveStep("ADDRESS_MOBILE");
                                       setTimeout(() => compAddressInputRef.current?.focus(), 50);
-                                    });
+                                    }
                                   } else if (e.key === "Escape") {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -5008,7 +5169,7 @@ function LedgerContent() {
                           </div>
                         </td>
                       </tr>
-                    ) : (selectedLedgerId && selectedLedgerId !== "all") ? (
+                    ) : (selectedLedgerId && selectedLedgerId !== "all_records") ? (
                       <tr className="bg-slate-50 border-t-2 border-slate-400 font-bold h-11">
                         {/* Date Input */}
                         <td className="relative bg-slate-50 border-t-2 border-slate-400 border-r border-slate-400 p-1.5 w-24 z-10">
@@ -5023,7 +5184,19 @@ function LedgerContent() {
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
-                                entryTypeRef.current?.focus();
+                                if (selectedLedgerId === "all") {
+                                  setPlotActiveStep("NAME");
+                                  setTimeout(() => {
+                                    const inputName = document.getElementById("entry-inline-account");
+                                    if (inputName) {
+                                      (inputName as HTMLInputElement).focus();
+                                      (inputName as HTMLInputElement).select();
+                                    }
+                                  }, 50);
+                                } else {
+                                  particularInputRef.current?.focus();
+                                  particularInputRef.current?.select();
+                                }
                               } else if (e.key === "Escape") {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -5046,37 +5219,10 @@ function LedgerContent() {
                             <div className="flex gap-1.5 items-center w-full">
                               <select
                                 ref={entryTypeRef}
-                                value={entryType}
-                                onChange={(e) => {
-                                  const type = e.target.value as "TO" | "BY";
-                                  setEntryType(type);
-                                  if (type === "TO") {
-                                    setCreditAmount("");
-                                  } else {
-                                    setDebitAmount("");
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    if (selectedLedgerId === "all") {
-                                      document.getElementById("entry-inline-account")?.focus();
-                                    } else {
-                                      particularInputRef.current?.focus();
-                                      particularInputRef.current?.select();
-                                    }
-                                  } else if (e.key === "Escape") {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (dateInputRef.current) {
-                                      dateInputRef.current.focus();
-                                      dateInputRef.current.setSelectionRange(0, 2);
-                                    }
-                                  }
-                                }}
-                                className="bg-white border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono focus:outline-none focus:border-slate-800 cursor-pointer h-7"
+                                value="BY"
+                                disabled
+                                className="bg-slate-100 text-slate-400 border border-slate-300 rounded px-1 py-1 text-xs font-black font-mono cursor-not-allowed h-7"
                               >
-                                <option value="TO">DR</option>
                                 <option value="BY">CR</option>
                               </select>
 
@@ -5089,7 +5235,7 @@ function LedgerContent() {
                                     placeholder="ENTER ACCOUNT NAME"
                                     required
                                     onChange={(e) => {
-                                      setEntryAccountSearchVal(e.target.value);
+                                      setEntryAccountSearchVal(e.target.value.toUpperCase());
                                       setIsEntryAccountSuggestionsOpen(true);
                                       setHighlightedEntryAccountIndex(-1);
                                     }}
@@ -5098,105 +5244,88 @@ function LedgerContent() {
                                       setHighlightedEntryAccountIndex(-1);
                                     }}
                                     onKeyDown={(e) => {
-                                      if (!isEntryAccountSuggestionsOpen) {
-                                        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                                          setIsEntryAccountSuggestionsOpen(true);
-                                          e.preventDefault();
-                                        }
-                                        if (e.key === "Enter") {
-                                          e.preventDefault();
-                                          particularInputRef.current?.focus();
-                                          particularInputRef.current?.select();
-                                        }
-                                        if (e.key === "Escape") {
+                                      const isSuggestionsOpen = entryAccountSearchVal.trim() !== "" && filteredEntryAccountSuggestions.length > 0;
+                                      
+                                      if (isSuggestionsOpen) {
+                                        if (e.key === "ArrowDown") {
                                           e.preventDefault();
                                           e.stopPropagation();
-                                          entryTypeRef.current?.focus();
+                                          setHighlightedEntryAccountIndex((prev) => {
+                                            const next = prev + 1;
+                                            return next >= filteredEntryAccountSuggestions.length ? filteredEntryAccountSuggestions.length - 1 : next;
+                                          });
+                                          return;
                                         }
-                                        return;
-                                      }
-                                      if (e.key === "ArrowDown") {
-                                        e.preventDefault();
-                                        setHighlightedEntryAccountIndex((prev) => {
-                                          const next = prev + 1;
-                                          return next >= filteredEntryAccountSuggestions.length ? filteredEntryAccountSuggestions.length - 1 : next;
-                                        });
-                                      } else if (e.key === "ArrowUp") {
-                                        e.preventDefault();
-                                        setHighlightedEntryAccountIndex((prev) => {
-                                          const next = prev - 1;
-                                          return next < 0 ? 0 : next;
-                                        });
-                                      } else if (e.key === "Enter") {
-                                        let targetIndex = highlightedEntryAccountIndex;
-                                        if (targetIndex === -1 && filteredEntryAccountSuggestions.length > 0) {
-                                          targetIndex = 0;
-                                        }
-                                        if (targetIndex >= 0 && targetIndex < filteredEntryAccountSuggestions.length) {
+                                        if (e.key === "ArrowUp") {
                                           e.preventDefault();
-                                          const ledger = filteredEntryAccountSuggestions[targetIndex];
-                                          setSelectedEntryLedgerId(ledger.id);
-                                          setEntryAccountSearchVal(ledger.name.toUpperCase());
+                                          e.stopPropagation();
+                                          setHighlightedEntryAccountIndex((prev) => {
+                                            const next = prev - 1;
+                                            return next < 0 ? 0 : next;
+                                          });
+                                          return;
+                                        }
+                                        if (e.key === "Enter") {
+                                          let targetIndex = highlightedEntryAccountIndex;
+                                          if (targetIndex === -1 && filteredEntryAccountSuggestions.length > 0) {
+                                            targetIndex = 0;
+                                          }
+                                          if (targetIndex >= 0 && targetIndex < filteredEntryAccountSuggestions.length) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const ledger = filteredEntryAccountSuggestions[targetIndex];
+                                            setEntryAccountSearchVal(ledger.name.toUpperCase());
+                                            const parsed = parsePartyDetails(ledger.contactPerson);
+                                            if (parsed) {
+                                              setCompAddress(parsed.address || "");
+                                              setCompMobile(parsed.mobileNo || "");
+                                            } else {
+                                              setCompAddress(ledger.contactPerson || "");
+                                              setCompMobile(ledger.phone || "");
+                                            }
+                                            setHighlightedEntryAccountIndex(-1);
+                                            setIsEntryAccountSuggestionsOpen(false);
+                                            
+                                            setPlotActiveStep("ADDRESS_MOBILE");
+                                            setTimeout(() => compAddressInputRef.current?.focus(), 50);
+                                            return;
+                                          }
+                                        }
+                                      }
+
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (!entryAccountSearchVal.trim()) return;
+                                        
+                                        const existing = (ledgers || []).find((l: any) => l.name.toUpperCase() === entryAccountSearchVal.trim().toUpperCase() && l.type === "Party");
+                                        if (existing) {
+                                          const parsed = parsePartyDetails(existing.contactPerson);
+                                          if (parsed) {
+                                            setCompAddress(parsed.address || "");
+                                            setCompMobile(parsed.mobileNo || "");
+                                          } else {
+                                            setCompAddress(existing.contactPerson || "");
+                                            setCompMobile(existing.phone || "");
+                                          }
+                                          setSelectedLedgerId(existing.id);
+                                          setAccountSearchVal(existing.name.toUpperCase());
                                           setIsEntryAccountSuggestionsOpen(false);
-                                          setHighlightedEntryAccountIndex(-1);
-                                          setTimeout(() => {
-                                            particularInputRef.current?.focus();
-                                            particularInputRef.current?.select();
-                                          }, 50);
+                                          setPlotActiveStep("DATE");
+                                          setTimeout(() => particularInputRef.current?.focus(), 50);
+                                        } else {
+                                          setPlotActiveStep("ADDRESS_MOBILE");
+                                          setTimeout(() => compAddressInputRef.current?.focus(), 50);
                                         }
                                       } else if (e.key === "Escape") {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        setIsEntryAccountSuggestionsOpen(false);
-                                        setHighlightedEntryAccountIndex(-1);
+                                        setPlotActiveStep("DATE");
+                                        dateInputRef.current?.focus();
                                       }
                                     }}
                                     className="w-full px-2 py-0.5 text-xs font-bold uppercase focus:outline-none placeholder:text-slate-400 font-mono"
                                   />
-                                  <button 
-                                    type="button"
-                                    onClick={() => {
-                                      setIsEntryAccountSuggestionsOpen((prev) => !prev);
-                                      setHighlightedEntryAccountIndex(-1);
-                                    }}
-                                    className="px-1 border-l border-slate-200 text-slate-400 hover:text-slate-650 transition-colors focus:outline-none flex items-center justify-center h-full"
-                                  >
-                                    <ArrowDown className="h-3.5 w-3.5" />
-                                  </button>
-                                  
-                                  {isEntryAccountSuggestionsOpen && (
-                                    <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border-2 border-slate-900 rounded shadow-lg z-[999] max-h-40 overflow-y-auto font-mono text-xs uppercase text-left">
-                                      {filteredEntryAccountSuggestions.length === 0 ? (
-                                        <div className="p-2 text-slate-400 italic">No matching accounts</div>
-                                      ) : (
-                                        filteredEntryAccountSuggestions.map((ledger: any, index: number) => {
-                                          const isActive = highlightedEntryAccountIndex === index;
-                                          return (
-                                            <button
-                                              key={ledger.id}
-                                              type="button"
-                                              onClick={() => {
-                                                setSelectedEntryLedgerId(ledger.id);
-                                                setEntryAccountSearchVal(ledger.name.toUpperCase());
-                                                setIsEntryAccountSuggestionsOpen(false);
-                                                setHighlightedEntryAccountIndex(-1);
-                                                setTimeout(() => {
-                                                  particularInputRef.current?.focus();
-                                                  particularInputRef.current?.select();
-                                                }, 50);
-                                              }}
-                                              onMouseEnter={() => setHighlightedEntryAccountIndex(index)}
-                                              className={`w-full text-left px-2.5 py-1.5 border-b border-slate-100 last:border-b-0 font-black uppercase text-[11px] ${
-                                                isActive ? "bg-[#2B547E] text-white font-extrabold" : "bg-white hover:bg-slate-200 text-slate-900"
-                                              }`}
-                                            >
-                                              {ledger.name.toUpperCase()}
-                                            </button>
-                                          );
-                                        })
-                                      )}
-                                    </div>
-                                  )}
                                 </div>
                               ) : (
                                 <input 
@@ -5209,17 +5338,13 @@ function LedgerContent() {
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
-                                      if (entryType === "TO") {
-                                        debitAmountRef.current?.focus();
-                                        debitAmountRef.current?.select();
-                                      } else {
-                                        creditAmountRef.current?.focus();
-                                        creditAmountRef.current?.select();
-                                      }
+                                      creditAmountRef.current?.focus();
+                                      creditAmountRef.current?.select();
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      entryTypeRef.current?.focus();
+                                      dateInputRef.current?.focus();
+                                      dateInputRef.current?.setSelectionRange(0, 2);
                                     }
                                   }}
                                   className="flex-1 bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800 placeholder:text-slate-400 font-mono h-7"
@@ -5238,21 +5363,86 @@ function LedgerContent() {
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
                                     e.preventDefault();
-                                    if (entryType === "TO") {
-                                      debitAmountRef.current?.focus();
-                                      debitAmountRef.current?.select();
-                                    } else {
-                                      creditAmountRef.current?.focus();
-                                      creditAmountRef.current?.select();
-                                    }
+                                    creditAmountRef.current?.focus();
+                                    creditAmountRef.current?.select();
                                   } else if (e.key === "Escape") {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    document.getElementById("entry-inline-account")?.focus();
+                                    if (plotActiveStep === "ADDRESS_MOBILE") {
+                                      setPlotActiveStep("NAME");
+                                      setTimeout(() => document.getElementById("entry-inline-account")?.focus(), 50);
+                                    } else {
+                                      document.getElementById("entry-inline-account")?.focus();
+                                    }
                                   }
                                 }}
                                 className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800 placeholder:text-slate-400 font-mono h-7"
                               />
+                            )}
+
+                            {/* Address & Mobile Floating Popup for Plot Ledger Account Creation */}
+                            {plotActiveStep === "ADDRESS_MOBILE" && selectedLedgerId === "all" && (
+                              <div className="absolute left-0 top-full mt-1 bg-[#ECC30B] border-2 border-slate-900 rounded p-2 shadow-lg z-50 w-64 font-mono text-slate-900 text-xs font-bold space-y-1 text-left">
+                                <div className="text-[10px] uppercase tracking-wider text-slate-800 border-b border-slate-955/20 pb-0.5 mb-1 font-extrabold flex justify-between">
+                                  <span>📁 Contact details</span>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => {
+                                      setPlotActiveStep("DATE");
+                                      setTimeout(() => particularInputRef.current?.focus(), 50);
+                                    }} 
+                                    className="text-[9px] text-[#2B547E] hover:text-slate-955 underline uppercase font-black"
+                                  >
+                                    [SKIP]
+                                  </button>
+                                </div>
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] text-slate-800 uppercase block font-black">Address:</span>
+                                  <textarea
+                                    ref={compAddressInputRef}
+                                    rows={1}
+                                    value={compAddress}
+                                    onChange={(e) => setCompAddress(e.target.value.toUpperCase())}
+                                    placeholder="Address"
+                                    className="w-full bg-white border border-slate-400 rounded px-1.5 py-0.5 text-xs font-mono resize-none focus:outline-none focus:border-slate-800 text-slate-900 uppercase font-bold"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" && !e.shiftKey) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        compMobileInputRef.current?.focus();
+                                      } else if (e.key === "Escape") {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setPlotActiveStep("NAME");
+                                        setTimeout(() => document.getElementById("entry-inline-account")?.focus(), 50);
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] text-slate-800 uppercase block font-black">Mobile No:</span>
+                                  <input
+                                    type="text"
+                                    ref={compMobileInputRef}
+                                    value={compMobile}
+                                    onChange={(e) => setCompMobile(e.target.value)}
+                                    placeholder="Mobile No."
+                                    className="w-full bg-white border border-slate-400 rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-slate-800 text-slate-955 font-bold"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setPlotActiveStep("DATE");
+                                        setTimeout(() => particularInputRef.current?.focus(), 50);
+                                      } else if (e.key === "Escape") {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        compAddressInputRef.current?.focus();
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -5277,31 +5467,11 @@ function LedgerContent() {
                         <td className="relative bg-slate-50 border-t-2 border-slate-400 border-r border-slate-400 p-1.5 w-32 z-10">
                           <input 
                             type="number"
-                            step="0.01"
                             ref={debitAmountRef}
-                            value={debitAmount}
-                            onChange={(e) => {
-                              setDebitAmount(e.target.value);
-                              if (e.target.value) {
-                                setEntryType("TO");
-                                setCreditAmount("");
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                if (debitAmount) {
-                                  handleAddEntrySubmit(e);
-                                }
-                              } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                particularInputRef.current?.focus();
-                                particularInputRef.current?.select();
-                              }
-                            }}
-                            placeholder="Debit"
-                            disabled={entryType === "BY"}
-                            className="w-full bg-white disabled:bg-slate-100 disabled:text-slate-400 border border-slate-300 rounded px-2 py-1 text-xs font-bold text-right focus:outline-none focus:border-slate-800 font-mono h-7"
+                            value=""
+                            disabled
+                            placeholder="-"
+                            className="w-full bg-slate-100 text-slate-400 border border-slate-300 rounded px-2 py-1 text-xs font-bold text-right cursor-not-allowed font-mono h-7"
                           />
                         </td>
 
@@ -5314,16 +5484,12 @@ function LedgerContent() {
                             value={creditAmount}
                             onChange={(e) => {
                               setCreditAmount(e.target.value);
-                              if (e.target.value) {
-                                setEntryType("BY");
-                                setDebitAmount("");
-                              }
+                              setEntryType("BY");
+                              setDebitAmount("");
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
-                                if (creditAmount) {
-                                  handleAddEntrySubmit(e);
-                                }
+                                handleAddEntrySubmit(e);
                               } else if (e.key === "Escape") {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -5332,8 +5498,7 @@ function LedgerContent() {
                               }
                             }}
                             placeholder="Credit"
-                            disabled={entryType === "TO"}
-                            className="w-full bg-white disabled:bg-slate-100 disabled:text-slate-400 border border-slate-300 rounded px-2 py-1 text-xs font-bold text-right focus:outline-none focus:border-slate-800 font-mono h-7"
+                            className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-right focus:outline-none focus:border-slate-800 font-mono h-7"
                           />
                         </td>
 

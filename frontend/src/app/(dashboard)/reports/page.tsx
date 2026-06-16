@@ -122,6 +122,13 @@ function formatRenderDate(dateISO: string) {
 function ReportsContent() {
   const searchParams = useSearchParams();
   const reportType = searchParams.get("type") || "summary";
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [allowedLedgerId, setAllowedLedgerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUserRole(localStorage.getItem("userRole"));
+    setAllowedLedgerId(localStorage.getItem("allowedLedgerId"));
+  }, []);
 
   // Site query
   const { data: sites } = useQuery({
@@ -387,6 +394,7 @@ function ReportsContent() {
 
   // Reset selected site and ledger state on page mount to prevent preloaded data
   useEffect(() => {
+    if (localStorage.getItem("userRole") === "PRINTER") return;
     setLgSelectedSiteId(null);
     setLgSiteSearchVal("");
     setLgSelectedLedgerId(null);
@@ -400,6 +408,47 @@ function ReportsContent() {
     setSmSelectedLedgerId(null);
     setSmLedgerSearchVal("");
   }, []);
+
+  // Lock site and ledger selectors for PRINTER role
+  useEffect(() => {
+    if (userRole === "PRINTER" && allowedLedgerId) {
+      api.get(`/ledgers/${allowedLedgerId}`)
+        .then((res) => {
+          if (res.data && res.data.data) {
+            const ledger = res.data.data;
+            const siteId = ledger.siteId;
+            const ledgerName = ledger.name.toUpperCase();
+            
+            // Lock site IDs
+            setLgSelectedSiteId(siteId);
+            setSmSelectedSiteId(siteId);
+            setDbSelectedSiteId(siteId);
+            
+            // Lock ledger IDs
+            setLgSelectedLedgerId(allowedLedgerId);
+            setSmSelectedLedgerId(allowedLedgerId);
+            
+            // Lock search inputs
+            setLgLedgerSearchVal(ledgerName);
+            setSmLedgerSearchVal(ledgerName);
+            
+            // Find site name
+            if (sites && sites.length > 0) {
+              const siteObj = sites.find((s: any) => s.id === siteId);
+              if (siteObj) {
+                const siteName = siteObj.name.toUpperCase();
+                setLgSiteSearchVal(siteName);
+                setSmSiteSearchVal(siteName);
+                setDbSiteSearchVal(siteName);
+              }
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load allowed ledger:", err);
+        });
+    }
+  }, [userRole, allowedLedgerId, sites]);
 
   // Filter site list for Daybook Autocomplete
   const filteredDbSites = (() => {
@@ -618,7 +667,12 @@ function ReportsContent() {
   const summaryLedgersList = (() => {
     if (!smSelectedSiteId || !summaryDaybookData) return [];
 
-    return summaryActiveSiteLedgers.map((ledger) => {
+    let targetLedgers = summaryActiveSiteLedgers;
+    if (userRole === "PRINTER" && allowedLedgerId) {
+      targetLedgers = summaryActiveSiteLedgers.filter(ledger => String(ledger.id) === String(allowedLedgerId));
+    }
+
+    return targetLedgers.map((ledger) => {
       const details = parsePartyDetails(ledger.contactPerson);
       const address = details ? details.address : (ledger.contactPerson || "");
       const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
@@ -1883,12 +1937,14 @@ function ReportsContent() {
                       type="text"
                       value={smSiteSearchVal}
                       placeholder="TYPE TO SEARCH SITE..."
+                      disabled={userRole === "PRINTER"}
                       onChange={(e) => {
                         setSmSiteSearchVal(e.target.value);
                         setIsSmSiteSuggestionsOpen(true);
                         setHighlightedSmSiteIndex(-1);
                       }}
                       onFocus={() => {
+                        if (userRole === "PRINTER") return;
                         setIsSmSiteSuggestionsOpen(true);
                         setHighlightedSmSiteIndex(-1);
                         setIsSmSiteFocused(true);
@@ -1897,20 +1953,22 @@ function ReportsContent() {
                         setTimeout(() => setIsSmSiteFocused(false), 200);
                       }}
                       onKeyDown={handleSmSiteKeyDown}
-                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-400 uppercase font-mono tracking-wide transition-colors ${
+                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-400 uppercase font-mono tracking-wide transition-colors disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed ${
                         isSmSiteFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
                       }`}
                     />
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setIsSmSiteSuggestionsOpen((prev) => !prev);
-                        setHighlightedSmSiteIndex(-1);
-                      }}
-                      className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
+                    {userRole !== "PRINTER" && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsSmSiteSuggestionsOpen((prev) => !prev);
+                          setHighlightedSmSiteIndex(-1);
+                        }}
+                        className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
  
                   {isSmSiteSuggestionsOpen && (
@@ -2344,12 +2402,14 @@ function ReportsContent() {
                       type="text"
                       value={lgSiteSearchVal}
                       placeholder="TYPE TO SEARCH SITE..."
+                      disabled={userRole === "PRINTER"}
                       onChange={(e) => {
                         setLgSiteSearchVal(e.target.value);
                         setIsLgSiteSuggestionsOpen(true);
                         setHighlightedLgSiteIndex(-1);
                       }}
                       onFocus={() => {
+                        if (userRole === "PRINTER") return;
                         setIsLgSiteSuggestionsOpen(true);
                         setHighlightedLgSiteIndex(-1);
                         setIsLgSiteFocused(true);
@@ -2358,20 +2418,22 @@ function ReportsContent() {
                         setTimeout(() => setIsLgSiteFocused(false), 200);
                       }}
                       onKeyDown={handleLgSiteKeyDown}
-                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-400 uppercase font-mono tracking-wide transition-colors ${
+                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-400 uppercase font-mono tracking-wide transition-colors disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed ${
                         isLgSiteFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
                       }`}
                     />
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setIsLgSiteSuggestionsOpen((prev) => !prev);
-                        setHighlightedLgSiteIndex(-1);
-                      }}
-                      className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
+                    {userRole !== "PRINTER" && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsLgSiteSuggestionsOpen((prev) => !prev);
+                          setHighlightedLgSiteIndex(-1);
+                        }}
+                        className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
  
                   {isLgSiteSuggestionsOpen && (
@@ -2423,6 +2485,7 @@ function ReportsContent() {
                       type="text"
                       value={lgLedgerSearchVal}
                       placeholder="SELECT ACCOUNT"
+                      disabled={userRole === "PRINTER"}
                       onChange={(e) => {
                         const val = e.target.value;
                         setLgLedgerSearchVal(val);
@@ -2442,6 +2505,7 @@ function ReportsContent() {
                         }
                       }}
                       onFocus={(e) => {
+                        if (userRole === "PRINTER") return;
                         setIsLgLedgerSuggestionsOpen(true);
                         setHighlightedLgLedgerIndex(-1);
                         setIsLgLedgerFocused(true);
@@ -2451,20 +2515,22 @@ function ReportsContent() {
                         setTimeout(() => setIsLgLedgerFocused(false), 200);
                       }}
                       onKeyDown={handleLgLedgerKeyDown}
-                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-450 uppercase font-mono tracking-wide transition-colors ${
+                      className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-455 uppercase font-mono tracking-wide transition-colors disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed ${
                         isLgLedgerFocused ? "bg-[#FFE600] text-black" : "bg-white text-slate-800"
                       }`}
                     />
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setIsLgLedgerSuggestionsOpen((prev) => !prev);
-                        setHighlightedLgLedgerIndex(-1);
-                      }}
-                      className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
+                    {userRole !== "PRINTER" && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsLgLedgerSuggestionsOpen((prev) => !prev);
+                          setHighlightedLgLedgerIndex(-1);
+                        }}
+                        className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
  
                   {isLgLedgerSuggestionsOpen && (
@@ -2838,28 +2904,32 @@ function ReportsContent() {
                     type="text"
                     value={dbSiteSearchVal}
                     placeholder="TYPE SITE NAME..."
+                    disabled={userRole === "PRINTER"}
                     onChange={(e) => {
                       setDbSiteSearchVal(e.target.value);
                       setIsDbSiteSuggestionsOpen(true);
                       setHighlightedDbSiteIndex(-1);
                     }}
                     onFocus={() => {
+                      if (userRole === "PRINTER") return;
                       setIsDbSiteSuggestionsOpen(true);
                       setHighlightedDbSiteIndex(-1);
                     }}
                     onKeyDown={handleDbSiteKeyDown}
-                    className="w-full px-3 py-1.5 text-xs font-black bg-[#FFE600] text-slate-955 focus:outline-none placeholder:text-slate-700/60 uppercase font-mono tracking-wider h-8.5"
+                    className="w-full px-3 py-1.5 text-xs font-black bg-[#FFE600] text-slate-955 focus:outline-none placeholder:text-slate-700/60 uppercase font-mono tracking-wider h-8.5 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                   />
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setIsDbSiteSuggestionsOpen((prev) => !prev);
-                      setHighlightedDbSiteIndex(-1);
-                    }}
-                    className="px-2 border-l border-slate-900 text-slate-955 hover:bg-[#E5C300] transition-colors focus:outline-none flex items-center justify-center h-full text-xs font-bold font-sans"
-                  >
-                    v
-                  </button>
+                  {userRole !== "PRINTER" && (
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsDbSiteSuggestionsOpen((prev) => !prev);
+                        setHighlightedDbSiteIndex(-1);
+                      }}
+                      className="px-2 border-l border-slate-900 text-slate-955 hover:bg-[#E5C300] transition-colors focus:outline-none flex items-center justify-center h-full text-xs font-bold font-sans"
+                    >
+                      v
+                    </button>
+                  )}
                 </div>
 
                 {/* ABSOLUTE FLOATING SUGGESTIONS PANEL (YELLOW STYLED OPTIONS LIST) */}
