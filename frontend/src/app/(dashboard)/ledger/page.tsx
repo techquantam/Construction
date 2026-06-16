@@ -895,7 +895,7 @@ function LedgerContent() {
   // Filter account suggestions from the site's used accounts, prepending "ALL ACCOUNTS" or "+ CREATE NEW ACCOUNT"
   const filteredAccountSuggestions = (() => {
     const isAll = selectedLedgerId === "all";
-    const firstOptionName = "ALL ACCOUNTS";
+    const firstOptionName = ledgerTypeTab === "COMPANY" ? "+ CREATE NEW ACCOUNT" : "ALL ACCOUNTS";
     const selectedLedger = isAll ? { name: firstOptionName } : (filteredLedgers.find((l: any) => l.id === selectedLedgerId) || existingLedgers.find((l: any) => l.id === selectedLedgerId));
     const activeLedger = selectedLedger && !isAll ? (
       existingLedgers.find((l: any) => l.name.toUpperCase() === selectedLedger.name.toUpperCase()) || selectedLedger
