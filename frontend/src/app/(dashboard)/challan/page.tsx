@@ -1706,12 +1706,20 @@ export default function ChallanPage() {
     if (directChallan) {
       const items = directChallan.items;
       const totalQty = items.reduce((sum: number, item: any) => sum + item.qty, 0);
+      const totalPaid = items.reduce((sum: number, item: any) => {
+        return item.type === "BY" ? sum + item.amount : sum;
+      }, 0);
+      const totalDebit = items.reduce((sum: number, item: any) => {
+        return item.type === "TO" ? sum + item.amount : sum;
+      }, 0);
       const totalAmount = items.reduce((sum: number, item: any) => {
         return item.type === "BY" ? sum - item.amount : sum + item.amount;
       }, 0);
       return {
         items,
         totalQty,
+        totalPaid,
+        totalDebit,
         totalAmount,
         outstandingBalance: 0,
         challanNo: directChallan.challanNo
@@ -1719,11 +1727,11 @@ export default function ChallanPage() {
     }
 
     if (!selectedSiteId || !selectedLedgerId || !siteDaybookData) {
-      return { items: [], totalQty: 0, totalAmount: 0, outstandingBalance: 0, challanNo: "" };
+      return { items: [], totalQty: 0, totalPaid: 0, totalDebit: 0, totalAmount: 0, outstandingBalance: 0, challanNo: "" };
     }
 
     const selectedLedgerObj = activeSiteCompanyLedgers.find((l) => String(l.id) === String(selectedLedgerId));
-    if (!selectedLedgerObj) return { items: [], totalQty: 0, totalAmount: 0, outstandingBalance: 0, challanNo: "" };
+    if (!selectedLedgerObj) return { items: [], totalQty: 0, totalPaid: 0, totalDebit: 0, totalAmount: 0, outstandingBalance: 0, challanNo: "" };
 
     const ledgerNameUpper = selectedLedgerObj.name.toUpperCase();
 
@@ -1767,7 +1775,7 @@ export default function ChallanPage() {
 
     // If no groups found, return empty
     if (!latestChallanNo) {
-      return { items: [], totalQty: 0, totalAmount: 0, outstandingBalance: 0, challanNo: "" };
+      return { items: [], totalQty: 0, totalPaid: 0, totalDebit: 0, totalAmount: 0, outstandingBalance: 0, challanNo: "" };
     }
 
     const latestGroup = groups[latestChallanNo] || [];
@@ -1782,6 +1790,8 @@ export default function ChallanPage() {
 
     const items: any[] = [];
     let totalQty = 0;
+    let totalPaid = 0;
+    let totalDebit = 0;
     let totalAmount = 0;
     let siteDebitSum = 0;
     let siteCreditSum = 0;
@@ -1808,8 +1818,10 @@ export default function ChallanPage() {
         }
         if (isDebit) {
           totalAmount += calculatedAmount;
+          totalDebit += calculatedAmount;
         } else {
           totalAmount -= calculatedAmount;
+          totalPaid += calculatedAmount;
         }
 
         items.push({
@@ -1835,6 +1847,8 @@ export default function ChallanPage() {
     return {
       items,
       totalQty,
+      totalPaid,
+      totalDebit,
       totalAmount,
       outstandingBalance: calculatedSiteBalance,
       challanNo: latestChallanNo
@@ -2972,15 +2986,7 @@ export default function ChallanPage() {
                           <tr><td colSpan={4} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
                         )}
                       </tbody>
-                      {challanData.items.filter((item: any) => item.qty > 0).length > 0 && (
-                        <tfoot>
-                          <tr className="bg-slate-100 border-t border-slate-800 font-black text-slate-955 text-[11px]">
-                            <td colSpan={2} className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-right text-amber-900 font-black font-mono total-value">{challanData.totalQty}</td>
-                            <td className="py-1.5 px-3 text-center text-slate-500">{challanData.items.filter((item: any) => item.qty > 0)[0]?.unit || "-"}</td>
-                          </tr>
-                        </tfoot>
-                      )}
+
                     </table>
                   </div>
                 </div>
@@ -3138,12 +3144,23 @@ export default function ChallanPage() {
                       </tbody>
                       {challanData.items.length > 0 && (
                         <tfoot>
+                          {/* Row 1: TOTAL */}
                           <tr className="bg-slate-100 border-t border-slate-800 font-black text-slate-955 text-[11px]">
-                            <td colSpan={2} className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-right text-amber-900 font-black font-mono total-value">{challanData.totalQty}</td>
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-center text-slate-500">{challanData.items[0]?.unit || "-"}</td>
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-right text-slate-400">-</td>
-                            <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalAmount}</td>
+                            <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
+                            <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
+                            <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit}</td>
+                          </tr>
+                          {/* Row 2: TOTAL PAID & TOTAL REMAIN */}
+                          <tr className="bg-slate-50 border-t border-slate-300 font-black text-slate-955 text-[11px]">
+                            <td colSpan={2} className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-emerald-800">TOTAL PAID:</td>
+                            <td className="py-1.5 px-3 border-r border-slate-800 text-right text-emerald-800 font-black font-mono total-value">{challanData.totalPaid}</td>
+                            <td colSpan={2} className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-amber-900">TOTAL REMAIN:</td>
+                            <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">
+                              {challanData.totalAmount < 0 
+                                ? `${Math.abs(challanData.totalAmount).toFixed(2)} CR` 
+                                : `${challanData.totalAmount.toFixed(2)} DR`
+                              }
+                            </td>
                           </tr>
                         </tfoot>
                       )}
