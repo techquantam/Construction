@@ -91,12 +91,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    if (pathname.startsWith("/reports")) {
-      setIsSidebarCollapsed(true);
-    } else {
-      setIsSidebarCollapsed(false);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const type = params.get("type");
+      if (userRole === "PRINTER" && pathname.startsWith("/reports") && type) {
+        setIsSidebarCollapsed(true);
+      } else {
+        setIsSidebarCollapsed(false);
+      }
     }
-  }, [pathname]);
+  }, [pathname, userRole]);
 
   // Sync route and search parameters with AppContext states on first load or changes
   useEffect(() => {
@@ -122,7 +126,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/login");
   };
 
-  const isDashboard = pathname === "/dashboard" || pathname === "/" || pathname.startsWith("/reports");
+  const isDashboard = pathname === "/dashboard" || pathname === "/" || (userRole === "PRINTER" && pathname.startsWith("/reports"));
 
   const handleCloseModal = () => {
     router.push("/dashboard");
@@ -206,7 +210,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && userRole === "PRINTER") {
         if (pathname.startsWith("/reports") && isSidebarCollapsed) {
           // If a nested modal or suggestion box (z-50) is open, let it handle Escape.
           if (document.querySelector('.z-\\[9999\\]') || document.querySelector('.z-50')) {
@@ -576,7 +580,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* COLUMN 3: Work Space & Header */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
         {/* Floating Sidebar Toggle Button for Reports page */}
-        {pathname.startsWith("/reports") && (
+        {pathname.startsWith("/reports") && userRole === "PRINTER" && (
           <div className="absolute left-4 top-4 z-50 no-print flex gap-2">
             <button
               type="button"
@@ -599,7 +603,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* WORKSPACE AREA (Sub-page content loads here) */}
         <main className="flex-1 overflow-y-auto p-6 bg-slate-100 relative">
-          <div className={`${pathname.startsWith("/reports") ? "w-full" : "max-w-7xl"} mx-auto h-full`}>
+          <div className={`${pathname.startsWith("/reports") && userRole === "PRINTER" ? "w-full" : "max-w-7xl"} mx-auto h-full`}>
             {isDashboard ? (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 h-full">
                 {children}
