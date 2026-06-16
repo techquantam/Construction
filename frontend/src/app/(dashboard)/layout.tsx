@@ -83,7 +83,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("userRole");
+    }
+    return null;
+  });
 
   useEffect(() => {
     setUserRole(localStorage.getItem("userRole"));
@@ -113,7 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/login");
   };
 
-  const isDashboard = pathname === "/dashboard" || pathname === "/";
+  const isDashboard = pathname === "/dashboard" || pathname === "/" || (userRole === "PRINTER" && pathname.startsWith("/reports"));
 
   const handleCloseModal = () => {
     router.push("/dashboard");
@@ -287,6 +292,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isDashboard, focusedColumn, focusedMainIndex, focusedSubIndex, activeMainMenu, router, pathname]);
 
   const handleSubMenuExit = () => {
+    if (userRole === "PRINTER") {
+      handleLogout();
+      return;
+    }
     setActiveMainMenu(0);
     setActiveSubMenu(null);
     router.push("/dashboard");

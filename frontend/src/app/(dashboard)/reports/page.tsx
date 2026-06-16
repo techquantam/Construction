@@ -426,11 +426,11 @@ function ReportsContent() {
             
             // Lock ledger IDs
             setLgSelectedLedgerId(allowedLedgerId);
-            setSmSelectedLedgerId(allowedLedgerId);
+            setSmSelectedLedgerId("all");
             
             // Lock search inputs
             setLgLedgerSearchVal(ledgerName);
-            setSmLedgerSearchVal(ledgerName);
+            setSmLedgerSearchVal("ALL ACCOUNTS");
             
             // Find site name
             if (sites && sites.length > 0) {
