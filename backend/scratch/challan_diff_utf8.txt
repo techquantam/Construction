@@ -1,0 +1,503 @@
+﻿diff --git a/frontend/src/app/(dashboard)/challan/page.tsx b/frontend/src/app/(dashboard)/challan/page.tsx
+index 87b7c75..1a960d0 100644
+--- a/frontend/src/app/(dashboard)/challan/page.tsx
++++ b/frontend/src/app/(dashboard)/challan/page.tsx
+@@ -407,6 +407,28 @@ const parseInputDate = (dateStr: string) => {
+   return new Date(dateStr);
+ };
+ 
++const getNextChallanNoForDate = (dateStr: string, daybooks: any[]): string => {
++  if (!daybooks || daybooks.length === 0) {
++    return `${dateStr}/1`;
++  }
++  
++  let maxN = 0;
++  daybooks.forEach((item: any) => {
++    const ref = item.referenceNumber;
++    if (ref && typeof ref === "string" && ref.startsWith(dateStr + "/")) {
++      const parts = ref.split("/");
++      if (parts.length === 2) {
++        const num = parseInt(parts[1], 10);
++        if (!isNaN(num) && num > maxN) {
++          maxN = num;
++        }
++      }
++    }
++  });
++  
++  return `${dateStr}/${maxN + 1}`;
++};
++
+ export default function ChallanPage() {
+   // Query: Fetch all sites
+   const { data: sites } = useQuery({
+@@ -472,6 +494,9 @@ export default function ChallanPage() {
+   const [printCopy, setPrintCopy] = useState<"copy1" | "copy2" | "both">("both");
+ 
+   // States for Direct Challan Creation
++  const [challanFormMode, setChallanFormMode] = useState<"DIRECT" | "COMPANY">("DIRECT");
++  const [directAddress, setDirectAddress] = useState("");
++  const [directMobile, setDirectMobile] = useState("");
+   const [showDirectChallanModal, setShowDirectChallanModal] = useState(false);
+   const [directChallan, setDirectChallan] = useState<{
+     customerName: string;
+@@ -637,9 +662,12 @@ export default function ChallanPage() {
+     }
+   }, [showDirectChallanModal]);
+ 
+-  const openDirectChallanModal = () => {
++  const openDirectChallanModal = (mode: "DIRECT" | "COMPANY" = "DIRECT") => {
++    setChallanFormMode(mode);
+     setDirectDate(getTodayDateStr());
+     setDirectCustomer("");
++    setDirectAddress("");
++    setDirectMobile("");
+     setDirectItems([
+       {
+         id: "direct-item-1",
+@@ -655,6 +683,112 @@ export default function ChallanPage() {
+     setShowDirectChallanModal(true);
+   };
+ 
++  const createChallanMutation = useMutation({
++    mutationFn: async (payload: {
++      date: Date;
++      customerName: string;
++      address: string;
++      mobile: string;
++      items: {
++        material: string;
++        qty: number;
++        unit: string;
++        rate: number;
++        amount: number;
++      }[];
++    }) => {
++      if (!selectedSiteId) {
++        throw new Error("Please select a Construction Site first");
++      }
++
++      const cleanCustomerName = payload.customerName.trim().toUpperCase();
++
++      // 1. Find or create the company ledger account
++      const existingLedger = activeSiteCompanyLedgers.find(
++        (l) => l.name.toUpperCase() === cleanCustomerName
++      );
++
++      let ledgerId = "";
++      if (existingLedger && !existingLedger.isVirtual) {
++        ledgerId = existingLedger.id;
++      } else {
++        // Create the company ledger
++        const ledgerRes = await api.post("/ledgers", {
++          type: "Company",
++          name: cleanCustomerName,
++          contactPerson: JSON.stringify({
++            address: payload.address.trim().toUpperCase() || "N/A",
++            mobileNo: payload.mobile.trim() || "N/A",
++            customerExtra: "CUSTOMER",
++            measurementType: "OTHER",
++            plotUnit: payload.items[0]?.unit?.toUpperCase() || "CFT"
++          }),
++          phone: payload.mobile.trim() || "N/A",
++          openingBalance: 0,
++          siteId: selectedSiteId
++        });
++        
++        if (ledgerRes.data && ledgerRes.data.data) {
++          ledgerId = ledgerRes.data.data.id;
++        }
++      }
++
++      // 2. Generate new Challan Number for the date
++      const d = payload.date;
++      const day = String(d.getDate()).padStart(2, "0");
++      const month = String(d.getMonth() + 1).padStart(2, "0");
++      const year = String(d.getFullYear()).substring(2);
++      const dateStr = `${day}.${month}.${year}`;
++
++      const generatedChallanNo = getNextChallanNoForDate(dateStr, siteDaybookData || []);
++
++      // 3. Post daybook entry for each material item
++      const promises = payload.items.map(async (item) => {
++        const serializedPaymentMode = JSON.stringify({
++          type: "CompanyTransaction",
++          address: payload.address.trim().toUpperCase() || "N/A",
++          mobile: payload.mobile.trim() || "N/A",
++          material: item.material.trim().toUpperCase(),
++          qty: item.qty,
++          unit: item.unit.trim().toUpperCase() || "CFT",
++          crDr: "DR",
++          rate: item.rate
++        });
++
++        const daybookPayload = {
++          siteId: selectedSiteId,
++          date: payload.date.toISOString(),
++          expenseType: `By ${cleanCustomerName}`,
++          amount: item.amount,
++          paymentMode: serializedPaymentMode,
++          description: "COMPANY_LEDGER_ENTRY",
++          referenceNumber: generatedChallanNo,
++        };
++
++        return api.post("/daybooks", daybookPayload);
++      });
++
++      await Promise.all(promises);
++
++      return { ledgerId, cleanCustomerName };
++    },
++    onSuccess: (data) => {
++      queryClient.invalidateQueries({ queryKey: ["daybooks", selectedSiteId] });
++      queryClient.invalidateQueries({ queryKey: ["ledgers", selectedSiteId] });
++      queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
++
++      toast.success("Company Ledger Challan saved and generated successfully!");
++      
++      setSelectedLedgerId(data.ledgerId);
++      setLedgerSearchVal(data.cleanCustomerName);
++      setDirectChallan(null);
++      setShowDirectChallanModal(false);
++    },
++    onError: (err: any) => {
++      toast.error(err.message || err.response?.data?.message || "Failed to save Company Ledger Challan");
++    }
++  });
++
+   const handleCreateDirectChallan = (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!directDate.trim()) {
+@@ -673,13 +807,18 @@ export default function ChallanPage() {
+       return;
+     }
+ 
++    if (challanFormMode === "COMPANY" && !directCustomer.trim()) {
++      toast.error("Customer Name is required");
++      return;
++    }
++
+     const validItems = directItems.filter(item => item.material.trim() !== "");
+     if (validItems.length === 0) {
+       toast.error("Please add at least one material");
+       return;
+     }
+ 
+-    const items = validItems.map((item, idx) => {
++    const items = validItems.map((item) => {
+       const qtyVal = parseFloat(item.qty) || 0;
+       const rateVal = parseFloat(item.rate) || 0;
+       let amtVal = parseFloat(item.amount) || 0;
+@@ -688,27 +827,45 @@ export default function ChallanPage() {
+       }
+ 
+       return {
+-        id: `direct-item-${idx + 1}`,
+-        date: parsedDate.toISOString(),
+-        type: "BY" as const,
+         material: item.material.trim().toUpperCase(),
+         qty: qtyVal,
+         unit: item.unit.trim().toUpperCase() || "CFT",
+         rate: rateVal,
+-        amount: amtVal,
+-        particulars: "DIRECT SALE / CASH",
+-        reference: "DIRECT_CHALLAN"
++        amount: amtVal
+       };
+     });
+ 
+-    setDirectChallan({
+-      customerName: directCustomer.trim().toUpperCase() || "DIRECT CLIENT",
+-      date: parsedDate.toISOString(),
+-      items: items
+-    });
++    if (challanFormMode === "COMPANY") {
++      createChallanMutation.mutate({
++        date: parsedDate,
++        customerName: directCustomer,
++        address: directAddress,
++        mobile: directMobile,
++        items
++      });
++    } else {
++      const directItemsFormatted = items.map((item, idx) => ({
++        id: `direct-item-${idx + 1}`,
++        date: parsedDate.toISOString(),
++        type: "BY" as const,
++        material: item.material,
++        qty: item.qty,
++        unit: item.unit,
++        rate: item.rate,
++        amount: item.amount,
++        particulars: "DIRECT SALE / CASH",
++        reference: "DIRECT_CHALLAN"
++      }));
++
++      setDirectChallan({
++        customerName: directCustomer.trim().toUpperCase() || "DIRECT CLIENT",
++        date: parsedDate.toISOString(),
++        items: directItemsFormatted
++      });
+ 
+-    setShowDirectChallanModal(false);
+-    toast.success("Direct Challan generated successfully for preview");
++      setShowDirectChallanModal(false);
++      toast.success("Direct Challan generated successfully for preview");
++    }
+   };
+ 
+   // Auto-focus site input on page mount
+@@ -1220,9 +1377,16 @@ export default function ChallanPage() {
+   // Connect hotkeys (1: Print Without Rate, 2: Print With Rate, F3: Excel)
+   useEffect(() => {
+     const handleKeyDown = (e: KeyboardEvent) => {
++      // Avoid triggering shortcuts if typing in search input fields
++      const activeEl = document.activeElement;
++      const isInputFocused = activeEl && (
++        activeEl.tagName === "INPUT" || 
++        activeEl.tagName === "TEXTAREA" || 
++        activeEl.hasAttribute("contenteditable")
++      );
++
+       // 1. If modal is open and Escape is pressed, check if any suggestions dropdown is open
+       if (showDirectChallanModal && e.key === "Escape") {
+-        const activeEl = document.activeElement;
+         if (activeEl && (
+           activeEl.id.startsWith("direct-qty-input-") ||
+           activeEl.id.startsWith("direct-unit-input-") ||
+@@ -1240,20 +1404,19 @@ export default function ChallanPage() {
+         return;
+       }
+ 
+-      // 2. If modal is closed and 'd' or 'D' is pressed, open the modal immediately and prevent typing in inputs
+-      if (!showDirectChallanModal && (e.key === "d" || e.key === "D")) {
++      // 2. If modal is closed and 'd' or 'D' is pressed, open the modal immediately
++      if (!showDirectChallanModal && (e.key === "d" || e.key === "D") && !isInputFocused) {
+         e.preventDefault();
+-        openDirectChallanModal();
++        openDirectChallanModal("DIRECT");
+         return;
+       }
+ 
+-      // Avoid triggering print shortcuts if typing in search input fields
+-      const activeEl = document.activeElement;
+-      const isInputFocused = activeEl && (
+-        activeEl.tagName === "INPUT" || 
+-        activeEl.tagName === "TEXTAREA" || 
+-        activeEl.hasAttribute("contenteditable")
+-      );
++      // 3. If modal is closed and 'c' or 'C' is pressed, open the modal in COMPANY mode
++      if (!showDirectChallanModal && (e.key === "c" || e.key === "C") && !isInputFocused) {
++        e.preventDefault();
++        openDirectChallanModal("COMPANY");
++        return;
++      }
+ 
+       // If modal is open and 'n' or 'N' is pressed when no input is focused, add a new row!
+       if (showDirectChallanModal && (e.key === "n" || e.key === "N") && !isInputFocused) {
+@@ -1288,13 +1451,22 @@ export default function ChallanPage() {
+             <Building2 className="h-4 w-4 text-slate-700" />
+             <span className="font-bold text-xs uppercase text-slate-700">CHALLAN SELECTOR SYSTEM</span>
+           </div>
+-          <button
+-            type="button"
+-            onClick={openDirectChallanModal}
+-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
+-          >
+-            Direct Challan / αñíαñ╛αñ»αñ░αÑçαñòαÑìαñƒ αñÜαñ╛αñ▓αñ╛αñ¿ (D)
+-          </button>
++          <div className="flex gap-2.5">
++            <button
++              type="button"
++              onClick={() => openDirectChallanModal("DIRECT")}
++              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
++            >
++              Direct Challan / αñíαñ╛αñ»αñ░αÑçαñòαÑìαñƒ αñÜαñ╛αñ▓αñ╛αñ¿ (D)
++            </button>
++            <button
++              type="button"
++              onClick={() => openDirectChallanModal("COMPANY")}
++              className="px-3 py-1.5 bg-[#2B547E] hover:bg-[#1E3E64] text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
++            >
++              Company Ledger Challan / αñòαñéαñ¬αñ¿αÑÇ αñ▓αÑçαñ£αñ░ αñÜαñ╛αñ▓αñ╛αñ¿ (C)
++            </button>
++          </div>
+         </div>
+ 
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+@@ -1730,41 +1902,19 @@ export default function ChallanPage() {
+                     <th className="py-2.5 px-4 border-r border-slate-800 text-right w-28">Qty</th>
+                     <th className="py-2.5 px-4 border-r border-slate-800 text-center w-24">Unit</th>
+                     <th className="py-2.5 px-4 border-r border-slate-800 text-right w-28">Rate</th>
+-                    <th className="py-2.5 px-4 border-r border-slate-800 text-right w-32">Amount</th>
+-                    <th className="py-2.5 px-4 text-center w-40">Actions</th>
+-                  </tr>
+-                </thead>
+-                <tbody className="divide-y divide-slate-300 font-bold text-xs">
+-                  {challanData.items.map((item) => (
+-                    <ChallanRowEditor key={item.id} item={item} onSave={handleSaveRow} onDelete={handleDeleteRow} />
+-                  ))}
+-                </tbody>
+-              </table>
+-            </div>
+-          </div>
+-        )}
+-        </>
+-      ) : (
+-        <div className="bg-white border-2 border-slate-800 p-16 text-center space-y-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] select-none">
+-          <div className="w-16 h-16 bg-[#E5ECF4] border-2 border-slate-800 rounded-full flex items-center justify-center mx-auto shadow-sm">
+-            <Building2 className="h-8 w-8 text-slate-750" />
+-          </div>
+-          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest">NO CHALLAN DOCUMENT SELECTED</h3>
+-          <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed max-w-sm mx-auto">Please select a Site and Supplier to proceed.</p>
+-        </div>
+-      )}
+-
+-      {/* Direct Challan Modal */}
++                    <th className="py-2.5 px-4 border-r border-slate-800 text-right w-32">Amount</t      {/* Direct Challan Modal */}
+       {showDirectChallanModal && (
+         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-200">
+           <div className="bg-[#D3DFEE] border-2 border-slate-955 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[840px] max-w-[95vw] font-mono flex flex-col select-none">
+             {/* Title Bar */}
+-            <div className="bg-emerald-700 border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0">
+-              <span className="text-xs font-black uppercase tracking-wider">Create Direct Challan / αñíαñ╛αñ»αñ░αÑçαñòαÑìαñƒ αñÜαñ╛αñ▓αñ╛αñ¿ αñ¼αñ¿αñ╛αñÅαñü</span>
++            <div className={`border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0 ${challanFormMode === "COMPANY" ? "bg-[#2B547E]" : "bg-emerald-700"}`}>
++              <span className="text-xs font-black uppercase tracking-wider">
++                {challanFormMode === "COMPANY" ? "Create Company Ledger Challan / αñòαñéαñ¬αñ¿αÑÇ αñ▓αÑçαñ£αñ░ αñÜαñ╛αñ▓αñ╛αñ¿ αñ¼αñ¿αñ╛αñÅαñü" : "Create Direct Challan / αñíαñ╛αñ»αñ░αÑçαñòαÑìαñƒ αñÜαñ╛αñ▓αñ╛αñ¿ αñ¼αñ¿αñ╛αñÅαñü"}
++              </span>
+               <button
+                 type="button"
+                 onClick={() => setShowDirectChallanModal(false)}
+-                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2 py-0.5 rounded border border-slate-950 active:translate-y-0.5"
++                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2 py-0.5 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer"
+               >
+                 X
+               </button>
+@@ -1786,21 +1936,49 @@ export default function ChallanPage() {
+                       value={directDate}
+                       onChange={(e) => setDirectDate(e.target.value)}
+                       placeholder="DD.MM.YY"
+-                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none focus:border-emerald-600"
++                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold font-mono focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                     />
+                   </div>
+ 
+                   {/* Customer Name */}
+                   <div>
+-                    <label className="block text-[10px] font-extrabold uppercase text-slate-650 mb-1">Customer Name / αñùαÑìαñ░αñ╛αñ╣αñò αñòαñ╛ αñ¿αñ╛αñ«:</label>
++                    <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Customer Name / αñùαÑìαñ░αñ╛αñ╣αñò αñòαñ╛ αñ¿αñ╛αñ«:</label>
+                     <input
+                       type="text"
++                      required={challanFormMode === "COMPANY"}
+                       value={directCustomer}
+                       onChange={(e) => setDirectCustomer(e.target.value.toUpperCase())}
+-                      placeholder="ENTER CUSTOMER NAME (OPTIONAL)"
+-                      className="w-full bg-white border-2 border-slate-950 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-emerald-600"
++                      placeholder={challanFormMode === "COMPANY" ? "ENTER CUSTOMER / SUPPLIER NAME" : "ENTER CUSTOMER NAME (OPTIONAL)"}
++                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                     />
+                   </div>
++
++                  {/* Address and Mobile if COMPANY mode */}
++                  {challanFormMode === "COMPANY" && (
++                    <>
++                      <div>
++                        <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Address / αñ¬αññαñ╛ (Optional):</label>
++                        <input
++                          type="text"
++                          value={directAddress}
++                          onChange={(e) => setDirectAddress(e.target.value.toUpperCase())}
++                          placeholder="ENTER ADDRESS"
++                          className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-[#2B547E]"
++                        />
++                      </div>
++
++                      <div>
++                        <label className="block text-[10px] font-extrabold uppercase text-slate-655 mb-1">Mobile No / αñ«αÑïαñ¼αñ╛αñçαñ▓ αñ¿αñéαñ¼αñ░ (Optional):</label>
++                        <input
++                          type="text"
++                          value={directMobile}
++                          onChange={(e) => setDirectMobile(e.target.value)}
++                          placeholder="ENTER MOBILE NO."
++                          className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-[#2B547E]"
++                        />
++                      </div>
++                    </>
++                  )}
+                 </div>
+ 
+                 {/* Items Section Title */}
+@@ -1858,10 +2036,10 @@ export default function ChallanPage() {
+                             }}
+                             onKeyDown={(e) => handleMaterialKeyDown(idx, e, suggestions)}
+                             placeholder="Type Material..."
+-                            className="w-full bg-white border border-slate-950 rounded px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-emerald-600 uppercase"
++                            className={`w-full bg-white border border-slate-955 rounded px-2.5 py-1 text-xs font-bold focus:outline-none uppercase ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                           />
+                           {item.isMaterialSuggestionsOpen && suggestions.length > 0 && (
+-                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-950 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto">
++                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-955 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto">
+                               {suggestions.map((mat: any, sIdx: number) => {
+                                 const isHighlighted = sIdx === item.highlightedMaterialIndex;
+                                 return (
+@@ -1917,7 +2095,7 @@ export default function ChallanPage() {
+                               }
+                             }}
+                             placeholder="Qty"
+-                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
++                            className={`w-full bg-white border border-slate-955 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                           />
+                         </div>
+ 
+@@ -1941,7 +2119,7 @@ export default function ChallanPage() {
+                               }
+                             }}
+                             placeholder="Unit"
+-                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold text-center focus:outline-none focus:border-emerald-600 uppercase"
++                            className={`w-full bg-white border border-slate-955 rounded px-2 py-1 text-xs font-bold text-center focus:outline-none uppercase ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                           />
+                         </div>
+ 
+@@ -1962,7 +2140,7 @@ export default function ChallanPage() {
+                               }
+                             }}
+                             placeholder="Rate"
+-                            className="w-full bg-white border border-slate-950 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none focus:border-emerald-600"
++                            className={`w-full bg-white border border-slate-955 rounded px-2 py-1 text-xs font-bold font-mono text-right focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                           />
+                         </div>
+ 
+@@ -1987,6 +2165,33 @@ export default function ChallanPage() {
+                 </div>
+               </div>
+ 
++              {/* Action Buttons */}
++              <div className="bg-white border-t border-slate-300 -mx-6 -mb-6 p-4 mt-4">
++                <button
++                  type="submit"
++                  disabled={createChallanMutation.isPending}
++                  className={`w-full text-white font-extrabold text-[10px] py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-955 cursor-pointer uppercase tracking-wider text-center ${challanFormMode === "COMPANY" ? "bg-[#2B547E] hover:bg-[#1E3E64]" : "bg-emerald-600 hover:bg-emerald-700"}`}
++                >
++                  {createChallanMutation.isPending ? "Generating & Saving..." : (challanFormMode === "COMPANY" ? "Generate & Save Company Challan / αñÜαñ╛αñ▓αñ╛αñ¿ αñ¼αñ¿αñ╛αñÅαñé" : "Generate Challan / αñÜαñ╛αñ▓αñ╛αñ¿ αñ¼αñ¿αñ╛αñÅαñé")}
++                </button>
++              </div>
++            </form>
++          </div>
++        </div>
++      )}           </div>
++
++                {/* Add Item Button */}
++                <div>
++                  <button
++                    type="button"
++                    onClick={handleAddDirectItem}
++                    className="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-400 font-extrabold text-[10px] py-2 rounded transition-all active:translate-y-0.5 cursor-pointer uppercase tracking-wider text-center flex items-center justify-center gap-1.5 focus:outline-none"
++                  >
++                    <span>+ Add Item / αñ¿αñ»αñ╛ αñåαñçαñƒαñ« αñ£αÑïαñíαñ╝αÑçαñé (N)</span>
++                  </button>
++                </div>
++              </div>
++
+               {/* Action Buttons */}
+               <div className="bg-white border-t border-slate-300 -mx-6 -mb-6 p-4 mt-4">
+                 <button

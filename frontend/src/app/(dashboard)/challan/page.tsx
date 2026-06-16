@@ -2761,6 +2761,7 @@ export default function ChallanPage() {
                   <input
                     ref={siteInputRef}
                     type="text"
+                    translate="no"
                     value={siteSearchVal}
                     onChange={(e) => {
                       setSiteSearchVal(e.target.value);
@@ -2782,7 +2783,7 @@ export default function ChallanPage() {
                     onBlur={() => setIsSiteFocused(false)}
                     onKeyDown={handleSiteKeyDown}
                     placeholder="TYPE SITE NAME OR ARROW DOWN..."
-                    className="w-full px-3 py-2 text-xs uppercase border-none focus:outline-none placeholder-slate-400 font-bold bg-transparent"
+                    className="w-full px-3 py-2 text-xs uppercase border-none focus:outline-none placeholder-slate-400 font-bold bg-transparent notranslate"
                   />
                   <button
                     type="button"
@@ -2850,6 +2851,7 @@ export default function ChallanPage() {
                   <input
                     ref={ledgerInputRef}
                     type="text"
+                    translate="no"
                     disabled={!selectedSiteId}
                     value={ledgerSearchVal}
                     onChange={(e) => {
@@ -2875,7 +2877,7 @@ export default function ChallanPage() {
                         ? "TYPE ACCOUNT OR ARROW DOWN..."
                         : "SELECT SITE FIRST..."
                     }
-                    className="w-full px-3 py-2 text-xs uppercase border-none focus:outline-none placeholder-slate-400 font-bold bg-transparent disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2 text-xs uppercase border-none focus:outline-none placeholder-slate-400 font-bold bg-transparent disabled:cursor-not-allowed notranslate"
                   />
                   <button
                     type="button"
@@ -2889,7 +2891,7 @@ export default function ChallanPage() {
 
                 {/* Account Suggestions Autocomplete list */}
                 {isLedgerSuggestionsOpen && filteredLedgers.length > 0 && (
-                  <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-50 max-h-[350px] overflow-y-auto">
+                  <div translate="no" className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-50 max-h-[350px] overflow-y-auto notranslate">
                     {filteredLedgers.map((ledger: any, idx: number) => {
                       const isHighlighted = idx === highlightedLedgerIndex;
                       const isSelected = ledger.id === selectedLedgerId;
@@ -2898,6 +2900,7 @@ export default function ChallanPage() {
                         <button
                           key={ledger.id}
                           id={`acct-opt-${idx}`}
+                          translate="no"
                           onClick={() => {
                             setSelectedLedgerId(ledger.id);
                             setLedgerSearchVal(ledger.name.toUpperCase());
@@ -2908,7 +2911,7 @@ export default function ChallanPage() {
                             }
                             setSelectedCompanyChallanNo(null);
                           }}
-                          className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
+                          className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 notranslate ${isHighlighted
                             ? "bg-amber-400 text-slate-955 font-black"
                             : isSelected
                               ? "bg-amber-100 text-amber-900"
@@ -3365,6 +3368,7 @@ export default function ChallanPage() {
                     <input
                       ref={modalSiteInputRef}
                       type="text"
+                      translate="no"
                       required
                       value={modalSiteSearchVal}
                       onChange={(e) => {
@@ -3384,12 +3388,12 @@ export default function ChallanPage() {
                       }}
                       onKeyDown={handleModalSiteKeyDown}
                       placeholder="TYPE SITE NAME OR ARROW DOWN..."
-                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none notranslate ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                     />
 
                     {/* Modal Site Autocomplete dropdown */}
                     {isModalSiteSuggestionsOpen && filteredModalSites.length > 0 && (
-                      <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[99999] max-h-48 overflow-y-auto">
+                      <div translate="no" className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[99999] max-h-48 overflow-y-auto notranslate">
                         {filteredModalSites.map((site: any, idx: number) => {
                           const isHighlighted = idx === highlightedModalSiteIndex;
                           const isSelected = site.id === selectedSiteId;
@@ -3398,11 +3402,12 @@ export default function ChallanPage() {
                               key={site.id}
                               id={`modal-site-opt-${idx}`}
                               type="button"
+                              translate="no"
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 selectModalSite(site);
                               }}
-                              className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
+                              className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 notranslate ${isHighlighted
                                 ? "bg-amber-400 text-slate-955 font-black"
                                 : isSelected
                                   ? "bg-amber-100 text-amber-900"
@@ -3447,6 +3452,7 @@ export default function ChallanPage() {
                     <input
                       ref={modalCustomerInputRef}
                       type="text"
+                      translate="no"
                       required={challanFormMode === "COMPANY"}
                       value={directCustomer}
                       disabled={challanFormMode === "COMPANY" && !selectedSiteId}
@@ -3472,12 +3478,12 @@ export default function ChallanPage() {
                             ? "ENTER CUSTOMER / SUPPLIER NAME"
                             : "ENTER CUSTOMER NAME (OPTIONAL)"
                       }
-                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed notranslate ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                     />
 
                     {/* Modal Customer Autocomplete dropdown */}
                     {isModalCustomerSuggestionsOpen && filteredModalCustomers.length > 0 && (
-                      <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[99999] max-h-48 overflow-y-auto">
+                      <div translate="no" className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[99999] max-h-48 overflow-y-auto notranslate">
                         {filteredModalCustomers.map((ledger: any, idx: number) => {
                           const isHighlighted = idx === highlightedModalCustomerIndex;
                           const isSelected = ledger.name.toUpperCase() === directCustomer.toUpperCase();
@@ -3486,11 +3492,12 @@ export default function ChallanPage() {
                               key={ledger.id}
                               id={`modal-cust-opt-${idx}`}
                               type="button"
+                              translate="no"
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 selectModalCustomer(ledger);
                               }}
-                              className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
+                              className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 notranslate ${isHighlighted
                                 ? "bg-amber-400 text-slate-955 font-black"
                                 : isSelected
                                   ? "bg-amber-100 text-amber-900"
@@ -3511,6 +3518,7 @@ export default function ChallanPage() {
                     <input
                       id="modal-address-input"
                       type="text"
+                      translate="no"
                       disabled={challanFormMode === "COMPANY" && !selectedSiteId}
                       value={directAddress}
                       onChange={(e) => setDirectAddress(e.target.value.toUpperCase())}
@@ -3529,7 +3537,7 @@ export default function ChallanPage() {
                         }
                       }}
                       placeholder="ENTER ADDRESS"
-                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed notranslate ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                     />
                   </div>
                 </div>
@@ -3541,6 +3549,7 @@ export default function ChallanPage() {
                     <input
                       id="modal-mobile-input"
                       type="text"
+                      translate="no"
                       disabled={challanFormMode === "COMPANY" && !selectedSiteId}
                       value={directMobile}
                       onChange={(e) => setDirectMobile(e.target.value)}
@@ -3562,7 +3571,7 @@ export default function ChallanPage() {
                         }
                       }}
                       placeholder="ENTER MOBILE NO."
-                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                      className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed notranslate ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                     />
                   </div>
                 </div>
@@ -3603,6 +3612,7 @@ export default function ChallanPage() {
                           <input
                             id={`direct-material-input-${idx}`}
                             type="text"
+                            translate="no"
                             value={item.material}
                             onChange={(e) => {
                               updateDirectItem(idx, {
@@ -3622,10 +3632,10 @@ export default function ChallanPage() {
                             }}
                             onKeyDown={(e) => handleMaterialKeyDown(idx, e, suggestions)}
                             placeholder="Type Material..."
-                            className={`w-full bg-white border border-slate-955 rounded px-2.5 py-1 text-xs font-bold focus:outline-none uppercase ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
+                            className={`w-full bg-white border border-slate-955 rounded px-2.5 py-1 text-xs font-bold focus:outline-none uppercase notranslate ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                           />
                           {item.isMaterialSuggestionsOpen && suggestions.length > 0 && (
-                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-955 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto">
+                            <div translate="no" className="absolute left-0 right-0 mt-1 bg-white border border-slate-955 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto notranslate">
                               {suggestions.map((mat: any, sIdx: number) => {
                                 const isHighlighted = sIdx === item.highlightedMaterialIndex;
                                 return (
@@ -3633,6 +3643,7 @@ export default function ChallanPage() {
                                     key={mat.id || sIdx}
                                     id={`mat-opt-${idx}-${sIdx}`}
                                     type="button"
+                                    translate="no"
                                     onMouseDown={(e) => {
                                       e.preventDefault();
                                       updateDirectItem(idx, {
@@ -3650,7 +3661,7 @@ export default function ChallanPage() {
                                         }
                                       }, 50);
                                     }}
-                                    className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 ${isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
+                                    className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 notranslate ${isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
                                       }`}
                                   >
                                     {mat.name.toUpperCase()} ({mat.unit || "CFT"})
@@ -3903,6 +3914,7 @@ export default function ChallanPage() {
                   <input
                     id="add-row-material-input"
                     type="text"
+                    translate="no"
                     required
                     value={addRowMaterial}
                     onChange={(e) => {
@@ -3927,7 +3939,7 @@ export default function ChallanPage() {
                       handleAddRowMaterialKeyDown(e, suggestions);
                     }}
                     placeholder="Type Material..."
-                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-blue-600 uppercase font-mono"
+                    className="w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:border-blue-600 uppercase font-mono notranslate"
                   />
                   {isAddRowMaterialSuggestionsOpen && (
                     (() => {
@@ -3939,7 +3951,7 @@ export default function ChallanPage() {
                       })();
                       if (suggestions.length === 0) return null;
                       return (
-                        <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-955 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto">
+                        <div translate="no" className="absolute left-0 right-0 mt-1 bg-white border border-slate-955 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[10000] max-h-32 overflow-y-auto notranslate">
                           {suggestions.map((mat: any, sIdx: number) => {
                             const isHighlighted = sIdx === highlightedAddRowMaterialIndex;
                             return (
@@ -3947,6 +3959,7 @@ export default function ChallanPage() {
                                 key={mat.id || sIdx}
                                 id={`add-row-mat-opt-${sIdx}`}
                                 type="button"
+                                translate="no"
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   setAddRowMaterial(mat.name.toUpperCase());
@@ -3964,7 +3977,7 @@ export default function ChallanPage() {
                                     }
                                   }, 50);
                                 }}
-                                className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 ${isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
+                                className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 notranslate ${isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
                                   }`}
                               >
                                 {mat.name.toUpperCase()} ({mat.unit || "CFT"})
