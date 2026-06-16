@@ -1896,7 +1896,7 @@ function ReportsContent() {
     const singleAccountCredit = selectedLedgerObj ? selectedLedgerObj.totalCredit : 0;
 
     return (
-      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
+      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto pt-10 space-y-4">
         
         {/* PRINT SUMMARY PANEL */}
         <div className="bg-white border-2 border-slate-800 rounded shadow-lg overflow-hidden">
@@ -2360,7 +2360,7 @@ function ReportsContent() {
       : "";
 
     return (
-      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
+      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto pt-10 space-y-4">
         
         {/* PRINT LEDGER PANEL */}
         <div className="bg-white border-2 border-slate-800 rounded shadow-lg overflow-hidden">
@@ -2881,7 +2881,7 @@ function ReportsContent() {
     const ledgerPrintData = getGroupedLedgersData();
 
     return (
-      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
+      <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto pt-10 space-y-4">
         
         <div className={printLayoutMode ? "no-print" : ""}>
           {/* PRINT DAYBOOK PANEL */}

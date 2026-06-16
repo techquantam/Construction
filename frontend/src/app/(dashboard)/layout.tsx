@@ -84,10 +84,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     setUserRole(localStorage.getItem("userRole"));
   }, []);
+
+  useEffect(() => {
+    if (pathname.startsWith("/reports")) {
+      setIsSidebarCollapsed(true);
+    } else {
+      setIsSidebarCollapsed(false);
+    }
+  }, [pathname]);
 
   // Sync route and search parameters with AppContext states on first load or changes
   useEffect(() => {
@@ -113,7 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/login");
   };
 
-  const isDashboard = pathname === "/dashboard" || pathname === "/" || (userRole === "PRINTER" && pathname.startsWith("/reports"));
+  const isDashboard = pathname === "/dashboard" || pathname === "/" || pathname.startsWith("/reports");
 
   const handleCloseModal = () => {
     router.push("/dashboard");
@@ -396,7 +405,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </Suspense>
 
       {/* COLUMN 1: Main Menu Block */}
-      {isDashboard && (
+      {isDashboard && !isSidebarCollapsed && (
         <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col shrink-0 border-r border-slate-950">
 
           {/* App Title / Header */}
@@ -469,7 +478,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* COLUMN 2: Sub-Menu Block */}
-      {isDashboard && activeMainMenu !== 0 && activeMainMenu !== null && (
+      {isDashboard && activeMainMenu !== 0 && activeMainMenu !== null && !isSidebarCollapsed && (
         <aside className="w-72 shrink-0 h-full flex flex-col bg-slate-50 border-r border-slate-300 z-10 shadow-[2px_0px_10px_0px_rgba(0,0,0,0.02)]">
           {renderSubMenu()}
         </aside>
@@ -477,10 +486,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* COLUMN 3: Work Space & Header */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        {/* Floating Sidebar Toggle Button for Reports page */}
+        {pathname.startsWith("/reports") && (
+          <div className="absolute left-4 top-4 z-50 no-print flex gap-2">
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+              className="px-2.5 py-1 text-[11px] font-black uppercase tracking-wider font-mono bg-slate-900 text-white hover:bg-amber-400 hover:text-slate-900 border-2 border-slate-950 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-1.5"
+            >
+              {isSidebarCollapsed ? "▶ SHOW MENU" : "◀ HIDE MENU"}
+            </button>
+            {userRole !== "PRINTER" && (
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="px-2.5 py-1 text-[11px] font-black uppercase tracking-wider font-mono bg-red-600 text-white hover:bg-red-700 border-2 border-slate-950 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-1.5"
+              >
+                ✕ CLOSE
+              </button>
+            )}
+          </div>
+        )}
 
         {/* WORKSPACE AREA (Sub-page content loads here) */}
         <main className="flex-1 overflow-y-auto p-6 bg-slate-100 relative">
-          <div className="max-w-7xl mx-auto h-full">
+          <div className={`${pathname.startsWith("/reports") ? "w-full" : "max-w-7xl"} mx-auto h-full`}>
             {isDashboard ? (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 h-full">
                 {children}
