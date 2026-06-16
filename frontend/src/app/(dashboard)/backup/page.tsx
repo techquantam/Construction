@@ -30,7 +30,7 @@ function BackupContent() {
     const day = String(today.getDate()).padStart(2, "0");
     const month = String(today.getMonth() + 1).padStart(2, "0");
     const year = today.getFullYear();
-    return `H:\\BACKUP_TELE\\Tele${day}.${month}.${year}.bak`;
+    return `D:\\BACKUP_TELE\\Tele${day}.${month}.${year}.bak`;
   });
 
   const [isPickingFolder, setIsPickingFolder] = useState(false);
