@@ -409,7 +409,7 @@ const parseInputDate = (dateStr: string) => {
 
 const getNextChallanNoForDate = (dateStr: string, daybooks: any[] | null | undefined, localDirectChallans?: any[]): string => {
   let maxN = 0;
-  
+
   const checkRef = (ref: string) => {
     if (ref && typeof ref === "string" && ref.startsWith(dateStr + "/")) {
       const parts = ref.split("/");
@@ -433,7 +433,7 @@ const getNextChallanNoForDate = (dateStr: string, daybooks: any[] | null | undef
       checkRef(ch.challanNo);
     });
   }
-  
+
   return `${dateStr}/${maxN + 1}`;
 };
 
@@ -702,7 +702,7 @@ export default function ChallanPage() {
     setDirectItems((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], ...fields };
-      
+
       const qtyVal = parseFloat(next[idx].qty) || 0;
       const rateVal = parseFloat(next[idx].rate) || 0;
       if (qtyVal > 0 && rateVal > 0) {
@@ -828,7 +828,7 @@ export default function ChallanPage() {
   const openDirectChallanModal = (mode: "DIRECT" | "COMPANY" = "DIRECT") => {
     setChallanFormMode(mode);
     setDirectDate(getTodayDateStr());
-    
+
     let targetSiteId = selectedSiteId;
     let targetSiteName = "";
 
@@ -888,7 +888,7 @@ export default function ChallanPage() {
           let name = "";
           if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
           else if (text.toUpperCase().startsWith("BY ")) name = text.substring(3).trim().toUpperCase();
-          
+
           if (name) {
             // Find in activeSiteCompanyLedgers list matching targetSiteId
             const matchedLedger = activeSiteCompanyLedgers.find((l: any) => l.name.toUpperCase() === name);
@@ -913,7 +913,7 @@ export default function ChallanPage() {
           }
         }
       }
-      
+
       if (!defaultCustomer && selectedLedgerId && selectedSiteId === targetSiteId) {
         const matchedLedger = activeSiteCompanyLedgers.find((l: any) => String(l.id) === String(selectedLedgerId));
         if (matchedLedger) {
@@ -946,7 +946,7 @@ export default function ChallanPage() {
     setDirectCustomer(defaultCustomer);
     setDirectAddress(defaultAddress);
     setDirectMobile(defaultMobile);
-    
+
     setDirectItems([
       {
         id: "direct-item-1",
@@ -1008,7 +1008,7 @@ export default function ChallanPage() {
           openingBalance: 0,
           siteId: selectedSiteId
         });
-        
+
         if (ledgerRes.data && ledgerRes.data.data) {
           ledgerId = ledgerRes.data.data.id;
         }
@@ -1060,7 +1060,7 @@ export default function ChallanPage() {
       queryClient.invalidateQueries({ queryKey: ["allDaybooks"] });
 
       toast.success("Company Ledger Challan saved and generated successfully!");
-      
+
       const siteObj = sites?.find((s: any) => s.id === selectedSiteId);
       if (siteObj) {
         setSiteSearchVal(siteObj.name.toUpperCase());
@@ -1485,7 +1485,7 @@ export default function ChallanPage() {
 
   const selectModalCustomer = (ledger: any) => {
     setDirectCustomer(ledger.name.toUpperCase());
-    
+
     const details = parsePartyDetails(ledger.contactPerson);
     if (details) {
       setDirectAddress(details.address || "");
@@ -1494,7 +1494,7 @@ export default function ChallanPage() {
       setDirectAddress(ledger.contactPerson || "");
       setDirectMobile(ledger.phone || "");
     }
-    
+
     setIsModalCustomerSuggestionsOpen(false);
     setHighlightedModalCustomerIndex(-1);
 
@@ -1517,7 +1517,7 @@ export default function ChallanPage() {
 
   const handleModalCustomerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (challanFormMode !== "COMPANY") return;
-    
+
     if (!isModalCustomerSuggestionsOpen) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         setIsModalCustomerSuggestionsOpen(true);
@@ -1756,8 +1756,8 @@ export default function ChallanPage() {
     });
 
     // Find the latest group by max createdAt timestamp or select selectedCompanyChallanNo if set
-    let latestChallanNo = selectedCompanyChallanNo && groups[selectedCompanyChallanNo] 
-      ? selectedCompanyChallanNo 
+    let latestChallanNo = selectedCompanyChallanNo && groups[selectedCompanyChallanNo]
+      ? selectedCompanyChallanNo
       : "";
 
     if (!latestChallanNo) {
@@ -2023,7 +2023,7 @@ export default function ChallanPage() {
     if (rawItem.paymentMode && rawItem.paymentMode.trim().startsWith("{") && rawItem.paymentMode.trim().endsWith("}")) {
       try {
         originalParsedDetails = JSON.parse(rawItem.paymentMode);
-      } catch {}
+      } catch { }
     }
 
     const updatedPaymentMode = JSON.stringify({
@@ -2488,8 +2488,8 @@ export default function ChallanPage() {
 
       const activeEl = document.activeElement;
       const isInputFocused = activeEl && (
-        activeEl.tagName === "INPUT" || 
-        activeEl.tagName === "TEXTAREA" || 
+        activeEl.tagName === "INPUT" ||
+        activeEl.tagName === "TEXTAREA" ||
         activeEl.hasAttribute("contenteditable")
       );
 
@@ -2623,9 +2623,17 @@ export default function ChallanPage() {
 
   const renderItemRow = (item: any, displayIndex: number) => {
     const isCredit = item.type === "BY";
+    const cellPadding = isCredit ? "py-1.5 px-3" : "py-1 px-2";
+    const cellBorder = isCredit ? "border-r border-slate-800" : "border-r border-slate-300";
     return (
-      <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900 group/row">
-        <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 relative w-12 shrink-0">
+      <tr
+        key={item.id}
+        className={isCredit
+          ? "bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px] uppercase"
+          : "hover:bg-slate-50 uppercase text-slate-900 group/row"
+        }
+      >
+        <td className={`${cellPadding} ${cellBorder} text-center text-slate-700 relative w-12 shrink-0`}>
           <span className="group-hover/row:hidden">{displayIndex}</span>
           <button
             type="button"
@@ -2636,14 +2644,14 @@ export default function ChallanPage() {
             ×
           </button>
         </td>
-        <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
+        <td className={`${cellPadding} ${cellBorder} text-slate-955 font-extrabold`}>
           <EditableCell
             value={item.material}
             displayValue={translateBilingual(item.material)}
             onSave={(newVal) => handleSaveRow(item.id, newVal, item.qty, item.unit, item.rate, item.rawItem)}
           />
         </td>
-        <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
+        <td className={`${cellPadding} ${cellBorder} text-right font-mono text-slate-955 w-24`}>
           <EditableCell
             value={item.qty}
             type="number"
@@ -2651,7 +2659,7 @@ export default function ChallanPage() {
             onSave={(newVal) => handleSaveRow(item.id, item.material, parseFloat(newVal) || 0, item.unit, item.rate, item.rawItem)}
           />
         </td>
-        <td className="py-1 px-2 border-r border-slate-300 text-center font-bold text-slate-500 w-20">
+        <td className={`${cellPadding} ${cellBorder} text-center font-bold text-slate-500 w-20`}>
           {isCredit ? (
             "-"
           ) : (
@@ -2662,7 +2670,7 @@ export default function ChallanPage() {
             />
           )}
         </td>
-        <td className={`py-1 px-2 border-r border-slate-300 w-20 ${isCredit ? "text-center font-bold text-slate-500" : "text-right font-mono text-slate-655"}`}>
+        <td className={`${cellPadding} ${cellBorder} w-20 ${isCredit ? "text-center font-bold text-slate-500" : "text-right font-mono text-slate-655"}`}>
           {isCredit ? (
             "RECEIVED"
           ) : (
@@ -2674,7 +2682,7 @@ export default function ChallanPage() {
             />
           )}
         </td>
-        <td className="py-1 px-2 text-right font-mono text-slate-955 w-36">
+        <td className={`${cellPadding} text-right font-mono text-slate-955 w-36`}>
           <div className="flex items-center justify-end gap-1.5 h-full">
             {item.qty === 0 && item.rate === 0 ? (
               <EditableCell
@@ -2696,11 +2704,10 @@ export default function ChallanPage() {
                   const nextType = item.type === "TO" ? "BY" : "TO";
                   handleSaveRow(item.id, item.material, item.qty, item.unit, item.rate, item.rawItem, nextType);
                 }}
-                className={`px-1 py-0.5 text-[9px] font-black rounded border cursor-pointer hover:bg-slate-100 print:border-none print:bg-transparent print:p-0 ${
-                  item.type === "TO"
-                    ? "bg-red-50 text-red-700 border-red-200"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                }`}
+                className={`px-1 py-0.5 text-[9px] font-black rounded border cursor-pointer hover:bg-slate-100 print:border-none print:bg-transparent print:p-0 ${item.type === "TO"
+                  ? "bg-red-50 text-red-700 border-red-200"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  }`}
               >
                 {item.type === "TO" ? "DR" : "CR"}
               </button>
@@ -2717,240 +2724,240 @@ export default function ChallanPage() {
         {/* Left Column (Selectors, Preview and Editor Panels) */}
         <div className="lg:col-span-9 space-y-4">
           {/* Search Filter Widgets Bar */}
-      <div className="bg-[#E5ECF4] border-2 border-slate-800 p-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-4 print:hidden select-none">
-        <div className="flex items-center justify-between border-b-2 border-slate-350 pb-2 mb-2">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-slate-700" />
-            <span className="font-bold text-xs uppercase text-slate-700">CHALLAN SELECTOR SYSTEM</span>
-          </div>
-          <div className="flex gap-2.5">
-            <button
-              type="button"
-              onClick={() => openDirectChallanModal("DIRECT")}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
-            >
-              Direct Challan / डायरेक्ट चालान (D)
-            </button>
-            <button
-              type="button"
-              onClick={() => openDirectChallanModal("COMPANY")}
-              className="px-3 py-1.5 bg-[#2B547E] hover:bg-[#1E3E64] text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
-            >
-              Company Ledger Challan / कंपनी लेजर चालान (C)
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Site Selector Widget */}
-          <div ref={siteSelectorRef} className="relative">
-            <label className="block text-xs font-bold mb-1.5 uppercase text-slate-700">
-              1. Select Construction Site
-            </label>
-            <div
-              className={`flex items-center border-2 transition-all bg-white relative ${isSiteFocused ? "border-amber-500 ring-2 ring-amber-400/20" : "border-slate-800"
-                }`}
-            >
-              <input
-                ref={siteInputRef}
-                type="text"
-                value={siteSearchVal}
-                onChange={(e) => {
-                  setSiteSearchVal(e.target.value);
-                  setIsSiteSuggestionsOpen(true);
-                  if (selectedSiteId) {
-                    setSelectedSiteId(null);
-                    setSelectedLedgerId(null);
-                    setLedgerSearchVal("");
-                  }
-                  if (directChallan) {
-                    setDirectChallan(null);
-                  }
-                  setSelectedCompanyChallanNo(null);
-                }}
-                onFocus={() => {
-                  setIsSiteFocused(true);
-                  setIsSiteSuggestionsOpen(true);
-                }}
-                onBlur={() => setIsSiteFocused(false)}
-                onKeyDown={handleSiteKeyDown}
-                placeholder="TYPE SITE NAME OR ARROW DOWN..."
-                className="w-full px-3 py-2 text-xs uppercase border-none focus:outline-none placeholder-slate-400 font-bold bg-transparent"
-              />
-              <button
-                type="button"
-                onClick={() => setIsSiteSuggestionsOpen((prev) => !prev)}
-                className="px-3 border-l border-slate-300 h-full text-slate-650 hover:bg-slate-100 py-2.5"
-              >
-                ▼
-              </button>
-            </div>
-
-            {/* Site Autocomplete dropdown */}
-            {isSiteSuggestionsOpen && filteredSites.length > 0 && (
-              <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-50 max-h-48 overflow-y-auto">
-                {filteredSites.map((site: any, idx: number) => {
-                  const isHighlighted = idx === highlightedSiteIndex;
-                  const isSelected = site.id === selectedSiteId;
-                  return (
-                    <button
-                      key={site.id}
-                      onClick={() => {
-                        setSelectedSiteId(site.id);
-                        setSiteSearchVal(site.name.toUpperCase());
-                        setIsSiteSuggestionsOpen(false);
-                        setHighlightedSiteIndex(-1);
-
-                        setSelectedLedgerId(null);
-                        setLedgerSearchVal("");
-                        if (directChallan) {
-                          setDirectChallan(null);
-                        }
-                        setSelectedCompanyChallanNo(null);
-
-                        setTimeout(() => {
-                          ledgerInputRef.current?.focus();
-                        }, 100);
-                      }}
-                      className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
-                        ? "bg-amber-400 text-slate-950 font-black"
-                        : isSelected
-                          ? "bg-amber-100 text-amber-900"
-                          : "hover:bg-slate-100 text-slate-700"
-                        }`}
-                    >
-                      {site.name.toUpperCase()}
-                    </button>
-                  );
-                })}
+          <div className="bg-[#E5ECF4] border-2 border-slate-800 p-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] space-y-4 print:hidden select-none">
+            <div className="flex items-center justify-between border-b-2 border-slate-350 pb-2 mb-2">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-slate-700" />
+                <span className="font-bold text-xs uppercase text-slate-700">CHALLAN SELECTOR SYSTEM</span>
               </div>
-            )}
-          </div>
-
-          {/* Account/Supplier Selector Widget */}
-          <div ref={ledgerSelectorRef} className="relative">
-            <label className="block text-xs font-bold mb-1.5 uppercase text-slate-700">
-              2. Select Supplier/Account
-            </label>
-            <div
-              className={`flex items-center border-2 transition-all bg-white relative ${!selectedSiteId
-                ? "border-slate-300 opacity-60 cursor-not-allowed"
-                : isLedgerFocused
-                  ? "border-amber-500 ring-2 ring-amber-400/20"
-                  : "border-slate-800"
-                }`}
-            >
-              <input
-                ref={ledgerInputRef}
-                type="text"
-                disabled={!selectedSiteId}
-                value={ledgerSearchVal}
-                onChange={(e) => {
-                  setLedgerSearchVal(e.target.value);
-                  setIsLedgerSuggestionsOpen(true);
-                  if (selectedLedgerId) {
-                    setSelectedLedgerId(null);
-                  }
-                  if (directChallan) {
-                    setDirectChallan(null);
-                  }
-                  setSelectedCompanyChallanNo(null);
-                }}
-                onFocus={(e) => {
-                  setIsLedgerFocused(true);
-                  setIsLedgerSuggestionsOpen(true);
-                  e.target.select();
-                }}
-                onBlur={() => setIsLedgerFocused(false)}
-                onKeyDown={handleLedgerKeyDown}
-                placeholder={
-                  selectedSiteId
-                    ? "TYPE ACCOUNT OR ARROW DOWN..."
-                    : "SELECT SITE FIRST..."
-                }
-                className="w-full px-3 py-2 text-xs uppercase border-none focus:outline-none placeholder-slate-400 font-bold bg-transparent disabled:cursor-not-allowed"
-              />
-              <button
-                type="button"
-                disabled={!selectedSiteId}
-                onClick={() => setIsLedgerSuggestionsOpen((prev) => !prev)}
-                className="px-3 border-l border-slate-300 h-full text-slate-650 hover:bg-slate-100 py-2.5 disabled:opacity-40"
-              >
-                ▼
-              </button>
-            </div>
-
-            {/* Account Suggestions Autocomplete list */}
-            {isLedgerSuggestionsOpen && filteredLedgers.length > 0 && (
-              <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-50 max-h-[350px] overflow-y-auto">
-                {filteredLedgers.map((ledger: any, idx: number) => {
-                  const isHighlighted = idx === highlightedLedgerIndex;
-                  const isSelected = ledger.id === selectedLedgerId;
-
-                  return (
-                    <button
-                      key={ledger.id}
-                      id={`acct-opt-${idx}`}
-                      onClick={() => {
-                        setSelectedLedgerId(ledger.id);
-                        setLedgerSearchVal(ledger.name.toUpperCase());
-                        setIsLedgerSuggestionsOpen(false);
-                        setHighlightedLedgerIndex(-1);
-                        if (directChallan) {
-                          setDirectChallan(null);
-                        }
-                        setSelectedCompanyChallanNo(null);
-                      }}
-                      className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
-                        ? "bg-amber-400 text-slate-955 font-black"
-                        : isSelected
-                          ? "bg-amber-100 text-amber-900"
-                          : "hover:bg-slate-100 text-slate-700"
-                        }`}
-                    >
-                      <span className="truncate block py-0.5">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Delivery Challan View Panel */}
-      {(selectedSiteId && selectedLedgerId) || directChallan ? (
-        <>
-          <div 
-            className="print-container bg-white border-2 border-slate-850 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden print:border-2 print:border-black print:shadow-none animate-in fade-in zoom-in-95 duration-200"
-            style={{ zoom: 0.8 }}
-          >
-
-          {/* Windows retro window frame title bar */}
-          <div className="flex items-center justify-between bg-slate-900 text-white px-3 py-1.5 font-mono text-xs font-black shadow-inner select-none no-print">
-            <div className="flex items-center gap-2">
-              <Printer className="h-3.5 w-3.5" />
-              <span>{directChallan ? "Direct_Challan_Print_Panel (Pure Frontend)" : "Challan_Delivery_Print_Panel"}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {directChallan && (
+              <div className="flex gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setDirectChallan(null)}
-                  className="bg-red-650 hover:bg-red-700 text-white font-extrabold text-[9px] px-2 py-0.5 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer uppercase transition-all shadow-sm mr-2 no-print"
+                  onClick={() => openDirectChallanModal("DIRECT")}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
                 >
-                  Exit Direct / बाहर आएं
+                  Direct Challan / डायरेक्ट चालान (D)
                 </button>
-              )}
-              <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-slate-800 text-[8px] flex items-center justify-center font-bold font-sans shadow-sm select-none">_</span>
-              <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-slate-800 text-[8px] flex items-center justify-center font-bold font-sans shadow-sm select-none">&#9633;</span>
-              <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-red-650 text-[9px] flex items-center justify-center font-black font-sans shadow-sm select-none">X</span>
+                <button
+                  type="button"
+                  onClick={() => openDirectChallanModal("COMPANY")}
+                  className="px-3 py-1.5 bg-[#2B547E] hover:bg-[#1E3E64] text-white border-2 border-slate-900 font-extrabold text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none"
+                >
+                  Company Ledger Challan / कंपनी लेजर चालान (C)
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Site Selector Widget */}
+              <div ref={siteSelectorRef} className="relative">
+                <label className="block text-xs font-bold mb-1.5 uppercase text-slate-700">
+                  1. Select Construction Site
+                </label>
+                <div
+                  className={`flex items-center border-2 transition-all bg-white relative ${isSiteFocused ? "border-amber-500 ring-2 ring-amber-400/20" : "border-slate-800"
+                    }`}
+                >
+                  <input
+                    ref={siteInputRef}
+                    type="text"
+                    value={siteSearchVal}
+                    onChange={(e) => {
+                      setSiteSearchVal(e.target.value);
+                      setIsSiteSuggestionsOpen(true);
+                      if (selectedSiteId) {
+                        setSelectedSiteId(null);
+                        setSelectedLedgerId(null);
+                        setLedgerSearchVal("");
+                      }
+                      if (directChallan) {
+                        setDirectChallan(null);
+                      }
+                      setSelectedCompanyChallanNo(null);
+                    }}
+                    onFocus={() => {
+                      setIsSiteFocused(true);
+                      setIsSiteSuggestionsOpen(true);
+                    }}
+                    onBlur={() => setIsSiteFocused(false)}
+                    onKeyDown={handleSiteKeyDown}
+                    placeholder="TYPE SITE NAME OR ARROW DOWN..."
+                    className="w-full px-3 py-2 text-xs uppercase border-none focus:outline-none placeholder-slate-400 font-bold bg-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsSiteSuggestionsOpen((prev) => !prev)}
+                    className="px-3 border-l border-slate-300 h-full text-slate-650 hover:bg-slate-100 py-2.5"
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                {/* Site Autocomplete dropdown */}
+                {isSiteSuggestionsOpen && filteredSites.length > 0 && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-50 max-h-48 overflow-y-auto">
+                    {filteredSites.map((site: any, idx: number) => {
+                      const isHighlighted = idx === highlightedSiteIndex;
+                      const isSelected = site.id === selectedSiteId;
+                      return (
+                        <button
+                          key={site.id}
+                          onClick={() => {
+                            setSelectedSiteId(site.id);
+                            setSiteSearchVal(site.name.toUpperCase());
+                            setIsSiteSuggestionsOpen(false);
+                            setHighlightedSiteIndex(-1);
+
+                            setSelectedLedgerId(null);
+                            setLedgerSearchVal("");
+                            if (directChallan) {
+                              setDirectChallan(null);
+                            }
+                            setSelectedCompanyChallanNo(null);
+
+                            setTimeout(() => {
+                              ledgerInputRef.current?.focus();
+                            }, 100);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
+                            ? "bg-amber-400 text-slate-950 font-black"
+                            : isSelected
+                              ? "bg-amber-100 text-amber-900"
+                              : "hover:bg-slate-100 text-slate-700"
+                            }`}
+                        >
+                          {site.name.toUpperCase()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Account/Supplier Selector Widget */}
+              <div ref={ledgerSelectorRef} className="relative">
+                <label className="block text-xs font-bold mb-1.5 uppercase text-slate-700">
+                  2. Select Supplier/Account
+                </label>
+                <div
+                  className={`flex items-center border-2 transition-all bg-white relative ${!selectedSiteId
+                    ? "border-slate-300 opacity-60 cursor-not-allowed"
+                    : isLedgerFocused
+                      ? "border-amber-500 ring-2 ring-amber-400/20"
+                      : "border-slate-800"
+                    }`}
+                >
+                  <input
+                    ref={ledgerInputRef}
+                    type="text"
+                    disabled={!selectedSiteId}
+                    value={ledgerSearchVal}
+                    onChange={(e) => {
+                      setLedgerSearchVal(e.target.value);
+                      setIsLedgerSuggestionsOpen(true);
+                      if (selectedLedgerId) {
+                        setSelectedLedgerId(null);
+                      }
+                      if (directChallan) {
+                        setDirectChallan(null);
+                      }
+                      setSelectedCompanyChallanNo(null);
+                    }}
+                    onFocus={(e) => {
+                      setIsLedgerFocused(true);
+                      setIsLedgerSuggestionsOpen(true);
+                      e.target.select();
+                    }}
+                    onBlur={() => setIsLedgerFocused(false)}
+                    onKeyDown={handleLedgerKeyDown}
+                    placeholder={
+                      selectedSiteId
+                        ? "TYPE ACCOUNT OR ARROW DOWN..."
+                        : "SELECT SITE FIRST..."
+                    }
+                    className="w-full px-3 py-2 text-xs uppercase border-none focus:outline-none placeholder-slate-400 font-bold bg-transparent disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    disabled={!selectedSiteId}
+                    onClick={() => setIsLedgerSuggestionsOpen((prev) => !prev)}
+                    className="px-3 border-l border-slate-300 h-full text-slate-650 hover:bg-slate-100 py-2.5 disabled:opacity-40"
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                {/* Account Suggestions Autocomplete list */}
+                {isLedgerSuggestionsOpen && filteredLedgers.length > 0 && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-50 max-h-[350px] overflow-y-auto">
+                    {filteredLedgers.map((ledger: any, idx: number) => {
+                      const isHighlighted = idx === highlightedLedgerIndex;
+                      const isSelected = ledger.id === selectedLedgerId;
+
+                      return (
+                        <button
+                          key={ledger.id}
+                          id={`acct-opt-${idx}`}
+                          onClick={() => {
+                            setSelectedLedgerId(ledger.id);
+                            setLedgerSearchVal(ledger.name.toUpperCase());
+                            setIsLedgerSuggestionsOpen(false);
+                            setHighlightedLedgerIndex(-1);
+                            if (directChallan) {
+                              setDirectChallan(null);
+                            }
+                            setSelectedCompanyChallanNo(null);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 last:border-0 ${isHighlighted
+                            ? "bg-amber-400 text-slate-955 font-black"
+                            : isSelected
+                              ? "bg-amber-100 text-amber-900"
+                              : "hover:bg-slate-100 text-slate-700"
+                            }`}
+                        >
+                          <span className="truncate block py-0.5">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Dynamic print-only style tag */}
-          <style dangerouslySetInnerHTML={{
-            __html: `
+          {/* Main Delivery Challan View Panel */}
+          {(selectedSiteId && selectedLedgerId) || directChallan ? (
+            <>
+              <div
+                className="print-container bg-white border-2 border-slate-850 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden print:border-2 print:border-black print:shadow-none animate-in fade-in zoom-in-95 duration-200"
+                style={{ zoom: 0.8 }}
+              >
+
+                {/* Windows retro window frame title bar */}
+                <div className="flex items-center justify-between bg-slate-900 text-white px-3 py-1.5 font-mono text-xs font-black shadow-inner select-none no-print">
+                  <div className="flex items-center gap-2">
+                    <Printer className="h-3.5 w-3.5" />
+                    <span>{directChallan ? "Direct_Challan_Print_Panel (Pure Frontend)" : "Challan_Delivery_Print_Panel"}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {directChallan && (
+                      <button
+                        type="button"
+                        onClick={() => setDirectChallan(null)}
+                        className="bg-red-650 hover:bg-red-700 text-white font-extrabold text-[9px] px-2 py-0.5 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer uppercase transition-all shadow-sm mr-2 no-print"
+                      >
+                        Exit Direct / बाहर आएं
+                      </button>
+                    )}
+                    <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-slate-800 text-[8px] flex items-center justify-center font-bold font-sans shadow-sm select-none">_</span>
+                    <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-slate-800 text-[8px] flex items-center justify-center font-bold font-sans shadow-sm select-none">&#9633;</span>
+                    <span className="w-3.5 h-3.5 bg-slate-200 border border-slate-400 text-red-650 text-[9px] flex items-center justify-center font-black font-sans shadow-sm select-none">X</span>
+                  </div>
+                </div>
+
+                {/* Dynamic print-only style tag */}
+                <style dangerouslySetInnerHTML={{
+                  __html: `
               @media print {
                 @page { size: portrait; margin: 0; }
                 body { visibility: hidden; background: white !important; color: black !important; }
@@ -2986,243 +2993,243 @@ export default function ChallanPage() {
                 .total-value { font-size: 14px !important; font-weight: 900 !important; }
               }
             `
-          }} />
+                }} />
 
-          {/* Inner content wrapper */}
-          <div className="p-4 bg-white print:p-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:block print:space-y-0">
+                {/* Inner content wrapper */}
+                <div className="p-4 bg-white print:p-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:block print:space-y-0">
 
-              {/* COPY 1: WITHOUT RATE & AMOUNT */}
-              <div className={`space-y-4 ${printCopy === "copy2" ? "print:hidden" : ""}`}>
-                <div className="text-center border-b-2 border-slate-800 pb-2">
-                  <h1 className="text-xl font-black tracking-widest text-slate-955 uppercase estimate-title">ESTIMATE</h1>
-                </div>
-
-                <div className="border border-slate-850 p-3 bg-slate-50/50">
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-bold font-mono">
-                    <div className="sm:col-span-2 space-y-1">
-                      <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
-                      <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
-                        <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
-                        {translateBilingual(supplierAddress)}
+                    {/* COPY 1: WITHOUT RATE & AMOUNT */}
+                    <div className={`space-y-4 ${printCopy === "copy2" ? "print:hidden" : ""}`}>
+                      <div className="text-center border-b-2 border-slate-800 pb-2">
+                        <h1 className="text-xl font-black tracking-widest text-slate-955 uppercase estimate-title">ESTIMATE</h1>
                       </div>
-                      <div className="text-[11px] text-slate-700 leading-none supplier-info">
-                        <span className="text-slate-400 text-[9px] font-black mr-1">PHONE:</span>
-                        {supplierPhone}
+
+                      <div className="border border-slate-850 p-3 bg-slate-50/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-bold font-mono">
+                          <div className="sm:col-span-2 space-y-1">
+                            <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
+                            <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
+                              <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
+                              {translateBilingual(supplierAddress)}
+                            </div>
+                            <div className="text-[11px] text-slate-700 leading-none supplier-info">
+                              <span className="text-slate-400 text-[9px] font-black mr-1">PHONE:</span>
+                              {supplierPhone}
+                            </div>
+                          </div>
+                          <div className="border-l border-slate-300 pl-3">
+                            <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">NO.</span>
+                            <span className="text-slate-955 font-black text-sm block mt-0.5 meta-value">{challanSerial}</span>
+                          </div>
+                          <div className="border-l border-slate-300 pl-3">
+                            <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">DATE</span>
+                            <span className="text-slate-955 font-black text-xs block mt-1 meta-value">{challanDateStr}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="border-l border-slate-300 pl-3">
-                      <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">NO.</span>
-                      <span className="text-slate-955 font-black text-sm block mt-0.5 meta-value">{challanSerial}</span>
-                    </div>
-                    <div className="border-l border-slate-300 pl-3">
-                      <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">DATE</span>
-                      <span className="text-slate-955 font-black text-xs block mt-1 meta-value">{challanDateStr}</span>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="space-y-1.5">
-                  <div className="overflow-x-auto border border-slate-800">
-                    <table className="w-full text-left border-collapse text-xs font-mono">
-                      <thead>
-                        <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
-                          <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
-                          <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
-                          <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
-                          <th className="py-1.5 px-3 text-center w-20">Unit</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-300 font-black text-[12px]">
-                        {challanData.items.filter((item: any) => item.qty > 0).length > 0 ? (
-                          challanData.items.filter((item: any) => item.qty > 0).map((item: any, idx: number) => (
-                            <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900 group/row">
-                              <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 relative w-12 shrink-0">
-                                <span className="group-hover/row:hidden">{idx + 1}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteRow(item.id)}
-                                  className="hidden group-hover/row:block absolute inset-0 m-auto text-red-655 font-black hover:text-red-700 text-sm no-print"
-                                  title="Delete Row"
-                                >
-                                  ×
-                                </button>
-                              </td>
-                              <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
-                                <EditableCell
-                                  value={item.material}
-                                  displayValue={translateBilingual(item.material)}
-                                  onSave={(newVal) => handleSaveRow(item.id, newVal, item.qty, item.unit, item.rate, item.rawItem)}
-                                />
-                              </td>
-                              <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
-                                <EditableCell
-                                  value={item.qty}
-                                  type="number"
-                                  className="text-right font-mono"
-                                  onSave={(newVal) => handleSaveRow(item.id, item.material, parseFloat(newVal) || 0, item.unit, item.rate, item.rawItem)}
-                                />
-                              </td>
-                              <td className="py-1 px-2 text-center font-bold text-slate-500 w-20">
-                                <EditableCell
-                                  value={item.unit}
-                                  className="text-center"
-                                  onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, newVal, item.rate, item.rawItem)}
-                                />
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr><td colSpan={4} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
-                        )}
-                      </tbody>
+                      <div className="space-y-1.5">
+                        <div className="overflow-x-auto border border-slate-800">
+                          <table className="w-full text-left border-collapse text-xs font-mono">
+                            <thead>
+                              <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
+                                <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
+                                <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
+                                <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
+                                <th className="py-1.5 px-3 text-center w-20">Unit</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-300 font-black text-[12px]">
+                              {challanData.items.filter((item: any) => item.qty > 0).length > 0 ? (
+                                challanData.items.filter((item: any) => item.qty > 0).map((item: any, idx: number) => (
+                                  <tr key={item.id} className="hover:bg-slate-50 uppercase text-slate-900 group/row">
+                                    <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 relative w-12 shrink-0">
+                                      <span className="group-hover/row:hidden">{idx + 1}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteRow(item.id)}
+                                        className="hidden group-hover/row:block absolute inset-0 m-auto text-red-655 font-black hover:text-red-700 text-sm no-print"
+                                        title="Delete Row"
+                                      >
+                                        ×
+                                      </button>
+                                    </td>
+                                    <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
+                                      <EditableCell
+                                        value={item.material}
+                                        displayValue={translateBilingual(item.material)}
+                                        onSave={(newVal) => handleSaveRow(item.id, newVal, item.qty, item.unit, item.rate, item.rawItem)}
+                                      />
+                                    </td>
+                                    <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
+                                      <EditableCell
+                                        value={item.qty}
+                                        type="number"
+                                        className="text-right font-mono"
+                                        onSave={(newVal) => handleSaveRow(item.id, item.material, parseFloat(newVal) || 0, item.unit, item.rate, item.rawItem)}
+                                      />
+                                    </td>
+                                    <td className="py-1 px-2 text-center font-bold text-slate-500 w-20">
+                                      <EditableCell
+                                        value={item.unit}
+                                        className="text-center"
+                                        onSave={(newVal) => handleSaveRow(item.id, item.material, item.qty, newVal, item.rate, item.rawItem)}
+                                      />
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr><td colSpan={4} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
+                              )}
+                            </tbody>
 
-                    </table>
-                  </div>
-                </div>
-
-                {/* COPY 1 Action buttons bar (directly below copy 1 content) */}
-                <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-between no-print select-none">
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 1 PRINT ESTIMATE | F3 EXCEL | N ADD ROW</div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={openAddRowPopup}
-                      className="px-4 py-2 bg-blue-750 bg-blue-700 text-white border-2 border-blue-955 font-bold text-xs uppercase hover:bg-blue-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer rounded"
-                    >
-                      <span>+ Add Row / नया आइटम (N)</span>
-                    </button>
-                    <button type="button" onClick={handlePrintWithoutRate} className="px-4 py-2 bg-slate-900 text-white border-2 border-slate-955 font-bold text-xs uppercase hover:bg-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer">
-                      <Printer className="h-4 w-4" /> <span>[1] PRINT ESTIMATE</span>
-                    </button>
-                    <button type="button" onClick={handleExportExcel} className="px-4 py-2 bg-emerald-700 text-white border-2 border-emerald-950 font-bold text-xs uppercase hover:bg-emerald-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer">
-                      <FileSpreadsheet className="h-4 w-4" /> <span>[F3] EXCEL</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* SEPARATOR / CUTTING LINE FOR PRINT */}
-              <div className={`hidden print:block border-t-2 border-dashed border-black my-6 ${printCopy !== "both" ? "print:hidden" : ""}`} />
-
-              {/* COPY 2: WITH RATE & AMOUNT */}
-              <div className={`space-y-4 ${printCopy === "copy1" ? "print:hidden" : ""}`}>
-                <div className="text-center border-b-2 border-slate-800 pb-2">
-                  <h1 className="text-xl font-black tracking-widest text-slate-955 uppercase estimate-title">ESTIMATE</h1>
-                </div>
-
-                <div className="border border-slate-850 p-3 bg-slate-50/50">
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-bold font-mono">
-                    <div className="sm:col-span-2 space-y-1">
-                      <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
-                      <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
-                        <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
-                        {translateBilingual(supplierAddress)}
+                          </table>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-700 leading-none supplier-info">
-                        <span className="text-slate-400 text-[9px] font-black mr-1">PHONE:</span>
-                        {supplierPhone}
+
+                      {/* COPY 1 Action buttons bar (directly below copy 1 content) */}
+                      <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-between no-print select-none">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 1 PRINT ESTIMATE | F3 EXCEL | N ADD ROW</div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={openAddRowPopup}
+                            className="px-4 py-2 bg-blue-750 bg-blue-700 text-white border-2 border-blue-955 font-bold text-xs uppercase hover:bg-blue-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer rounded"
+                          >
+                            <span>+ Add Row / नया आइटम (N)</span>
+                          </button>
+                          <button type="button" onClick={handlePrintWithoutRate} className="px-4 py-2 bg-slate-900 text-white border-2 border-slate-955 font-bold text-xs uppercase hover:bg-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer">
+                            <Printer className="h-4 w-4" /> <span>[1] PRINT ESTIMATE</span>
+                          </button>
+                          <button type="button" onClick={handleExportExcel} className="px-4 py-2 bg-emerald-700 text-white border-2 border-emerald-950 font-bold text-xs uppercase hover:bg-emerald-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer">
+                            <FileSpreadsheet className="h-4 w-4" /> <span>[F3] EXCEL</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="border-l border-slate-300 pl-3">
-                      <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">NO.</span>
-                      <span className="text-slate-955 font-black text-sm block mt-0.5 meta-value">{challanSerial}</span>
-                    </div>
-                    <div className="border-l border-slate-300 pl-3">
-                      <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">DATE</span>
-                      <span className="text-slate-955 font-black text-xs block mt-1 meta-value">{challanDateStr}</span>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="space-y-1.5">
-                  <div className="overflow-x-auto border border-slate-800">
-                    <table className="w-full text-left border-collapse text-xs font-mono">
-                      <thead>
-                        <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
-                          <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
-                          <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
-                          <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
-                          <th className="py-1.5 px-3 border-r border-slate-800 text-center w-20">Unit</th>
-                          <th className="py-1.5 px-3 border-r border-slate-800 text-right w-20">Rate</th>
-                          <th className="py-1.5 px-3 text-right w-36">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-300 font-black text-[12px]">
-                        {challanData.items.length > 0 ? (
-                          (() => {
-                            const debitItems = challanData.items.filter((item: any) => item.type === "TO");
-                            const creditItems = challanData.items.filter((item: any) => item.type === "BY");
-                            return (
-                              <>
-                                {debitItems.map((item: any, idx: number) => renderItemRow(item, idx + 1))}
-                                
+                    {/* SEPARATOR / CUTTING LINE FOR PRINT */}
+                    <div className={`hidden print:block border-t-2 border-dashed border-black my-6 ${printCopy !== "both" ? "print:hidden" : ""}`} />
+
+                    {/* COPY 2: WITH RATE & AMOUNT */}
+                    <div className={`space-y-4 ${printCopy === "copy1" ? "print:hidden" : ""}`}>
+                      <div className="text-center border-b-2 border-slate-800 pb-2">
+                        <h1 className="text-xl font-black tracking-widest text-slate-955 uppercase estimate-title">ESTIMATE</h1>
+                      </div>
+
+                      <div className="border border-slate-850 p-3 bg-slate-50/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-bold font-mono">
+                          <div className="sm:col-span-2 space-y-1">
+                            <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
+                            <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
+                              <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
+                              {translateBilingual(supplierAddress)}
+                            </div>
+                            <div className="text-[11px] text-slate-700 leading-none supplier-info">
+                              <span className="text-slate-400 text-[9px] font-black mr-1">PHONE:</span>
+                              {supplierPhone}
+                            </div>
+                          </div>
+                          <div className="border-l border-slate-300 pl-3">
+                            <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">NO.</span>
+                            <span className="text-slate-955 font-black text-sm block mt-0.5 meta-value">{challanSerial}</span>
+                          </div>
+                          <div className="border-l border-slate-300 pl-3">
+                            <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">DATE</span>
+                            <span className="text-slate-955 font-black text-xs block mt-1 meta-value">{challanDateStr}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="overflow-x-auto border border-slate-800">
+                          <table className="w-full text-left border-collapse text-xs font-mono">
+                            <thead>
+                              <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
+                                <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
+                                <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
+                                <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
+                                <th className="py-1.5 px-3 border-r border-slate-800 text-center w-20">Unit</th>
+                                <th className="py-1.5 px-3 border-r border-slate-800 text-right w-20">Rate</th>
+                                <th className="py-1.5 px-3 text-right w-36">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-300 font-black text-[12px]">
+                              {challanData.items.length > 0 ? (
+                                (() => {
+                                  const debitItems = challanData.items.filter((item: any) => item.type === "TO");
+                                  const creditItems = challanData.items.filter((item: any) => item.type === "BY");
+                                  return (
+                                    <>
+                                      {debitItems.map((item: any, idx: number) => renderItemRow(item, idx + 1))}
+
+                                      <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
+                                        <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
+                                        <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
+                                        <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit}</td>
+                                      </tr>
+
+                                      {creditItems.map((item: any, idx: number) => renderItemRow(item, debitItems.length + idx + 1))}
+                                    </>
+                                  );
+                                })()
+                              ) : (
+                                <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
+                              )}
+                            </tbody>
+                            {challanData.items.length > 0 && (
+                              <tfoot>
+                                {/* Row 2: TOTAL REMAIN */}
                                 <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
                                   <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
-                                  <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
-                                  <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit}</td>
+                                  <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-amber-900">BALANCE:</td>
+                                  <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">
+                                    {challanData.totalAmount < 0
+                                      ? `${Math.abs(challanData.totalAmount).toFixed(2)} CR`
+                                      : `${challanData.totalAmount.toFixed(2)} DR`
+                                    }
+                                  </td>
                                 </tr>
-                                
-                                {creditItems.map((item: any, idx: number) => renderItemRow(item, debitItems.length + idx + 1))}
-                              </>
-                            );
-                          })()
-                        ) : (
-                          <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
-                        )}
-                      </tbody>
-                      {challanData.items.length > 0 && (
-                        <tfoot>
-                          {/* Row 2: TOTAL REMAIN */}
-                          <tr className="bg-slate-50 border-t border-slate-300 font-black text-slate-955 text-[11px]">
-                            <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
-                            <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-amber-900">TOTAL REMAIN:</td>
-                            <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">
-                              {challanData.totalAmount < 0 
-                                ? `${Math.abs(challanData.totalAmount).toFixed(2)} CR` 
-                                : `${challanData.totalAmount.toFixed(2)} DR`
-                              }
-                            </td>
-                          </tr>
-                        </tfoot>
-                      )}
-                    </table>
-                  </div>
-                </div>
+                              </tfoot>
+                            )}
+                          </table>
+                        </div>
+                      </div>
 
-                {/* COPY 2 Action buttons bar (directly below copy 2 content) */}
-                <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-between no-print select-none">
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 2 PRINT WITH RATE | F6 ADD CREDIT</div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={openCreditPopup}
-                      className="px-4 py-2 bg-emerald-700 text-white border-2 border-emerald-950 font-bold text-xs uppercase hover:bg-emerald-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer rounded"
-                    >
-                      <span>Add Credit / क्रेडिट जोड़ें (F6)</span>
-                    </button>
-                    <button type="button" onClick={handlePrintWithRate} className="px-4 py-2 bg-[#2B547E] text-white border-2 border-slate-955 font-bold text-xs uppercase hover:bg-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2">
-                      <Printer className="h-4 w-4" /> <span>[2] PRINT WITH RATE</span>
-                    </button>
+                      {/* COPY 2 Action buttons bar (directly below copy 2 content) */}
+                      <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-between no-print select-none">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 2 PRINT WITH RATE | F6 ADD CREDIT</div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={openCreditPopup}
+                            className="px-4 py-2 bg-emerald-700 text-white border-2 border-emerald-950 font-bold text-xs uppercase hover:bg-emerald-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2 cursor-pointer rounded"
+                          >
+                            <span>Add Credit / क्रेडिट जोड़ें (F6)</span>
+                          </button>
+                          <button type="button" onClick={handlePrintWithRate} className="px-4 py-2 bg-[#2B547E] text-white border-2 border-slate-955 font-bold text-xs uppercase hover:bg-slate-800 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none transition-all flex items-center gap-2">
+                            <Printer className="h-4 w-4" /> <span>[2] PRINT WITH RATE</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </div>
 
+
+            </>
+          ) : (
+            <div className="bg-white border-2 border-slate-800 p-16 text-center space-y-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] select-none">
+              <div className="w-16 h-16 bg-[#E5ECF4] border-2 border-slate-800 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                <Building2 className="h-8 w-8 text-slate-750" />
+              </div>
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-widest">NO CHALLAN DOCUMENT SELECTED</h3>
+              <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed max-w-sm mx-auto">Please select a Site and Supplier to proceed.</p>
             </div>
-          </div>
-        </div>
-
-
-        </>
-      ) : (
-        <div className="bg-white border-2 border-slate-800 p-16 text-center space-y-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] select-none">
-          <div className="w-16 h-16 bg-[#E5ECF4] border-2 border-slate-800 rounded-full flex items-center justify-center mx-auto shadow-sm">
-            <Building2 className="h-8 w-8 text-slate-750" />
-          </div>
-          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest">NO CHALLAN DOCUMENT SELECTED</h3>
-          <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed max-w-sm mx-auto">Please select a Site and Supplier to proceed.</p>
-        </div>
-      )}
+          )}
         </div>
 
         {/* Right Column: Today's Challans Sidebar Table */}
@@ -3255,15 +3262,15 @@ export default function ChallanPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-300 font-bold text-[11px]">
                   {todayChallansList.map((ch, idx) => {
-                    const isSelected = directChallan 
+                    const isSelected = directChallan
                       ? (ch.type === "DIRECT" && ch.challanNo === directChallan.challanNo)
                       : (ch.type === "COMPANY" && ch.challanNo === challanData.challanNo && ch.siteId === selectedSiteId);
 
                     const isFocused = idx === focusedChallanIndex;
 
                     return (
-                      <tr 
-                        key={`${ch.type}-${ch.challanNo}`} 
+                      <tr
+                        key={`${ch.type}-${ch.challanNo}`}
                         id={`sidebar-challan-row-${idx}`}
                         onClick={() => {
                           setFocusedChallanIndex(idx);
@@ -3273,13 +3280,12 @@ export default function ChallanPage() {
                             loadCompanyChallan(ch.siteId, ch.customerName, ch.challanNo);
                           }
                         }}
-                        className={`group cursor-pointer uppercase border-b border-slate-200 last:border-0 hover:bg-[#ECC30B]/20 transition-colors ${
-                          isFocused 
-                            ? "bg-[#ECC30B] hover:bg-[#ECC30B] text-slate-955 border-l-4 border-l-slate-955 font-black font-mono" 
-                            : isSelected
-                              ? "bg-slate-100/80 text-slate-900 border-l-4 border-l-slate-400 font-bold"
-                              : "text-slate-800"
-                        }`}
+                        className={`group cursor-pointer uppercase border-b border-slate-200 last:border-0 hover:bg-[#ECC30B]/20 transition-colors ${isFocused
+                          ? "bg-[#ECC30B] hover:bg-[#ECC30B] text-slate-955 border-l-4 border-l-slate-955 font-black font-mono"
+                          : isSelected
+                            ? "bg-slate-100/80 text-slate-900 border-l-4 border-l-slate-400 font-bold"
+                            : "text-slate-800"
+                          }`}
                       >
                         <td className="py-1.5 px-2 border-r border-slate-300 text-center text-slate-950 font-black font-mono text-[10px] tracking-tighter">
                           {ch.challanNo}
@@ -3292,7 +3298,7 @@ export default function ChallanPage() {
                                 DIRECT
                               </span>
                             )}
-                             <button
+                            <button
                               type="button"
                               onClick={(e) => handleDeleteWholeChallan(ch, e)}
                               className="text-red-600 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 p-0.5 rounded transition-all duration-150 cursor-pointer flex items-center justify-center"
@@ -3350,7 +3356,7 @@ export default function ChallanPage() {
             {/* Content Form */}
             <form onSubmit={handleCreateDirectChallan} className="p-6 bg-[#E5ECF4] space-y-4 text-slate-955">
               <div className="space-y-4">
-                
+
                 {/* Site and Date Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Select Construction Site */}
@@ -3380,7 +3386,7 @@ export default function ChallanPage() {
                       placeholder="TYPE SITE NAME OR ARROW DOWN..."
                       className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                     />
-                    
+
                     {/* Modal Site Autocomplete dropdown */}
                     {isModalSiteSuggestionsOpen && filteredModalSites.length > 0 && (
                       <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[99999] max-h-48 overflow-y-auto">
@@ -3468,7 +3474,7 @@ export default function ChallanPage() {
                       }
                       className={`w-full bg-white border-2 border-slate-955 rounded px-2.5 py-1.5 text-xs font-bold focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed ${challanFormMode === "COMPANY" ? "focus:border-[#2B547E]" : "focus:border-emerald-600"}`}
                     />
-                    
+
                     {/* Modal Customer Autocomplete dropdown */}
                     {isModalCustomerSuggestionsOpen && filteredModalCustomers.length > 0 && (
                       <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-800 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] z-[99999] max-h-48 overflow-y-auto">
@@ -3644,9 +3650,8 @@ export default function ChallanPage() {
                                         }
                                       }, 50);
                                     }}
-                                    className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 ${
-                                      isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
-                                    }`}
+                                    className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 ${isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
+                                      }`}
                                   >
                                     {mat.name.toUpperCase()} ({mat.unit || "CFT"})
                                   </button>
@@ -3959,9 +3964,8 @@ export default function ChallanPage() {
                                     }
                                   }, 50);
                                 }}
-                                className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 ${
-                                  isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
-                                }`}
+                                className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 ${isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
+                                  }`}
                               >
                                 {mat.name.toUpperCase()} ({mat.unit || "CFT"})
                               </button>
