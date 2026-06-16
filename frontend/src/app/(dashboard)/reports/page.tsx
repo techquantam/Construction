@@ -178,6 +178,37 @@ function ReportsContent() {
   // PRINT DAYBOOK/LEDGER CUSTOM STATES
   const [showDateRangeModal, setShowDateRangeModal] = useState(false);
   const [printStartDate, setPrintStartDate] = useState("");
+
+  // SUMMARY PROMISE DATES STATE
+  const [summaryDates, setSummaryDates] = useState<{ [key: string]: string }>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("summary_promise_dates");
+        return saved ? JSON.parse(saved) : {};
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  });
+
+  const handleUpdateDate = (ledgerId: string, newDate: string) => {
+    setSummaryDates((prev) => {
+      const updated = { ...prev, [ledgerId]: newDate };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("summary_promise_dates", JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = String(d.getFullYear()).substring(2);
+    return `${day}.${month}.${year}`;
+  };
   const [printEndDate, setPrintEndDate] = useState("");
   const [printTargetType, setPrintTargetType] = useState<"daybook" | "ledger" | null>(null);
   const [printLayoutMode, setPrintLayoutMode] = useState<"daybook" | "ledger" | null>(null);
@@ -1524,14 +1555,15 @@ function ReportsContent() {
       return;
     }
 
-    const headers = ["Account Name", "Address", "Mobile No.", "Dr/Cr", "Balance"];
+    const headers = ["Account Name", "Address", "Mobile No.", "Dr/Cr", "Balance", "Date"];
     const rows = dataToExport.map((item: any) => {
       return [
         item.name.toUpperCase(),
         item.address ? item.address.toUpperCase() : "-",
         item.phone || "-",
         item.status,
-        item.balance
+        item.balance,
+        summaryDates[item.id] || getTodayDateStr()
       ];
     });
 
@@ -1831,7 +1863,7 @@ function ReportsContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 font-mono">
+          <div className="grid grid-cols-1 lg:grid-cols-5 font-mono">
             
             {/* LEFT SIDEBAR (Col span 1) */}
             <div className="lg:col-span-1 bg-[#E5ECF4] border-r border-slate-300 p-4 space-y-4 no-print flex flex-col h-full min-h-[550px]">
@@ -1920,8 +1952,8 @@ function ReportsContent() {
  
             </div>
  
-            {/* RIGHT STATEMENT AREA (Col span 3) */}
-            <div className="lg:col-span-3 bg-white p-1 flex flex-col justify-between print-full-width">
+            {/* RIGHT STATEMENT AREA (Col span 4) */}
+            <div className="lg:col-span-4 bg-white p-1 flex flex-col justify-between print-full-width">
               
               <div className="space-y-1">
                 {!smSelectedSiteId ? (
@@ -2013,12 +2045,13 @@ function ReportsContent() {
                             <th className="border border-slate-800 py-3 px-3 text-center w-28 text-black font-black">Mobile No.</th>
                             <th className="border border-slate-800 py-3 px-3 text-center w-16 text-black font-black">Dr/Cr</th>
                             <th className="border border-slate-800 py-3 px-3 text-right w-36 text-black font-black">Balance</th>
+                            <th className="border border-slate-800 py-3 px-3 text-center w-28 text-black font-black">Date</th>
                           </tr>
                         </thead>
                         <tbody>
                           {summaryLedgersList.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
+                              <td colSpan={7} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
                                 No accounts or transactions found for this site.
                               </td>
                             </tr>
@@ -2053,8 +2086,15 @@ function ReportsContent() {
                                     }`}>
                                       {item.status}
                                     </td>
-                                    <td className="px-3 py-2 text-right font-black text-slate-955">
+                                    <td className="border-r border-slate-400 px-3 py-2 text-right font-black text-slate-955">
                                       {item.balance === 0 ? "NILL" : item.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="px-3 py-2 text-center font-bold text-xs w-28">
+                                      <EditableCell
+                                        value={summaryDates[item.id] || getTodayDateStr()}
+                                        onSave={(newVal) => handleUpdateDate(item.id, newVal)}
+                                        className="text-center font-mono"
+                                      />
                                     </td>
                                   </tr>
                                 );
@@ -2064,6 +2104,7 @@ function ReportsContent() {
                               {smFillers.map((_, i) => (
                                 <tr key={`filler-${i}`} className="h-8 border-b border-slate-350 select-none bg-white/40">
                                   <td className="border-r border-slate-350 px-2 py-2"></td>
+                                  <td className="border-r border-slate-350 px-3 py-2"></td>
                                   <td className="border-r border-slate-350 px-3 py-2"></td>
                                   <td className="border-r border-slate-350 px-3 py-2"></td>
                                   <td className="border-r border-slate-350 px-3 py-2"></td>
@@ -2083,18 +2124,20 @@ function ReportsContent() {
                                       <td className="border-r border-slate-400 px-3 py-2.5 text-center text-emerald-700 font-black">
                                         DR
                                       </td>
-                                      <td className="px-3 py-2.5 text-right text-emerald-700 font-black">
+                                      <td className="border-r border-slate-400 px-3 py-2.5 text-right text-emerald-700 font-black">
                                         {drSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                       </td>
+                                      <td className="px-3 py-2.5"></td>
                                     </tr>
                                     <tr className="bg-[#D3DFEE] font-black border-t border-slate-400 uppercase text-[12px] text-slate-955">
                                       <td colSpan={4} className="border-r border-slate-400 px-3 py-2.5 text-right font-black">TOTAL CREDIT:</td>
                                       <td className="border-r border-slate-400 px-3 py-2.5 text-center text-rose-700 font-black">
                                         CR
                                       </td>
-                                      <td className="px-3 py-2.5 text-right text-rose-700 font-black">
+                                      <td className="border-r border-slate-400 px-3 py-2.5 text-right text-rose-700 font-black">
                                         {crSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                       </td>
+                                      <td className="px-3 py-2.5"></td>
                                     </tr>
                                   </>
                                 );
@@ -2230,10 +2273,10 @@ function ReportsContent() {
               max-width: 100% !important;
               display: block !important;
             }
-            .grid, .grid-cols-1, .lg\\:grid-cols-4 {
+            .grid, .grid-cols-1, .lg\\:grid-cols-5 {
               display: block !important;
             }
-            .lg\\:col-span-3 {
+            .lg\\:col-span-4 {
               width: 100% !important;
               display: block !important;
             }
@@ -3319,5 +3362,72 @@ export default function ReportsPage() {
     }>
       <ReportsContent />
     </Suspense>
+  );
+}
+
+interface EditableCellProps {
+  value: string;
+  onSave: (newVal: string) => void;
+  className?: string;
+  displayValue?: string;
+}
+
+function EditableCell({
+  value,
+  onSave,
+  className = "",
+  displayValue
+}: EditableCellProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [localValue, setLocalValue] = useState(String(value));
+
+  useEffect(() => {
+    setLocalValue(String(value));
+  }, [value]);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (localValue !== String(value)) {
+      onSave(localValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setIsEditing(false);
+      if (localValue !== String(value)) {
+        onSave(localValue);
+      }
+    } else if (e.key === "Escape") {
+      setLocalValue(String(value));
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        type="text"
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value.toUpperCase())}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        autoFocus
+        className={`w-full bg-white border border-slate-350 rounded px-1.5 py-0.5 text-xs font-bold focus:outline-none focus:border-slate-800 uppercase ${className}`}
+      />
+    );
+  }
+
+  const showVal = displayValue !== undefined ? displayValue : (value === "0" ? "-" : String(value));
+
+  return (
+    <div
+      onClick={() => setIsEditing(true)}
+      className={`cursor-pointer hover:bg-slate-100/80 rounded px-1 py-0.5 min-h-[20px] transition-colors ${className}`}
+      title="Click to edit"
+    >
+      {showVal || "-"}
+    </div>
   );
 }
