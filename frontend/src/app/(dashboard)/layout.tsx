@@ -309,10 +309,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isDashboard, focusedColumn, focusedMainIndex, focusedSubIndex, activeMainMenu, router, pathname]);
 
   const handleSubMenuExit = () => {
-    if (userRole === "PRINTER") {
-      handleLogout();
-      return;
-    }
     setActiveMainMenu(0);
     setActiveSubMenu(null);
     router.push("/dashboard");
