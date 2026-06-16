@@ -8,6 +8,18 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   useEffect(() => {
+    // Programmatically enforce notranslate on the document element
+    document.documentElement.setAttribute("translate", "no");
+    document.documentElement.classList.add("notranslate");
+    
+    // Ensure google notranslate meta tag is added to document head
+    if (!document.querySelector('meta[name="google"][content="notranslate"]')) {
+      const meta = document.createElement("meta");
+      meta.name = "google";
+      meta.content = "notranslate";
+      document.head.appendChild(meta);
+    }
+
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // 1. Prevent Tab key default navigation
       if (e.key === "Tab") {

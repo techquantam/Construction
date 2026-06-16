@@ -518,6 +518,7 @@ export default function ChallanPage() {
   const [directMobile, setDirectMobile] = useState("");
   const [showDirectChallanModal, setShowDirectChallanModal] = useState(false);
   const [showCreditPopup, setShowCreditPopup] = useState(false);
+  const [isSavingCredit, setIsSavingCredit] = useState(false);
   const [creditDate, setCreditDate] = useState("");
   const [creditParticulars, setCreditParticulars] = useState("CREDIT AMOUNT");
   const [creditAmount, setCreditAmount] = useState("");
@@ -2171,6 +2172,7 @@ export default function ChallanPage() {
     setCreditDate(getTodayDateStr());
     setCreditParticulars("CREDIT AMOUNT");
     setCreditAmount("");
+    setIsSavingCredit(false);
     setShowCreditPopup(true);
     setTimeout(() => {
       const el = document.getElementById("credit-date-input") as HTMLInputElement | null;
@@ -2180,6 +2182,8 @@ export default function ChallanPage() {
 
   const handleSaveCreditEntry = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingCredit) return;
+
     const amt = parseFloat(creditAmount) || 0;
     if (amt <= 0) {
       toast.error("Credit amount must be greater than zero");
@@ -2200,6 +2204,8 @@ export default function ChallanPage() {
       toast.error("Invalid Date format. Use DD.MM.YY");
       return;
     }
+
+    setIsSavingCredit(true);
 
     if (directChallan) {
       const newItem = {
@@ -2227,12 +2233,14 @@ export default function ChallanPage() {
         return updated;
       });
       setShowCreditPopup(false);
+      setIsSavingCredit(false);
       toast.success("Credit entry added to direct challan");
       return;
     }
 
     if (!selectedSiteId || !selectedLedgerObj) {
       toast.error("No active site or company ledger selected");
+      setIsSavingCredit(false);
       return;
     }
 
@@ -2268,6 +2276,8 @@ export default function ChallanPage() {
       toast.success("Credit entry added successfully");
     } catch (err) {
       toast.error("Failed to save credit entry");
+    } finally {
+      setIsSavingCredit(false);
     }
   };
 
@@ -2762,6 +2772,10 @@ export default function ChallanPage() {
                     ref={siteInputRef}
                     type="text"
                     translate="no"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                     value={siteSearchVal}
                     onChange={(e) => {
                       setSiteSearchVal(e.target.value);
@@ -2827,7 +2841,9 @@ export default function ChallanPage() {
                               : "hover:bg-slate-100 text-slate-700"
                             }`}
                         >
-                          {site.name.toUpperCase()}
+                          <span className="pointer-events-none select-none notranslate" translate="no">
+                            {site.name.toUpperCase()}
+                          </span>
                         </button>
                       );
                     })}
@@ -2852,6 +2868,10 @@ export default function ChallanPage() {
                     ref={ledgerInputRef}
                     type="text"
                     translate="no"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                     disabled={!selectedSiteId}
                     value={ledgerSearchVal}
                     onChange={(e) => {
@@ -2918,7 +2938,7 @@ export default function ChallanPage() {
                               : "hover:bg-slate-100 text-slate-700"
                             }`}
                         >
-                          <span className="truncate block py-0.5">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
+                          <span className="truncate block py-0.5 pointer-events-none select-none notranslate" translate="no">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
                         </button>
                       );
                     })}
@@ -3369,6 +3389,10 @@ export default function ChallanPage() {
                       ref={modalSiteInputRef}
                       type="text"
                       translate="no"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                       required
                       value={modalSiteSearchVal}
                       onChange={(e) => {
@@ -3414,7 +3438,9 @@ export default function ChallanPage() {
                                   : "hover:bg-slate-100 text-slate-700"
                                 }`}
                             >
-                              {site.name.toUpperCase()}
+                              <span className="pointer-events-none select-none notranslate" translate="no">
+                                {site.name.toUpperCase()}
+                              </span>
                             </button>
                           );
                         })}
@@ -3453,6 +3479,10 @@ export default function ChallanPage() {
                       ref={modalCustomerInputRef}
                       type="text"
                       translate="no"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                       required={challanFormMode === "COMPANY"}
                       value={directCustomer}
                       disabled={challanFormMode === "COMPANY" && !selectedSiteId}
@@ -3504,7 +3534,7 @@ export default function ChallanPage() {
                                   : "hover:bg-slate-100 text-slate-700"
                                 }`}
                             >
-                              <span className="truncate block py-0.5">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
+                              <span className="truncate block py-0.5 pointer-events-none select-none notranslate" translate="no">{ledger.name.toUpperCase()} {ledger.isVirtual ? "(VIRTUAL)" : ""}</span>
                             </button>
                           );
                         })}
@@ -3613,6 +3643,10 @@ export default function ChallanPage() {
                             id={`direct-material-input-${idx}`}
                             type="text"
                             translate="no"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            autoCapitalize="off"
+                            spellCheck="false"
                             value={item.material}
                             onChange={(e) => {
                               updateDirectItem(idx, {
@@ -3664,7 +3698,9 @@ export default function ChallanPage() {
                                     className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 notranslate ${isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
                                       }`}
                                   >
-                                    {mat.name.toUpperCase()} ({mat.unit || "CFT"})
+                                    <span className="pointer-events-none select-none notranslate" translate="no">
+                                      {mat.name.toUpperCase()} ({mat.unit || "CFT"})
+                                    </span>
                                   </button>
                                 );
                               })}
@@ -3865,7 +3901,9 @@ export default function ChallanPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        handleSaveCreditEntry(e);
+                        if (!isSavingCredit) {
+                          handleSaveCreditEntry(e);
+                        }
                       } else if (e.key === "Escape") {
                         e.preventDefault();
                         e.stopPropagation();
@@ -3882,9 +3920,10 @@ export default function ChallanPage() {
                 <button
                   id="credit-submit-btn"
                   type="submit"
-                  className="w-full text-white font-extrabold text-[10px] py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-955 cursor-pointer uppercase tracking-wider text-center bg-emerald-600 hover:bg-emerald-700"
+                  disabled={isSavingCredit}
+                  className={`w-full text-white font-extrabold text-[10px] py-2.5 rounded transition-all shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-y-0.5 active:shadow-none border-2 border-slate-955 cursor-pointer uppercase tracking-wider text-center bg-emerald-600 hover:bg-emerald-700 ${isSavingCredit ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
-                  Save Credit Entry / क्रेडिट प्रविष्टि सहेजें
+                  {isSavingCredit ? "Saving..." : "Save Credit Entry / क्रेडिट प्रविष्टि सहेजें"}
                 </button>
               </div>
             </form>
@@ -3915,6 +3954,10 @@ export default function ChallanPage() {
                     id="add-row-material-input"
                     type="text"
                     translate="no"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                     required
                     value={addRowMaterial}
                     onChange={(e) => {
@@ -3980,7 +4023,9 @@ export default function ChallanPage() {
                                 className={`w-full text-left px-2.5 py-1 text-[11px] font-bold border-b border-slate-100 last:border-0 notranslate ${isHighlighted ? "bg-amber-400 text-slate-955" : "hover:bg-slate-100 text-slate-700"
                                   }`}
                               >
-                                {mat.name.toUpperCase()} ({mat.unit || "CFT"})
+                                <span className="pointer-events-none select-none notranslate" translate="no">
+                                  {mat.name.toUpperCase()} ({mat.unit || "CFT"})
+                                </span>
                               </button>
                             );
                           })}
