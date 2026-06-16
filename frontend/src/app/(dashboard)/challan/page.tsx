@@ -3851,9 +3851,19 @@ export default function ChallanPage() {
                               });
                             }}
                             onFocus={() => {
+                              for (let r = 0; r < idx; r++) {
+                                if (!validateRowInline(r)) {
+                                  return;
+                                }
+                              }
                               updateDirectItem(idx, { isMaterialSuggestionsOpen: true, highlightedMaterialIndex: -1 });
                             }}
                             onClick={() => {
+                              for (let r = 0; r < idx; r++) {
+                                if (!validateRowInline(r)) {
+                                  return;
+                                }
+                              }
                               updateDirectItem(idx, { isMaterialSuggestionsOpen: true });
                             }}
                             onBlur={() => {
@@ -3911,6 +3921,20 @@ export default function ChallanPage() {
                             step="any"
                             value={item.qty}
                             onChange={(e) => updateDirectItem(idx, { qty: e.target.value })}
+                            onFocus={() => {
+                              for (let r = 0; r < idx; r++) {
+                                if (!validateRowInline(r)) {
+                                  return;
+                                }
+                              }
+                              const currentItem = directItems[idx];
+                              if (!currentItem || !currentItem.material.trim()) {
+                                toast.error("Please enter Material Name first");
+                                const el = document.getElementById(`direct-material-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                                return;
+                              }
+                            }}
                             onKeyDown={(e) => {
                               handleGridKeyDown(idx, 'qty', e);
                               if (e.key === "Enter") {
@@ -3936,6 +3960,27 @@ export default function ChallanPage() {
                             type="text"
                             value={item.unit}
                             onChange={(e) => updateDirectItem(idx, { unit: e.target.value.toUpperCase() })}
+                            onFocus={() => {
+                              for (let r = 0; r < idx; r++) {
+                                if (!validateRowInline(r)) {
+                                  return;
+                                }
+                              }
+                              const currentItem = directItems[idx];
+                              if (!currentItem || !currentItem.material.trim()) {
+                                toast.error("Please enter Material Name first");
+                                const el = document.getElementById(`direct-material-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                                return;
+                              }
+                              const qtyVal = parseFloat(currentItem.qty);
+                              if (!currentItem.qty.trim() || isNaN(qtyVal) || qtyVal <= 0) {
+                                toast.error("Please enter Quantity (> 0) first");
+                                const el = document.getElementById(`direct-qty-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                                return;
+                              }
+                            }}
                             onKeyDown={(e) => {
                               handleGridKeyDown(idx, 'unit', e);
                               if (e.key === "Enter") {
@@ -3962,6 +4007,33 @@ export default function ChallanPage() {
                             step="any"
                             value={item.rate}
                             onChange={(e) => updateDirectItem(idx, { rate: e.target.value })}
+                            onFocus={() => {
+                              for (let r = 0; r < idx; r++) {
+                                if (!validateRowInline(r)) {
+                                  return;
+                                }
+                              }
+                              const currentItem = directItems[idx];
+                              if (!currentItem || !currentItem.material.trim()) {
+                                toast.error("Please enter Material Name first");
+                                const el = document.getElementById(`direct-material-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                                return;
+                              }
+                              const qtyVal = parseFloat(currentItem.qty);
+                              if (!currentItem.qty.trim() || isNaN(qtyVal) || qtyVal <= 0) {
+                                toast.error("Please enter Quantity (> 0) first");
+                                const el = document.getElementById(`direct-qty-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                                return;
+                              }
+                              if (!currentItem.unit.trim()) {
+                                toast.error("Please enter Unit first");
+                                const el = document.getElementById(`direct-unit-input-${idx}`);
+                                if (el) { el.focus(); (el as HTMLInputElement).select(); }
+                                return;
+                              }
+                            }}
                             onKeyDown={(e) => {
                               handleGridKeyDown(idx, 'rate', e);
                               if (e.key === "Enter") {
