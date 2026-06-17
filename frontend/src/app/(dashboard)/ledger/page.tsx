@@ -281,7 +281,7 @@ function LedgerContent() {
   const [compMobile, setCompMobile] = useState("");
   const [compMaterial, setCompMaterial] = useState("");
   const [compQty, setCompQty] = useState("");
-  const [compUnit, setCompUnit] = useState("CFT");
+  const [compUnit, setCompUnit] = useState("");
   const [compCrDr, setCompCrDr] = useState<"DR" | "CR">("DR");
   const [compAmount, setCompAmount] = useState("");
   const [compRate, setCompRate] = useState("");
@@ -1522,6 +1522,7 @@ function LedgerContent() {
         
         setCompMaterial("");
         setCompQty("");
+        setCompUnit("");
         setCompRate("");
         setCompAmount("");
         setCompActiveStep("DATE");
@@ -1579,6 +1580,7 @@ function LedgerContent() {
           // Reset states but preserve Date for fast data entry
           setCompMaterial("");
           setCompQty("");
+          setCompUnit("");
           setCompRate("");
           setCompAmount("");
           setCompActiveStep("DATE");
@@ -2183,6 +2185,7 @@ function LedgerContent() {
     setCompType("BY");
     setCompMaterial("CREDIT");
     setCompQty("");
+    setCompUnit("");
     setCompRate("");
     setCompAmount("");
     setCompActiveStep("DATE");
@@ -4569,9 +4572,19 @@ function LedgerContent() {
                             value={compMaterial}
                             placeholder="Material"
                             onChange={(e) => {
-                              setCompMaterial(e.target.value.toUpperCase());
+                              const val = e.target.value.toUpperCase();
+                              setCompMaterial(val);
                               setCompActiveStep("MATERIAL");
                               setHighlightedCompMaterialIndex(-1);
+                              
+                              const exactMatch = existingMaterials.find(m => m.name.toUpperCase() === val.trim());
+                              if (exactMatch) {
+                                setCompUnit(exactMatch.unit.toUpperCase());
+                                setCompRate(exactMatch.rate !== null && exactMatch.rate !== undefined && exactMatch.rate !== 0 ? String(exactMatch.rate) : "");
+                              } else {
+                                setCompUnit("");
+                                setCompRate("");
+                              }
                             }}
                             onFocus={() => {
                               setCompActiveStep("MATERIAL");
@@ -4607,6 +4620,7 @@ function LedgerContent() {
                                     const mat = filteredCompMaterialSuggestions[targetIndex];
                                     setCompMaterial(mat.name.toUpperCase());
                                     setCompUnit(mat.unit.toUpperCase());
+                                    setCompRate(mat.rate !== null && mat.rate !== undefined && mat.rate !== 0 ? String(mat.rate) : "");
                                     setCompActiveStep("QTY");
                                     setHighlightedCompMaterialIndex(-1);
                                     setTimeout(() => {
@@ -4629,6 +4643,10 @@ function LedgerContent() {
                                   if (exactMatch) {
                                     setCompMaterial(exactMatch.name.toUpperCase());
                                     setCompUnit(exactMatch.unit.toUpperCase());
+                                    setCompRate(exactMatch.rate !== null && exactMatch.rate !== undefined && exactMatch.rate !== 0 ? String(exactMatch.rate) : "");
+                                  } else {
+                                    setCompUnit("");
+                                    setCompRate("");
                                   }
                                   setCompActiveStep("QTY");
                                   setTimeout(() => {
@@ -4750,6 +4768,7 @@ function LedgerContent() {
                                                   const newMat = res.data.data;
                                                   setCompMaterial(newMat.name.toUpperCase());
                                                   setCompUnit(newMat.unit.toUpperCase());
+                                                  setCompRate(newMat.rate !== null && newMat.rate !== undefined && newMat.rate !== 0 ? String(newMat.rate) : "");
                                                   setIsCreatingNewCompMaterial(false);
                                                   setNewCompMaterialName("");
                                                   setCompActiveStep("QTY");
@@ -4791,6 +4810,7 @@ function LedgerContent() {
                                           onClick={() => {
                                             setCompMaterial(mat.name.toUpperCase());
                                             setCompUnit(mat.unit.toUpperCase());
+                                            setCompRate(mat.rate !== null && mat.rate !== undefined && mat.rate !== 0 ? String(mat.rate) : "");
                                             setCompActiveStep("QTY");
                                             setTimeout(() => compQtyInputRef.current?.focus(), 50);
                                           }}

@@ -1737,7 +1737,17 @@ function ReportsContent() {
           const next = prev + 1;
           const target = next >= itemsCount ? itemsCount - 1 : next;
           const el = document.getElementById(`lg-row-${target}`);
-          if (el) el.scrollIntoView({ block: "nearest" });
+          if (el) {
+            el.scrollIntoView({ block: "nearest" });
+            if (target === itemsCount - 1) {
+              setTimeout(() => {
+                const container = el.closest(".overflow-y-auto");
+                if (container) {
+                  container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+                }
+              }, 50);
+            }
+          }
           return target;
         });
       } else if (e.key === "ArrowUp") {
@@ -1794,7 +1804,17 @@ function ReportsContent() {
           const next = prev + 1;
           const target = next >= itemsCount ? itemsCount - 1 : next;
           const el = document.getElementById(`db-row-${target}`);
-          if (el) el.scrollIntoView({ block: "nearest" });
+          if (el) {
+            el.scrollIntoView({ block: "nearest" });
+            if (target === itemsCount - 1) {
+              setTimeout(() => {
+                const container = el.closest(".overflow-y-auto");
+                if (container) {
+                  container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+                }
+              }, 50);
+            }
+          }
           return target;
         });
       } else if (e.key === "ArrowUp") {
@@ -1849,7 +1869,17 @@ function ReportsContent() {
           const next = prev + 1;
           const target = next >= itemsCount ? itemsCount - 1 : next;
           const el = document.getElementById(`sm-row-${target}`);
-          if (el) el.scrollIntoView({ block: "nearest" });
+          if (el) {
+            el.scrollIntoView({ block: "nearest" });
+            if (target === itemsCount - 1) {
+              setTimeout(() => {
+                const container = el.closest(".overflow-y-auto");
+                if (container) {
+                  container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+                }
+              }, 50);
+            }
+          }
           return target;
         });
       } else if (e.key === "ArrowUp") {
