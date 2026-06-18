@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useRef } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Printer, Building2, Wallet, ArrowDown } from "lucide-react";
@@ -476,9 +476,8 @@ function ReportsContent() {
     if (!isSearching) return sites;
     return sites.filter((site: any) => matchesFuzzy(site.name, smSiteSearchVal));
   })();
-
   // List of active accounts used in that site's transactions
-  const activeSiteLedgers = (() => {
+  const activeSiteLedgers = useMemo(() => {
     if (!lgSelectedSiteId || !ledgerDaybookData) return [];
     const names = new Set<string>();
     ledgerDaybookData.forEach((item: any) => {
@@ -489,9 +488,16 @@ function ReportsContent() {
       if (name) names.add(name);
     });
 
+    const ledgerMap = new Map<string, any>();
+    if (ledgers) {
+      ledgers.forEach((l: any) => {
+        ledgerMap.set(l.name.toUpperCase(), l);
+      });
+    }
+
     const list: any[] = [];
     names.forEach((name) => {
-      const dbLedger = ledgers ? ledgers.find((l: any) => l.name.toUpperCase() === name) : null;
+      const dbLedger = ledgerMap.get(name);
       list.push({
         id: dbLedger ? dbLedger.id : name,
         name: name,
@@ -519,10 +525,10 @@ function ReportsContent() {
 
     // Sort alphabetically by name
     return list.sort((a, b) => a.name.localeCompare(b.name));
-  })();
+  }, [lgSelectedSiteId, ledgerDaybookData, ledgers]);
 
   // List of active accounts used in that site's transactions for Summary
-  const summaryActiveSiteLedgers = (() => {
+  const summaryActiveSiteLedgers = useMemo(() => {
     if (!smSelectedSiteId || !summaryDaybookData) return [];
     const names = new Set<string>();
     summaryDaybookData.forEach((item: any) => {
@@ -533,9 +539,16 @@ function ReportsContent() {
       if (name) names.add(name);
     });
 
+    const ledgerMap = new Map<string, any>();
+    if (ledgers) {
+      ledgers.forEach((l: any) => {
+        ledgerMap.set(l.name.toUpperCase(), l);
+      });
+    }
+
     const list: any[] = [];
     names.forEach((name) => {
-      const dbLedger = ledgers ? ledgers.find((l: any) => l.name.toUpperCase() === name) : null;
+      const dbLedger = ledgerMap.get(name);
       list.push({
         id: dbLedger ? dbLedger.id : name,
         name: name,
@@ -563,8 +576,7 @@ function ReportsContent() {
 
     // Sort alphabetically by name
     return list.sort((a, b) => a.name.localeCompare(b.name));
-  })();
-
+  }, [smSelectedSiteId, summaryDaybookData, ledgers]);
   // Filter accounts suggestions list to display active site accounts only
   const filteredLgLedgers = (() => {
     const activeLedger = activeSiteLedgers.find((l) => String(l.id) === String(lgSelectedLedgerId));
@@ -662,46 +674,54 @@ function ReportsContent() {
     }
     return matches;
   })();
-
   // Summary list of balances calculation
-  const summaryLedgersList = (() => {
+  const summaryLedgersList = useMemo(() => {
     if (!smSelectedSiteId || !summaryDaybookData) return [];
 
     let targetLedgers = summaryActiveSiteLedgers;
+
+    // Create a lookup map of daybook totals for each ledger to perform O(1) matching
+    const ledgerTotalsMap: { [key: string]: { debit: number; credit: number } } = {};
+
+    summaryDaybookData.forEach((item: any) => {
+      const text = item.expenseType || "";
+      let isTo = text.toUpperCase().startsWith("TO ");
+      let isBy = text.toUpperCase().startsWith("BY ");
+      if (!isTo && !isBy) return;
+
+      const name = text.substring(3).trim().toUpperCase();
+      if (!name) return;
+
+      let isDebit = isTo;
+      const compDetails = item.paymentMode && item.paymentMode.trim().startsWith("{") && item.paymentMode.trim().endsWith("}")
+        ? (() => {
+            try { return JSON.parse(item.paymentMode); } catch { return null; }
+          })()
+        : null;
+
+      if (compDetails && compDetails.crDr) {
+        isDebit = compDetails.crDr === "DR";
+      }
+
+      if (!ledgerTotalsMap[name]) {
+        ledgerTotalsMap[name] = { debit: 0, credit: 0 };
+      }
+
+      if (isDebit) {
+        ledgerTotalsMap[name].debit += item.amount;
+      } else {
+        ledgerTotalsMap[name].credit += item.amount;
+      }
+    });
 
     return targetLedgers.map((ledger) => {
       const details = parsePartyDetails(ledger.contactPerson);
       const address = details ? details.address : (ledger.contactPerson || "");
       const phone = details ? (details.mobileNo || details.phoneNo) : (ledger.phone || "");
 
-      let totalDebit = 0;
-      let totalCredit = 0;
-
-      summaryDaybookData.forEach((item: any) => {
-        const text = item.expenseType || "";
-        let name = "";
-        if (text.toUpperCase().startsWith("TO ")) name = text.substring(3).trim().toUpperCase();
-        else if (text.toUpperCase().startsWith("BY ")) name = text.substring(3).trim().toUpperCase();
-        
-        if (name === ledger.name.toUpperCase()) {
-          let isDebit = text.toUpperCase().startsWith("TO ");
-          const compDetails = item.paymentMode && item.paymentMode.trim().startsWith("{") && item.paymentMode.trim().endsWith("}")
-            ? (() => {
-                try { return JSON.parse(item.paymentMode); } catch { return null; }
-              })()
-            : null;
-
-          if (compDetails && compDetails.crDr) {
-            isDebit = compDetails.crDr === "DR";
-          }
-
-          if (isDebit) {
-            totalDebit += item.amount;
-          } else {
-            totalCredit += item.amount;
-          }
-        }
-      });
+      const totals = ledgerTotalsMap[ledger.name.toUpperCase()] || { debit: 0, credit: 0 };
+      const totalDebit = totals.debit;
+      const totalCredit = totals.credit;
 
       const balance = totalDebit - totalCredit;
       const status = balance > 0 ? "DR" : balance < 0 ? "CR" : "NIL";
@@ -716,8 +736,7 @@ function ReportsContent() {
         status
       };
     }).filter((item: any) => item.balance !== 0);
-  })();
-
+  }, [smSelectedSiteId, summaryDaybookData, summaryActiveSiteLedgers]);
   // Keyboard controls for site dropdown in PRINT DAYBOOK
   const handleDbSiteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isDbSiteSuggestionsOpen) {
@@ -1868,16 +1887,14 @@ function ReportsContent() {
         setSmSelectedRowIndex((prev) => {
           const next = prev + 1;
           const target = next >= itemsCount ? itemsCount - 1 : next;
-          const el = document.getElementById(`sm-row-${target}`);
-          if (el) {
-            el.scrollIntoView({ block: "nearest" });
-            if (target === itemsCount - 1) {
-              setTimeout(() => {
-                const container = el.closest(".overflow-y-auto");
-                if (container) {
-                  container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-                }
-              }, 50);
+          // If we are already on the last row and ArrowDown is pressed again, scroll page to absolute bottom
+          if (prev === itemsCount - 1) {
+            const el = document.getElementById(`sm-row-${prev}`);
+            if (el) {
+              const container = el.closest(".overflow-y-auto");
+              if (container) {
+                container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+              }
             }
           }
           return target;
@@ -1887,8 +1904,6 @@ function ReportsContent() {
         setSmSelectedRowIndex((prev) => {
           const next = prev - 1;
           const target = next < 0 ? 0 : next;
-          const el = document.getElementById(`sm-row-${target}`);
-          if (el) el.scrollIntoView({ block: "nearest" });
           return target;
         });
       }
@@ -1904,6 +1919,25 @@ function ReportsContent() {
     isLgLedgerSuggestionsOpen,
     isDbSiteSuggestionsOpen
   ]);
+
+  // Scroll selected summary row into view after render
+  useEffect(() => {
+    if (reportType === "summary" && smSelectedRowIndex >= 0) {
+      const el = document.getElementById(`sm-row-${smSelectedRowIndex}`);
+      if (el) {
+        el.scrollIntoView({ block: "nearest" });
+        // If we just selected the last row, ensure we scroll all the way down to reveal the totals
+        if (smSelectedRowIndex === summaryLedgersList.length - 1) {
+          setTimeout(() => {
+            const container = el.closest(".overflow-y-auto");
+            if (container) {
+              container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+            }
+          }, 50);
+        }
+      }
+    }
+  }, [smSelectedRowIndex, reportType, summaryLedgersList.length]);
 
 
   // VIEW RENDERS
