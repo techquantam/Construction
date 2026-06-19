@@ -415,11 +415,7 @@ function translateToHindi(text: string): string {
 
 function translateBilingual(text: string): string {
   if (!text) return "";
-  const hindi = translateToHindi(text);
-  if (hindi.toUpperCase() === text.toUpperCase()) {
-    return text;
-  }
-  return `${text.toUpperCase()} [${hindi}]`;
+  return text.toUpperCase();
 }
 
 const getTodayDateStr = () => {
@@ -622,9 +618,19 @@ export default function ChallanPage() {
 
   // Auto-open entry form modal on page mount (default to company ledger)
   useEffect(() => {
-    if (!hasAutoOpenedRef.current && sites && allDaybookData) {
-      openDirectChallanModal("COMPANY");
-      hasAutoOpenedRef.current = true;
+    if (!hasAutoOpenedRef.current && sites) {
+      if (allDaybookData) {
+        openDirectChallanModal("COMPANY");
+        hasAutoOpenedRef.current = true;
+      } else {
+        const timer = setTimeout(() => {
+          if (!hasAutoOpenedRef.current) {
+            openDirectChallanModal("COMPANY");
+            hasAutoOpenedRef.current = true;
+          }
+        }, 300);
+        return () => clearTimeout(timer);
+      }
     }
   }, [sites, allDaybookData]);
 
