@@ -210,6 +210,7 @@ function LedgerContent() {
   
   // Transaction inline edit states for Ledger Correction
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [fieldToFocus, setFieldToFocus] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editType, setEditType] = useState<"TO" | "BY">("BY");
   const [editParticularText, setEditParticularText] = useState("");
@@ -257,6 +258,34 @@ function LedgerContent() {
       }, 50);
     }
   }, [focusDateTrigger, ledgerTypeTab]);
+
+  // Focus appropriate field when editing starts
+  useEffect(() => {
+    if (editingTransactionId && fieldToFocus) {
+      let elementId = "";
+      if (fieldToFocus === "date") elementId = "edit-inline-date";
+      else if (fieldToFocus === "particular") elementId = "edit-inline-particular";
+      else if (fieldToFocus === "narration") elementId = "edit-inline-narration";
+      else if (fieldToFocus === "material") elementId = "edit-inline-material";
+      else if (fieldToFocus === "qty") elementId = "edit-inline-qty";
+      else if (fieldToFocus === "unit") elementId = "edit-inline-unit";
+      else if (fieldToFocus === "rate") elementId = "edit-inline-rate";
+      else if (fieldToFocus === "debit") elementId = "edit-inline-debit";
+      else if (fieldToFocus === "credit") elementId = "edit-inline-credit";
+
+      if (elementId) {
+        setTimeout(() => {
+          const el = document.getElementById(elementId);
+          if (el) {
+            (el as HTMLElement).focus();
+            if (el instanceof HTMLInputElement) {
+              el.select();
+            }
+          }
+        }, 80);
+      }
+    }
+  }, [editingTransactionId, fieldToFocus]);
 
   // Company Ledger direct entry refs
   const compDateInputRef = useRef<HTMLInputElement>(null);
@@ -1674,19 +1703,11 @@ function LedgerContent() {
 
   const cancelTransactionInlineEdit = () => {
     setEditingTransactionId(null);
+    setFieldToFocus(null);
     setIsEditParticularSuggestionsOpen(false);
   };
 
-  const handleInlineKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      submitTransactionInlineEdit();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      cancelTransactionInlineEdit();
-    }
-  };
+
 
   const handleParticularInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isEditParticularSuggestionsOpen) {
@@ -1709,13 +1730,10 @@ function LedgerContent() {
           setEditParticularText(ledger.name.toUpperCase());
           setIsEditParticularSuggestionsOpen(false);
           setHighlightedEditParticularIndex(-1);
-          setTimeout(() => {
-            document.getElementById("edit-inline-narration")?.focus();
-          }, 50);
         } else {
           e.preventDefault();
           setIsEditParticularSuggestionsOpen(false);
-          document.getElementById("edit-inline-narration")?.focus();
+          submitTransactionInlineEdit();
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -1724,7 +1742,10 @@ function LedgerContent() {
         setHighlightedEditParticularIndex(-1);
       }
     } else {
-      if (e.key === "Enter" || e.key === "ArrowRight") {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitTransactionInlineEdit();
+      } else if (e.key === "ArrowRight") {
         e.preventDefault();
         document.getElementById("edit-inline-narration")?.focus();
       } else if (e.key === "Escape" || e.key === "ArrowLeft") {
@@ -1738,7 +1759,7 @@ function LedgerContent() {
     }
   };
 
-  const handleEditClick = (tx: any) => {
+  const handleEditClick = (tx: any, field?: string) => {
     const item = siteDaybooks.find((d) => d.id === tx.id);
     if (!item) return;
 
@@ -1758,6 +1779,8 @@ function LedgerContent() {
       setEditUnit(compDetails?.unit || "CFT");
       setEditRate(compDetails?.rate ? compDetails.rate.toString() : "");
     }
+
+    setFieldToFocus(field || "date");
   };
 
   // Parse and calculate transactions statement for selected ledger in active site
@@ -2038,55 +2061,16 @@ function LedgerContent() {
   const handleInlineFieldKeyDown = (e: React.KeyboardEvent, field: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (field === "date") {
-        document.getElementById("edit-inline-type")?.focus();
-      } else if (field === "type") {
-        document.getElementById("edit-inline-particular")?.focus();
-      } else if (field === "particular") {
-        if (!isEditParticularSuggestionsOpen) {
-          document.getElementById("edit-inline-narration")?.focus();
-        }
-      } else if (field === "narration") {
-        if (editType === "TO") {
-          const deb = document.getElementById("edit-inline-debit");
-          if (deb) {
-            deb.focus();
-          } else {
-            submitTransactionInlineEdit();
-          }
-        } else {
-          const cred = document.getElementById("edit-inline-credit");
-          if (cred) {
-            cred.focus();
-          } else {
-            submitTransactionInlineEdit();
-          }
-        }
-      } else if (field === "debit" || field === "credit") {
-        submitTransactionInlineEdit();
-      }
+      submitTransactionInlineEdit();
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
-      if (field === "date") {
-        cancelTransactionInlineEdit();
-        setTimeout(() => {
-          const row = document.getElementById(`tx-row-${editingTransactionId}`);
-          row?.focus();
-        }, 50);
-      } else if (field === "type") {
-        document.getElementById("edit-inline-date")?.focus();
-      } else if (field === "particular") {
-        if (isEditParticularSuggestionsOpen) {
-          setIsEditParticularSuggestionsOpen(false);
-        } else {
-          document.getElementById("edit-inline-type")?.focus();
-        }
-      } else if (field === "narration") {
-        document.getElementById("edit-inline-particular")?.focus();
-      } else if (field === "debit" || field === "credit") {
-        document.getElementById("edit-inline-narration")?.focus();
-      }
+      const tempId = editingTransactionId;
+      cancelTransactionInlineEdit();
+      setTimeout(() => {
+        const row = document.getElementById(`tx-row-${tempId}`);
+        row?.focus();
+      }, 50);
     }
   };
 
@@ -3851,9 +3835,6 @@ function LedgerContent() {
                                           setEditMaterial(mat.name.toUpperCase());
                                           setEditUnit(mat.unit.toUpperCase());
                                           setHighlightedEditMaterialIndex(-1);
-                                          setTimeout(() => {
-                                            document.getElementById("edit-inline-qty")?.focus();
-                                          }, 50);
                                           return;
                                         }
                                       }
@@ -3866,9 +3847,7 @@ function LedgerContent() {
                                         setEditMaterial(exactMatch.name.toUpperCase());
                                         setEditUnit(exactMatch.unit.toUpperCase());
                                       }
-                                      setTimeout(() => {
-                                        document.getElementById("edit-inline-qty")?.focus();
-                                      }, 50);
+                                      submitTransactionInlineEdit();
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -3893,9 +3872,6 @@ function LedgerContent() {
                                             onClick={() => {
                                               setEditMaterial(mat.name.toUpperCase());
                                               setEditUnit(mat.unit.toUpperCase());
-                                              setTimeout(() => {
-                                                document.getElementById("edit-inline-qty")?.focus();
-                                              }, 50);
                                             }}
                                             className={`flex-1 text-left font-black text-[11px] uppercase flex justify-between items-center focus:outline-none mr-2 ${
                                               isHighlighted ? "text-white" : "text-slate-900"
@@ -3924,7 +3900,7 @@ function LedgerContent() {
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
-                                      document.getElementById("edit-inline-unit")?.focus();
+                                      submitTransactionInlineEdit();
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -3960,7 +3936,7 @@ function LedgerContent() {
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
-                                      document.getElementById("edit-inline-rate")?.focus();
+                                      submitTransactionInlineEdit();
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -3989,13 +3965,7 @@ function LedgerContent() {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      const qtyVal = parseFloat(editQty) || 0;
-                                      const rateVal = parseFloat(editRate) || 0;
-                                      const calculatedAmount = qtyVal * rateVal;
-                                      if (calculatedAmount > 0) {
-                                        setEditAmountText(calculatedAmount.toString());
-                                      }
-                                      document.getElementById("edit-inline-debit")?.focus() || document.getElementById("edit-inline-credit")?.focus();
+                                      submitTransactionInlineEdit();
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -4213,14 +4183,6 @@ function LedgerContent() {
                         }}
                         onMouseEnter={() => setHoveredOrFocusedTx(tx)}
                         onMouseLeave={() => setHoveredOrFocusedTx(null)}
-                        onClick={() => {
-                          if (action === "correction") {
-                            handleEditClick(tx);
-                            setTimeout(() => {
-                              document.getElementById("edit-inline-date")?.focus();
-                            }, 100);
-                          }
-                        }}
                         className={`font-black uppercase text-slate-955 group focus:outline-none focus:bg-[#2B547E] focus:text-white border-b border-slate-400 ${action === "entry" ? "h-9" : ""} ${
                           action === "correction" 
                             ? "hover:bg-amber-50 cursor-pointer bg-amber-50/10 text-slate-955" 
@@ -4229,11 +4191,17 @@ function LedgerContent() {
                             : "hover:bg-[#D0E5F5]/60 text-slate-955"
                         }`}
                       >
-                        <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-slate-700 group-focus:text-white`}>
+                        <td 
+                          onClick={() => { if (action === "correction") handleEditClick(tx, "date"); }}
+                          className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-slate-700 group-focus:text-white`}
+                        >
                           <div>{tx.date}</div>
                         </td>
                         {(!isParticularLedgerOpen || ledgerTypeTab !== "COMPANY") && (
-                          <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4`}>
+                          <td 
+                            onClick={() => { if (action === "correction") handleEditClick(tx, "particular"); }}
+                            className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4`}
+                          >
                             {ledgerTypeTab === "COMPANY" ? (
                               <div className="flex items-center gap-2">
                                 <span className="font-extrabold text-slate-900 group-focus:text-white uppercase">{parsedName}</span>
@@ -4252,7 +4220,10 @@ function LedgerContent() {
                         )}
                         {ledgerTypeTab === "COMPANY" && (
                           <>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-slate-800 group-focus:text-white uppercase`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "material"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-slate-800 group-focus:text-white uppercase`}
+                            >
                               <div className="flex items-center gap-2">
                                 <span>{material || "-"}</span>
                                 {tx.referenceNumber && tx.referenceNumber !== "DIRECT_FORM_V2" && tx.referenceNumber !== "AUTO_DEBIT" && tx.referenceNumber !== "COMPANY_DIRECT" && tx.referenceNumber !== "LEDGER_DIRECT" && (
@@ -4262,38 +4233,80 @@ function LedgerContent() {
                                 )}
                               </div>
                             </td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}>{qty > 0 ? qty.toString() : "-"}</td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-800 group-focus:text-white font-bold`}>{unit || "-"}</td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}>{rate > 0 ? rate.toFixed(2) : "-"}</td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-650 group-focus:text-white`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "qty"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}
+                            >
+                              {qty > 0 ? qty.toString() : "-"}
+                            </td>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "unit"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-800 group-focus:text-white font-bold`}
+                            >
+                              {unit || "-"}
+                            </td>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "rate"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}
+                            >
+                              {rate > 0 ? rate.toFixed(2) : "-"}
+                            </td>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, tx.isDebit ? "debit" : "credit"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-650 group-focus:text-white`}
+                            >
                               {tx.isDebit ? "DR" : "CR"}
                             </td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-red-700 group-focus:text-white/90`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "debit"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-red-700 group-focus:text-white/90`}
+                            >
                               {tx.debit > 0 ? tx.debit.toFixed(2) : "0.00"}
                             </td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-emerald-700 group-focus:text-white/90`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "credit"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-emerald-700 group-focus:text-white/90`}
+                            >
                               {tx.credit > 0 ? tx.credit.toFixed(2) : "0.00"}
                             </td>
                           </>
                         )}
                         {ledgerTypeTab !== "COMPANY" && (
                           <>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "qty"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}
+                            >
                               {tx.qty !== null && tx.qty !== undefined ? tx.qty.toString() : "-"}
                             </td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-800 group-focus:text-white font-bold`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "unit"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-800 group-focus:text-white font-bold`}
+                            >
                               {tx.unit || "-"}
                             </td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "rate"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-slate-800 group-focus:text-white font-mono`}
+                            >
                               {tx.rate !== null && tx.rate !== undefined ? tx.rate.toFixed(2) : "-"}
                             </td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-650 group-focus:text-white`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, tx.isDebit ? "debit" : "credit"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center text-slate-650 group-focus:text-white`}
+                            >
                               {tx.isDebit ? "DR" : "CR"}
                             </td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-red-700 group-focus:text-white/90`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "debit"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-red-700 group-focus:text-white/90`}
+                            >
                               {tx.debit > 0 ? tx.debit.toFixed(2) : "0.00"}
                             </td>
-                            <td className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-emerald-700 group-focus:text-white/90`}>
+                            <td 
+                              onClick={() => { if (action === "correction") handleEditClick(tx, "credit"); }}
+                              className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-right text-emerald-700 group-focus:text-white/90`}
+                            >
                               {tx.credit > 0 ? tx.credit.toFixed(2) : "0.00"}
                             </td>
                           </>
