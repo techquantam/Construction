@@ -1707,6 +1707,22 @@ function LedgerContent() {
     setIsEditParticularSuggestionsOpen(false);
   };
 
+  const focusNextInlineElement = (currentElement: HTMLElement) => {
+    if (!editingTransactionRowRef.current) return;
+    const selectors = 'input:not([disabled]):not([type="hidden"]), select:not([disabled])';
+    const elements = Array.from(editingTransactionRowRef.current.querySelectorAll(selectors)) as HTMLElement[];
+    const currentIndex = elements.indexOf(currentElement);
+    if (currentIndex !== -1 && currentIndex < elements.length - 1) {
+      const nextEl = elements[currentIndex + 1];
+      nextEl.focus();
+      if (nextEl instanceof HTMLInputElement) {
+        nextEl.select();
+      }
+    } else {
+      submitTransactionInlineEdit();
+    }
+  };
+
 
 
   const handleParticularInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -1733,7 +1749,7 @@ function LedgerContent() {
         } else {
           e.preventDefault();
           setIsEditParticularSuggestionsOpen(false);
-          submitTransactionInlineEdit();
+          focusNextInlineElement(e.currentTarget);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -1744,7 +1760,7 @@ function LedgerContent() {
     } else {
       if (e.key === "Enter") {
         e.preventDefault();
-        submitTransactionInlineEdit();
+        focusNextInlineElement(e.currentTarget);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         document.getElementById("edit-inline-narration")?.focus();
@@ -2061,7 +2077,7 @@ function LedgerContent() {
   const handleInlineFieldKeyDown = (e: React.KeyboardEvent, field: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      submitTransactionInlineEdit();
+      focusNextInlineElement(e.currentTarget as HTMLElement);
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
@@ -3747,9 +3763,11 @@ function LedgerContent() {
                                         className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800 placeholder:text-slate-400 font-mono h-7"
                                       />
                                       <input 
+                                        id="edit-inline-challanno"
                                         type="text"
                                         value={editChallanNo}
                                         onChange={(e) => setEditChallanNo(e.target.value)}
+                                        onKeyDown={(e) => handleInlineFieldKeyDown(e, "challanno")}
                                         placeholder="CH"
                                         className="w-12 bg-white border border-slate-300 rounded px-1 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800 text-center font-mono h-7 shrink-0"
                                       />
@@ -3847,7 +3865,7 @@ function LedgerContent() {
                                         setEditMaterial(exactMatch.name.toUpperCase());
                                         setEditUnit(exactMatch.unit.toUpperCase());
                                       }
-                                      submitTransactionInlineEdit();
+                                      focusNextInlineElement(e.currentTarget);
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -3900,7 +3918,7 @@ function LedgerContent() {
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
-                                      submitTransactionInlineEdit();
+                                      focusNextInlineElement(e.currentTarget);
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -3936,7 +3954,7 @@ function LedgerContent() {
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
-                                      submitTransactionInlineEdit();
+                                      focusNextInlineElement(e.currentTarget);
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -3965,7 +3983,7 @@ function LedgerContent() {
                                     if (e.key === "Enter") {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      submitTransactionInlineEdit();
+                                      focusNextInlineElement(e.currentTarget);
                                     } else if (e.key === "Escape") {
                                       e.preventDefault();
                                       e.stopPropagation();
