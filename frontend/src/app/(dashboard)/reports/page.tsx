@@ -2372,42 +2372,13 @@ function ReportsContent() {
               overflow: visible !important;
               height: auto !important;
             }
-            /* Neutralize layout flex and screen height wrappers in print */
-            .flex.h-screen, .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden {
-              height: auto !important;
-              min-height: 0 !important;
-              display: block !important;
-              overflow: visible !important;
-              position: static !important;
-              width: 100% !important;
-              max-width: 100% !important;
-            }
-            /* Neutralize absolute modal backdrop and flex centering */
-            .absolute.inset-0.bg-slate-900\\/40 {
-              position: static !important;
-              display: block !important;
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              height: auto !important;
-              max-height: none !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              overflow: visible !important;
-            }
-            /* Strip modal borders, shadows, backgrounds, and viewports in print. Convert to block to allow page breaks */
-            .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
-              display: block !important;
-              border: none !important;
-              box-shadow: none !important;
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              height: auto !important;
-              max-height: none !important;
-              overflow: visible !important;
+            /* Completely ignore modal and page wrapper boxes in print to bypass flex, grid, and scroll containers */
+            .flex.h-screen, 
+            .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden,
+            .absolute.inset-0.bg-slate-900\\/40, 
+            .w-\\[98vw\\], 
+            .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+              display: contents !important;
             }
             /* Hide the yellow modal header bar completely */
             .bg-amber-400 {
@@ -2958,40 +2929,13 @@ function ReportsContent() {
               overflow: visible !important;
               height: auto !important;
             }
-            /* Neutralize layout flex and screen height wrappers in print */
-            .flex.h-screen, .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden {
-              height: auto !important;
-              min-height: 0 !important;
-              display: block !important;
-              overflow: visible !important;
-              position: static !important;
-            }
-            /* Neutralize absolute modal backdrop and flex centering */
-            .absolute.inset-0.bg-slate-900\\/40 {
-              position: static !important;
-              display: block !important;
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              height: auto !important;
-              max-height: none !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              overflow: visible !important;
-            }
-            /* Strip modal borders, shadows, backgrounds, and viewports in print. Convert to block to allow page breaks */
-            .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
-              display: block !important;
-              border: none !important;
-              box-shadow: none !important;
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              height: auto !important;
-              max-height: none !important;
-              overflow: visible !important;
+            /* Completely ignore modal and page wrapper boxes in print to bypass flex, grid, and scroll containers */
+            .flex.h-screen, 
+            .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden,
+            .absolute.inset-0.bg-slate-900\\/40, 
+            .w-\\[98vw\\], 
+            .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+              display: contents !important;
             }
             /* Hide the yellow modal header bar completely */
             .bg-amber-400 {
@@ -3499,40 +3443,13 @@ function ReportsContent() {
               overflow: visible !important;
               height: auto !important;
             }
-            /* Neutralize layout flex and screen height wrappers in print */
-            .flex.h-screen, .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden {
-              height: auto !important;
-              min-height: 0 !important;
-              display: block !important;
-              overflow: visible !important;
-              position: static !important;
-            }
-            /* Neutralize absolute modal backdrop and flex centering */
-            .absolute.inset-0.bg-slate-900\\/40 {
-              position: static !important;
-              display: block !important;
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              height: auto !important;
-              max-height: none !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              overflow: visible !important;
-            }
-            /* Strip modal borders, shadows, backgrounds, and viewports in print. Convert to block to allow page breaks */
-            .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
-              display: block !important;
-              border: none !important;
-              box-shadow: none !important;
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              height: auto !important;
-              max-height: none !important;
-              overflow: visible !important;
+            /* Completely ignore modal and page wrapper boxes in print to bypass flex, grid, and scroll containers */
+            .flex.h-screen, 
+            .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden,
+            .absolute.inset-0.bg-slate-900\\/40, 
+            .w-\\[98vw\\], 
+            .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+              display: contents !important;
             }
             /* Hide the yellow modal header bar completely */
             .bg-amber-400 {
