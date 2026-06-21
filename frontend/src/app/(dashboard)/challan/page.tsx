@@ -3492,18 +3492,21 @@ export default function ChallanPage() {
                 .bg-amber-400 {
                   display: none !important;
                 }
-                /* Completely ignore modal and page wrapper boxes in print to bypass flex, grid, and scroll containers */
-                .flex.h-screen, 
-                .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden,
-                .absolute.inset-0.bg-slate-900\\/40, 
-                .absolute.inset-0,
-                .w-\\[98vw\\], 
-                .flex-1.overflow-y-auto.p-6.bg-slate-100,
-                .font-mono.text-slate-800.max-w-\\[96\\%\\].sm\\:max-w-\\[98\\%\\].mx-auto.space-y-4,
-                .grid.grid-cols-1.lg\\:grid-cols-12.gap-6.items-start,
-                .lg\\:col-span-9.space-y-4,
-                .p-4.bg-white.print\\:p-0 {
-                  display: contents !important;
+                /* Neutralize all parent wrappers and layout containers of print-container to bypass flex, grid, height and overflow constraints */
+                body *:not(.print-container):not(.print-container *) {
+                  height: auto !important;
+                  min-height: 0 !important;
+                  max-height: none !important;
+                  overflow: visible !important;
+                  position: static !important;
+                  display: block !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  background: transparent !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  width: auto !important;
+                  max-width: none !important;
                 }
 
                 .print-container { 
