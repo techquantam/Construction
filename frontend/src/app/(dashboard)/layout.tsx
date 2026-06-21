@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useEffect, Suspense, useRef } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 import { toast } from "sonner";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import api from "@/lib/axios";
 import {
   Building2,
   Database,
@@ -21,12 +19,6 @@ import {
   Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 function SearchParamsSync() {
   const pathname = usePathname();
@@ -92,114 +84,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-
-  const [showCreateCompanyModal, setShowCreateCompanyModal] = useState(false);
-  const [compSiteId, setCompSiteId] = useState("");
-  const [compName, setCompName] = useState("");
-  const [compAddress, setCompAddress] = useState("");
-  const [compMobile, setCompMobile] = useState("");
-
-  const siteRef = useRef<HTMLSelectElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
-  const addressRef = useRef<HTMLTextAreaElement>(null);
-  const mobileRef = useRef<HTMLInputElement>(null);
-
-  const queryClient = useQueryClient();
-  const createCompanyMutation = useMutation({
-    mutationFn: async (payload: { siteId: string; name: string; address: string; mobile: string }) => {
-      const cleanName = payload.name.trim().toUpperCase();
-      return await api.post("/ledgers", {
-        type: "Company",
-        name: cleanName,
-        contactPerson: JSON.stringify({
-          address: payload.address.trim().toUpperCase() || "N/A",
-          mobileNo: payload.mobile.trim() || "N/A",
-          customerExtra: "CUSTOMER",
-          measurementType: "OTHER",
-          plotUnit: "CFT"
-        }),
-        phone: payload.mobile.trim() || "N/A",
-        openingBalance: 0,
-        siteId: payload.siteId
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ledgers"] });
-      queryClient.invalidateQueries({ queryKey: ["daybooks"] });
-      toast.success("Company Ledger Account created successfully!");
-      setShowCreateCompanyModal(false);
-      // Reset form
-      setCompName("");
-      setCompAddress("");
-      setCompMobile("");
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to create Company Account");
-    }
-  });
-
-  useEffect(() => {
-    if (showCreateCompanyModal) {
-      setCompSiteId(selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : (sites && sites.length > 0 ? sites[0].id : ""));
-      setTimeout(() => {
-        if (siteRef.current) {
-          siteRef.current.focus();
-        }
-      }, 100);
-    }
-  }, [showCreateCompanyModal, selectedSiteId, sites]);
-
-  const focusAndSelectField = (ref: React.RefObject<any>) => {
-    if (ref.current) {
-      ref.current.focus();
-      if ('select' in ref.current && typeof ref.current.select === 'function') {
-        ref.current.select();
-      }
-    }
-  };
-
-  const handleCreateCompanySubmit = () => {
-    if (!compSiteId) {
-      toast.error("Please select a construction site");
-      return;
-    }
-    if (!compName.trim()) {
-      toast.error("Account name is required");
-      nameRef.current?.focus();
-      return;
-    }
-    createCompanyMutation.mutate({
-      siteId: compSiteId,
-      name: compName,
-      address: compAddress,
-      mobile: compMobile
-    });
-  };
-
-  const handleFormKeyDown = (e: React.KeyboardEvent, fieldName: "site" | "name" | "address" | "mobile") => {
-    const fields = [siteRef, nameRef, addressRef, mobileRef];
-    const currentIndex = ["site", "name", "address", "mobile"].indexOf(fieldName);
-    
-    if (e.key === "Enter") {
-      if (fieldName === "address" && e.shiftKey) {
-        return;
-      }
-      e.preventDefault();
-      if (currentIndex === fields.length - 1) {
-        handleCreateCompanySubmit();
-      } else {
-        focusAndSelectField(fields[currentIndex + 1]);
-      }
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      if (currentIndex === 0) {
-        setShowCreateCompanyModal(false);
-      } else {
-        focusAndSelectField(fields[currentIndex - 1]);
-      }
-    }
-  };
 
   useEffect(() => {
     setUserRole(localStorage.getItem("userRole"));
@@ -314,11 +198,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           { label: "4.2. EXIT", href: "exit", code: "exit" },
         ];
       case 5:
-        return [];
+        return [
+          { label: "5.1. COMPANY ACCOUNT", href: "/company", code: "5.1" },
+          { label: "5.2. EXIT", href: "exit", code: "exit" },
+        ];
       case 6:
         return [
-          { label: "5.1. BACKUP DATABASE", href: "/backup?action=backup", code: "5.1" },
-          { label: "5.2. EXIT", href: "exit", code: "exit" },
+          { label: "6.1. BACKUP DATABASE", href: "/backup?action=backup", code: "6.1" },
+          { label: "6.2. EXIT", href: "exit", code: "exit" },
         ];
       default:
         return [];
@@ -337,8 +224,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showCreateCompanyModal) return;
-
       if (!isDashboard) {
         if (e.key === "Escape") {
           // If a nested modal (z-[9999] or z-50 overlay) is open, let it handle Escape.
@@ -369,8 +254,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           setFocusedMainIndex((prev) => (prev - 1 + 7) % 7);
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
-          const targetMenuNum = [1, 2, 3, 4, 5, 6][focusedMainIndex];
-          if (targetMenuNum === 1 || targetMenuNum === 2) {
+          if (activeMainMenu && activeMainMenu !== 0) {
             setFocusedColumn("sub");
             setFocusedSubIndex(0);
           }
@@ -378,8 +262,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           e.preventDefault();
           if (focusedMainIndex === 6) {
             handleLogout();
-          } else if (focusedMainIndex === 4) {
-            setShowCreateCompanyModal(true);
           } else if (focusedMainIndex === 2) {
             setActiveMainMenu(3);
             setActiveSubMenu("3.1");
@@ -388,9 +270,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             setActiveMainMenu(4);
             setActiveSubMenu("4.1");
             router.push("/materials");
+          } else if (focusedMainIndex === 4) {
+            setActiveMainMenu(5);
+            setActiveSubMenu("5.1");
+            router.push("/company");
           } else if (focusedMainIndex === 5) {
             setActiveMainMenu(6);
-            setActiveSubMenu("5.1");
+            setActiveSubMenu("6.1");
             router.push("/backup?action=backup");
           } else {
             const nextMenu = focusedMainIndex + 1;
@@ -449,7 +335,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     if (menuNum === 5) {
-      setShowCreateCompanyModal(true);
+      setActiveMainMenu(5);
+      setActiveSubMenu("5.1");
+      router.push("/company");
       return;
     }
 
@@ -479,7 +367,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const renderSubMenu = () => {
-    if (activeMainMenu === 0 || activeMainMenu === null || activeMainMenu === 5) return null;
+    if (activeMainMenu === 0 || activeMainMenu === null) return null;
     const items = getSubMenuItems(activeMainMenu);
 
     // Default admin rendering
@@ -488,7 +376,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         activeMainMenu === 2 ? "2. PRINT" :
           activeMainMenu === 3 ? "3. CHALLAN" :
             activeMainMenu === 4 ? "4. MATERIAL" :
-              activeMainMenu === 6 ? "6. DATA BACKUP" : "";
+              activeMainMenu === 5 ? "5. COMPANY ACCOUNT" :
+                activeMainMenu === 6 ? "6. DATA BACKUP" : "";
 
     return (
       <div className="flex flex-col h-full bg-slate-50 border-r border-slate-300 w-full animate-in fade-in slide-in-from-left-4 duration-200 font-sans">
@@ -687,105 +576,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
 
       </div>
-
-      {/* CREATE COMPANY ACCOUNT POPUP DIALOG */}
-      <Dialog open={showCreateCompanyModal} onOpenChange={setShowCreateCompanyModal}>
-        <DialogContent className="max-w-md bg-white border-2 border-slate-950 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] p-0 overflow-hidden font-sans z-[9999]">
-          <DialogHeader className="bg-amber-400 border-b-2 border-slate-950 px-4 py-3 shrink-0">
-            <DialogTitle className="text-sm font-black uppercase tracking-widest font-mono text-slate-900">
-              CREATE COMPANY ACCOUNT
-            </DialogTitle>
-          </DialogHeader>
-          <div className="p-6 space-y-4 font-mono text-sm">
-            
-            {/* Site Selection */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-black uppercase text-slate-500">
-                1. Select Construction Site
-              </label>
-              <select
-                ref={siteRef}
-                value={compSiteId}
-                onChange={(e) => setCompSiteId(e.target.value)}
-                onKeyDown={(e) => handleFormKeyDown(e, "site")}
-                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none bg-white font-semibold text-slate-800"
-              >
-                <option value="">-- SELECT SITE --</option>
-                {sites?.map((site: any) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Account Name */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-black uppercase text-slate-500">
-                2. Account Name
-              </label>
-              <input
-                ref={nameRef}
-                type="text"
-                value={compName}
-                onChange={(e) => setCompName(e.target.value)}
-                onKeyDown={(e) => handleFormKeyDown(e, "name")}
-                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none uppercase font-semibold text-slate-800"
-              />
-            </div>
-
-            {/* Address */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-black uppercase text-slate-500">
-                3. Address
-              </label>
-              <textarea
-                ref={addressRef}
-                value={compAddress}
-                onChange={(e) => setCompAddress(e.target.value)}
-                onKeyDown={(e) => handleFormKeyDown(e, "address")}
-                rows={2}
-                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none uppercase font-semibold text-slate-800 resize-none"
-              />
-            </div>
-
-            {/* Mobile Number */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-black uppercase text-slate-500">
-                4. Mobile Number
-              </label>
-              <input
-                ref={mobileRef}
-                type="text"
-                value={compMobile}
-                onChange={(e) => setCompMobile(e.target.value)}
-                onKeyDown={(e) => handleFormKeyDown(e, "mobile")}
-                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none font-semibold text-slate-800"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="pt-2 flex justify-end gap-3 text-xs">
-              <button
-                type="button"
-                onClick={() => setShowCreateCompanyModal(false)}
-                className="px-4 py-2 border-2 border-slate-955 font-bold bg-slate-100 hover:bg-slate-200 uppercase"
-              >
-                [ESC] CANCEL
-              </button>
-              <button
-                type="button"
-                onClick={handleCreateCompanySubmit}
-                disabled={createCompanyMutation.isPending}
-                className="px-4 py-2 border-2 border-slate-955 font-black bg-amber-400 hover:bg-amber-500 uppercase disabled:opacity-50"
-              >
-                {createCompanyMutation.isPending ? "SAVING..." : "[ENTER] SAVE"}
-              </button>
-            </div>
-
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
