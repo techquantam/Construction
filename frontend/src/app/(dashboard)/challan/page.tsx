@@ -3020,7 +3020,7 @@ export default function ChallanPage() {
     );
   };
 
-  const renderWithoutRateContent = (designation: "ORIGINAL" | "DUPLICATE") => {
+  const renderWithoutRateContent = (designation: "O" | "D") => {
     return (
       <div className="space-y-4">
         <div className="text-center border-b-2 border-slate-800 pb-2 flex justify-between items-center">
@@ -3134,7 +3134,7 @@ export default function ChallanPage() {
     );
   };
 
-  const renderWithRateContent = (designation: "ORIGINAL" | "DUPLICATE") => {
+  const renderWithRateContent = (designation: "O" | "D") => {
     const debitItems = challanData.items.filter((item: any) => item.type === "TO");
     const creditItems = challanData.items.filter((item: any) => item.type === "BY");
 
@@ -3476,23 +3476,91 @@ export default function ChallanPage() {
                   __html: `
               .print-only-layout { display: none !important; }
               @media print {
-                @page { size: portrait; margin: 0; }
+                @page { size: portrait; margin: 8mm; }
+                html, body {
+                  height: auto !important;
+                  min-height: 0 !important;
+                  overflow: visible !important;
+                  position: static !important;
+                }
                 body { visibility: hidden; background: white !important; color: black !important; }
                 .print-container, .print-container * { visibility: visible !important; }
                 .no-print, .no-print * { display: none !important; visibility: hidden !important; }
                 .print-only-layout { display: block !important; }
+                
+                /* Hide the yellow modal header bar completely */
+                .bg-amber-400 {
+                  display: none !important;
+                }
+                /* Neutralize layout flex and screen height wrappers in print */
+                .flex.h-screen, .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden {
+                  height: auto !important;
+                  min-height: 0 !important;
+                  display: block !important;
+                  overflow: visible !important;
+                  position: static !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                }
+                /* Neutralize absolute modal backdrop and flex centering */
+                .absolute.inset-0.bg-slate-900\\/40, .absolute.inset-0 {
+                  position: static !important;
+                  display: block !important;
+                  background: transparent !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  height: auto !important;
+                  max-height: none !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  overflow: visible !important;
+                }
+                /* Strip modal borders, shadows, backgrounds, and viewports in print. Convert to block display to allow page breaks */
+                .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+                  display: block !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  background: transparent !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  height: auto !important;
+                  max-height: none !important;
+                  overflow: visible !important;
+                }
+                /* Neutralize workspace page-level container margins and column spans to keep document flow linear */
+                .font-mono.text-slate-800.max-w-\\[96\\%\\].sm\\:max-w-\\[98\\%\\].mx-auto.space-y-4,
+                .grid.grid-cols-1.lg\\:grid-cols-12.gap-6.items-start,
+                .lg\\:col-span-9.space-y-4 {
+                  display: block !important;
+                  position: static !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  background: transparent !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  height: auto !important;
+                  max-height: none !important;
+                  overflow: visible !important;
+                }
+
                 .print-container { 
-                  position: absolute !important; 
-                  left: 8mm !important; 
-                  top: 8mm !important; 
-                  right: 8mm !important; 
+                  position: relative !important; 
                   border: none !important; 
                   padding: 0 !important; 
+                  margin: 0 !important;
                   box-shadow: none !important; 
                   background: white !important;
                   display: block !important;
                   z-index: 99999999 !important;
                   zoom: 1 !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  height: auto !important;
+                  overflow: visible !important;
                 }
                 .print-page {
                   page-break-after: always !important;
@@ -3502,12 +3570,14 @@ export default function ChallanPage() {
                   border-radius: 4px !important;
                   background: white !important;
                   box-sizing: border-box !important;
-                  margin-bottom: 0 !important;
+                  margin: 0 0 10mm 0 !important;
                   display: block !important;
+                  width: 100% !important;
                 }
                 .print-page:last-child {
                   page-break-after: avoid !important;
                   break-after: avoid !important;
+                  margin-bottom: 0 !important;
                 }
                 
                 /* Large typography for A5 half-page readability */
@@ -3749,15 +3819,15 @@ export default function ChallanPage() {
                   </div>
 
                   {/* PRINT-ONLY SECTION */}
-                  <div className="print-only-layout space-y-6">
+                  <div className="print-only-layout">
                     {printType === "without_rate" && (
                       <>
                         <div className="print-page">
-                          {renderWithoutRateContent("ORIGINAL")}
+                          {renderWithoutRateContent("O")}
                         </div>
                         {copiesCount === 2 && (
                           <div className="print-page">
-                            {renderWithoutRateContent("DUPLICATE")}
+                            {renderWithoutRateContent("D")}
                           </div>
                         )}
                       </>
@@ -3765,11 +3835,11 @@ export default function ChallanPage() {
                     {printType === "with_rate" && (
                       <>
                         <div className="print-page">
-                          {renderWithRateContent("ORIGINAL")}
+                          {renderWithRateContent("O")}
                         </div>
                         {copiesCount === 2 && (
                           <div className="print-page">
-                            {renderWithRateContent("DUPLICATE")}
+                            {renderWithRateContent("D")}
                           </div>
                         )}
                       </>

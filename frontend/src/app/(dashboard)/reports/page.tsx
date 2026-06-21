@@ -2395,8 +2395,9 @@ function ReportsContent() {
               max-width: 100% !important;
               overflow: visible !important;
             }
-            /* Strip modal borders, shadows, backgrounds, and viewports in print */
+            /* Strip modal borders, shadows, backgrounds, and viewports in print. Convert to block to allow page breaks */
             .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+              display: block !important;
               border: none !important;
               box-shadow: none !important;
               background: transparent !important;
@@ -2978,8 +2979,9 @@ function ReportsContent() {
               max-width: 100% !important;
               overflow: visible !important;
             }
-            /* Strip modal borders, shadows, backgrounds, and viewports in print */
+            /* Strip modal borders, shadows, backgrounds, and viewports in print. Convert to block to allow page breaks */
             .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+              display: block !important;
               border: none !important;
               box-shadow: none !important;
               background: transparent !important;
@@ -3518,8 +3520,9 @@ function ReportsContent() {
               max-width: 100% !important;
               overflow: visible !important;
             }
-            /* Strip modal borders, shadows, backgrounds, and viewports in print */
+            /* Strip modal borders, shadows, backgrounds, and viewports in print. Convert to block to allow page breaks */
             .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
+              display: block !important;
               border: none !important;
               box-shadow: none !important;
               background: transparent !important;
