@@ -154,6 +154,7 @@ function ReportsContent() {
   const lgSiteSelectorRef = useRef<HTMLDivElement>(null);
 
   const [lgLedgerSearchVal, setLgLedgerSearchVal] = useState("");
+  const [lgTypedSearchVal, setLgTypedSearchVal] = useState("");
   const [lgSelectedLedgerId, setLgSelectedLedgerId] = useState<string | null>(null);
   const [isLgLedgerSuggestionsOpen, setIsLgLedgerSuggestionsOpen] = useState(false);
   const [highlightedLgLedgerIndex, setHighlightedLgLedgerIndex] = useState<number>(-1);
@@ -580,13 +581,13 @@ function ReportsContent() {
   // Filter accounts suggestions list to display active site accounts only
   const filteredLgLedgers = (() => {
     const activeLedger = activeSiteLedgers.find((l) => String(l.id) === String(lgSelectedLedgerId));
-    const isSearching = lgLedgerSearchVal.trim() !== "" && lgLedgerSearchVal.toUpperCase() !== activeLedger?.name?.toUpperCase();
+    const isSearching = lgTypedSearchVal.trim() !== "" && lgTypedSearchVal.toUpperCase() !== activeLedger?.name?.toUpperCase();
     
     if (!isSearching) {
       return activeSiteLedgers;
     }
     
-    const queryUpper = lgLedgerSearchVal.trim().toUpperCase();
+    const queryUpper = lgTypedSearchVal.trim().toUpperCase();
 
     const getMatchScore = (ledger: any) => {
       const nameUpper = ledger.name.toUpperCase();
@@ -604,9 +605,9 @@ function ReportsContent() {
       if (addressUpper.startsWith(queryUpper) || phoneUpper.startsWith(queryUpper)) return 700;
       if (addressUpper.includes(queryUpper) || phoneUpper.includes(queryUpper)) return 600;
       
-      if (matchesFuzzy(ledger.name, lgLedgerSearchVal)) return 500;
-      if (address && matchesFuzzy(address, lgLedgerSearchVal)) return 400;
-      if (phone && matchesFuzzy(phone, lgLedgerSearchVal)) return 300;
+      if (matchesFuzzy(ledger.name, lgTypedSearchVal)) return 500;
+      if (address && matchesFuzzy(address, lgTypedSearchVal)) return 400;
+      if (phone && matchesFuzzy(phone, lgTypedSearchVal)) return 300;
       
       return 0;
     };
@@ -817,6 +818,7 @@ function ReportsContent() {
         // reset ledger selection when site changes
         setLgSelectedLedgerId(null);
         setLgLedgerSearchVal("");
+        setLgTypedSearchVal("");
 
         setTimeout(() => {
           lgLedgerInputRef.current?.focus();
@@ -849,6 +851,14 @@ function ReportsContent() {
           const el = document.getElementById(`lg-acct-opt-${index}`);
           if (el) el.scrollIntoView({ block: "nearest" });
         }, 10);
+
+        // AUTO OPEN THE LEDGER AS THEY SCROLL!
+        const ledger = filteredLgLedgers[index];
+        if (ledger) {
+          setLgSelectedLedgerId(ledger.id);
+          setLgLedgerSearchVal(ledger.name.toUpperCase());
+        }
+
         return index;
       });
     } else if (e.key === "ArrowUp") {
@@ -860,6 +870,14 @@ function ReportsContent() {
           const el = document.getElementById(`lg-acct-opt-${index}`);
           if (el) el.scrollIntoView({ block: "nearest" });
         }, 10);
+
+        // AUTO OPEN THE LEDGER AS THEY SCROLL!
+        const ledger = filteredLgLedgers[index];
+        if (ledger) {
+          setLgSelectedLedgerId(ledger.id);
+          setLgLedgerSearchVal(ledger.name.toUpperCase());
+        }
+
         return index;
       });
     } else if (e.key === "Enter") {
@@ -872,10 +890,36 @@ function ReportsContent() {
         const ledger = filteredLgLedgers[targetIndex];
         setLgSelectedLedgerId(ledger.id);
         setLgLedgerSearchVal(ledger.name.toUpperCase());
+        setLgTypedSearchVal(ledger.name.toUpperCase());
       }
       setIsLgLedgerSuggestionsOpen(false);
       setHighlightedLgLedgerIndex(-1);
       lgLedgerInputRef.current?.blur();
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      e.stopPropagation();
+      let targetIndex = highlightedLgLedgerIndex;
+      if (targetIndex === -1 && filteredLgLedgers.length > 0) {
+        targetIndex = 0;
+      }
+      if (targetIndex >= 0 && targetIndex < filteredLgLedgers.length) {
+        const ledger = filteredLgLedgers[targetIndex];
+        setLgSelectedLedgerId(ledger.id);
+        setLgLedgerSearchVal(ledger.name.toUpperCase());
+        setLgTypedSearchVal(ledger.name.toUpperCase());
+      }
+      setIsLgLedgerSuggestionsOpen(false);
+      setHighlightedLgLedgerIndex(-1);
+      lgLedgerInputRef.current?.blur();
+      
+      // Auto highlight and scroll to first row in table
+      if (processedLgData.items.length > 0) {
+        setLgSelectedRowIndex(0);
+        setTimeout(() => {
+          const el = document.getElementById("lg-row-0");
+          if (el) el.scrollIntoView({ block: "nearest" });
+        }, 50);
+      }
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
@@ -1778,6 +1822,20 @@ function ReportsContent() {
           if (el) el.scrollIntoView({ block: "nearest" });
           return target;
         });
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        e.stopPropagation();
+        lgLedgerInputRef.current?.focus();
+        setTimeout(() => {
+          lgLedgerInputRef.current?.select();
+          setIsLgLedgerSuggestionsOpen(true);
+          setHighlightedLgLedgerIndex(() => {
+            const activeIndex = filteredLgLedgers.findIndex(
+              (l) => String(l.id) === String(lgSelectedLedgerId)
+            );
+            return activeIndex >= 0 ? activeIndex : 0;
+          });
+        }, 50);
       }
     };
 
@@ -1790,7 +1848,9 @@ function ReportsContent() {
     isLgLedgerSuggestionsOpen,
     isDbSiteSuggestionsOpen,
     isSmSiteSuggestionsOpen,
-    isSmLedgerSuggestionsOpen
+    isSmLedgerSuggestionsOpen,
+    filteredLgLedgers,
+    lgSelectedLedgerId
   ]);
 
   // Global keydown handler for navigating daybook rows
@@ -2548,6 +2608,7 @@ function ReportsContent() {
                       onChange={(e) => {
                         const val = e.target.value;
                         setLgLedgerSearchVal(val);
+                        setLgTypedSearchVal(val);
                         setIsLgLedgerSuggestionsOpen(true);
                         setHighlightedLgLedgerIndex(-1);
                         
@@ -2607,6 +2668,7 @@ function ReportsContent() {
                               onClick={() => {
                                 setLgSelectedLedgerId(ledger.id);
                                 setLgLedgerSearchVal(ledger.name.toUpperCase());
+                                setLgTypedSearchVal(ledger.name.toUpperCase());
                                 setIsLgLedgerSuggestionsOpen(false);
                                 setHighlightedLgLedgerIndex(-1);
                               }}
