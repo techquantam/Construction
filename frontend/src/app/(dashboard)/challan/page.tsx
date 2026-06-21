@@ -544,6 +544,10 @@ export default function ChallanPage() {
 
   // Print Mode State
   const [printCopy, setPrintCopy] = useState<"copy1" | "copy2" | "both">("both");
+  const [showCopiesDialog, setShowCopiesDialog] = useState(false);
+  const [printType, setPrintType] = useState<"without_rate" | "with_rate" | null>(null);
+  const [copiesCount, setCopiesCount] = useState<1 | 2>(1);
+
 
   // States for Direct Challan Creation
   const [challanFormMode, setChallanFormMode] = useState<"DIRECT" | "COMPANY">("DIRECT");
@@ -2731,28 +2735,44 @@ export default function ChallanPage() {
   };
 
   const handlePrintWithoutRate = () => {
-    setPrintCopy("copy1");
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        setPrintCopy("both");
-      }, 500);
-    }, 100);
+    setPrintType("without_rate");
+    setShowCopiesDialog(true);
   };
 
   const handlePrintWithRate = () => {
-    setPrintCopy("copy2");
+    setPrintType("with_rate");
+    setShowCopiesDialog(true);
+  };
+
+  const triggerFinalPrint = (copies: 1 | 2) => {
+    setCopiesCount(copies);
+    setShowCopiesDialog(false);
     setTimeout(() => {
       window.print();
-      setTimeout(() => {
-        setPrintCopy("both");
-      }, 500);
-    }, 100);
+    }, 150);
   };
+
 
   // Connect hotkeys (1: Print Without Rate, 2: Print With Rate, F3: Excel)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showCopiesDialog) {
+        if (e.key === "1") {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerFinalPrint(1);
+        } else if (e.key === "2") {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerFinalPrint(2);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowCopiesDialog(false);
+        }
+        return;
+      }
+
       // F2 and F4 switch modes / open modal (work even when inputs are focused)
       if (e.key === "F2") {
         e.preventDefault();
@@ -2910,7 +2930,7 @@ export default function ChallanPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId, showDirectChallanModal, handleAddDirectItem, directItems, todayChallansList, directChallan, focusedChallanIndex]);
+  }, [challanData, selectedLedgerObj, challanSerial, selectedSiteId, showDirectChallanModal, handleAddDirectItem, directItems, todayChallansList, directChallan, focusedChallanIndex, showCopiesDialog, triggerFinalPrint]);
 
   const renderItemRow = (item: any, displayIndex: number) => {
     const isCredit = item.type === "BY";
@@ -2997,6 +3017,207 @@ export default function ChallanPage() {
           </div>
         </td>
       </tr>
+    );
+  };
+
+  const renderWithoutRateContent = (designation: "ORIGINAL" | "DUPLICATE") => {
+    return (
+      <div className="space-y-4">
+        <div className="text-center border-b-2 border-slate-800 pb-2 flex justify-between items-center">
+          <div className="w-1/3"></div>
+          <h1 className="text-xl font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h1>
+          <div className="w-1/3"></div>
+        </div>
+
+        <div className="border border-slate-850 p-3 bg-slate-50/50">
+          <div className="grid grid-cols-4 gap-3 text-xs font-bold font-mono">
+            <div className="col-span-2 space-y-1">
+              <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
+              <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
+                <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
+                {translateBilingual(supplierAddress)}
+              </div>
+              <div className="text-[11px] text-slate-700 leading-none supplier-info">
+                <span className="text-slate-400 text-[9px] font-black mr-1">PHONE:</span>
+                {supplierPhone}
+              </div>
+            </div>
+            <div className="border-l border-slate-300 pl-3">
+              <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">NO.</span>
+              <span className="text-slate-955 font-black text-sm block mt-0.5 meta-value">{challanSerial}</span>
+            </div>
+            <div className="border-l border-slate-300 pl-3">
+              <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">DATE</span>
+              <span className="text-slate-955 font-black text-xs block mt-1 meta-value">{challanDateStr}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="overflow-x-auto border border-slate-800">
+            <table className="w-full text-left border-collapse text-xs font-mono">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
+                  <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
+                  <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
+                  <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
+                  <th className="py-1.5 px-3 text-center w-20">Unit</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-300 font-black text-[12px]">
+                {challanData.items.filter((item: any) => item.qty > 0).length > 0 ? (
+                  challanData.items.filter((item: any) => item.qty > 0).map((item: any, idx: number) => (
+                    <tr key={item.id} className="uppercase text-slate-900">
+                      <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 w-12 shrink-0">
+                        {idx + 1}
+                      </td>
+                      <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
+                        {translateBilingual(item.material)}
+                      </td>
+                      <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
+                        {item.qty}
+                      </td>
+                      <td className="py-1 px-2 text-center font-bold text-slate-500 w-20">
+                        {item.unit}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan={4} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPrintWithRateItemRow = (item: any, displayIndex: number) => {
+    const isCredit = item.type === "BY";
+    const cellPadding = isCredit ? "py-1.5 px-3" : "py-1 px-2";
+    const cellBorder = isCredit ? "border-r border-slate-800" : "border-r border-slate-300";
+    return (
+      <tr
+        key={item.id}
+        className={isCredit
+          ? "bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px] uppercase"
+          : "hover:bg-slate-50 uppercase text-slate-900"
+        }
+      >
+        <td className={`${cellPadding} ${cellBorder} text-center text-slate-700 w-12 shrink-0`}>
+          <span>{displayIndex}</span>
+        </td>
+        <td className={`${cellPadding} ${cellBorder} text-slate-955 font-extrabold`}>
+          {translateBilingual(item.material)}
+        </td>
+        <td className={`${cellPadding} ${cellBorder} text-right font-mono text-slate-955 w-24`}>
+          {item.qty}
+        </td>
+        <td className={`${cellPadding} ${cellBorder} text-center font-bold text-slate-500 w-20`}>
+          {isCredit ? "-" : item.unit}
+        </td>
+        <td className={`${cellPadding} ${cellBorder} w-20 ${isCredit ? "text-center font-bold text-slate-500" : "text-right font-mono text-slate-655"}`}>
+          {isCredit ? "RECEIVED" : item.rate > 0 ? item.rate.toFixed(2) : "-"}
+        </td>
+        <td className={`${cellPadding} text-right font-mono text-slate-955 w-36`}>
+          <div className="flex items-center justify-end gap-1.5 h-full">
+            <span>{item.amount > 0 ? item.amount.toFixed(2) : "-"}</span>
+            {item.amount > 0 && (
+              <span className={`ml-1 text-[11px] font-bold ${item.type === "TO" ? "text-red-750" : "text-emerald-750"}`}>
+                {item.type === "TO" ? "DR" : "CR"}
+              </span>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderWithRateContent = (designation: "ORIGINAL" | "DUPLICATE") => {
+    const debitItems = challanData.items.filter((item: any) => item.type === "TO");
+    const creditItems = challanData.items.filter((item: any) => item.type === "BY");
+
+    return (
+      <div className="space-y-4">
+        <div className="text-center border-b-2 border-slate-800 pb-2 flex justify-between items-center">
+          <div className="w-1/3"></div>
+          <h1 className="text-xl font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h1>
+          <div className="w-1/3"></div>
+        </div>
+
+        <div className="border border-slate-850 p-3 bg-slate-50/50">
+          <div className="grid grid-cols-4 gap-3 text-xs font-bold font-mono">
+            <div className="col-span-2 space-y-1">
+              <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
+              <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
+                <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
+                {translateBilingual(supplierAddress)}
+              </div>
+              <div className="text-[11px] text-slate-700 leading-none supplier-info">
+                <span className="text-slate-400 text-[9px] font-black mr-1">PHONE:</span>
+                {supplierPhone}
+              </div>
+            </div>
+            <div className="border-l border-slate-300 pl-3">
+              <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">NO.</span>
+              <span className="text-slate-955 font-black text-sm block mt-0.5 meta-value">{challanSerial}</span>
+            </div>
+            <div className="border-l border-slate-300 pl-3">
+              <span className="text-slate-500 uppercase block text-[9px] font-black meta-title">DATE</span>
+              <span className="text-slate-955 font-black text-xs block mt-1 meta-value">{challanDateStr}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="overflow-x-auto border border-slate-800">
+            <table className="w-full text-left border-collapse text-xs font-mono">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
+                  <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
+                  <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
+                  <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
+                  <th className="py-1.5 px-3 border-r border-slate-800 text-center w-20">Unit</th>
+                  <th className="py-1.5 px-3 border-r border-slate-800 text-right w-20">Rate</th>
+                  <th className="py-1.5 px-3 text-right w-36">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-300 font-black text-[12px]">
+                {challanData.items.length > 0 ? (
+                  <>
+                    {debitItems.map((item: any, idx: number) => renderPrintWithRateItemRow(item, idx + 1))}
+
+                    <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
+                      <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
+                      <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
+                      <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit.toFixed(2)} DR</td>
+                    </tr>
+
+                    {creditItems.map((item: any, idx: number) => renderPrintWithRateItemRow(item, debitItems.length + idx + 1))}
+                  </>
+                ) : (
+                  <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
+                )}
+              </tbody>
+              {challanData.items.length > 0 && (
+                <tfoot>
+                  <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
+                    <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
+                    <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-amber-900">BALANCE:</td>
+                    <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">
+                      {challanData.totalAmount < 0
+                        ? `${Math.abs(challanData.totalAmount).toFixed(2)} CR`
+                        : `${challanData.totalAmount.toFixed(2)} DR`
+                      }
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -3253,11 +3474,13 @@ export default function ChallanPage() {
                 {/* Dynamic print-only style tag */}
                 <style dangerouslySetInnerHTML={{
                   __html: `
+              .print-only-layout { display: none !important; }
               @media print {
                 @page { size: portrait; margin: 0; }
                 body { visibility: hidden; background: white !important; color: black !important; }
                 .print-container, .print-container * { visibility: visible !important; }
                 .no-print, .no-print * { display: none !important; visibility: hidden !important; }
+                .print-only-layout { display: block !important; }
                 .print-container { 
                   position: absolute !important; 
                   left: 8mm !important; 
@@ -3292,7 +3515,7 @@ export default function ChallanPage() {
 
                 {/* Inner content wrapper */}
                 <div className="p-4 bg-white print:p-0">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:block print:space-y-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
 
                     {/* COPY 1: WITHOUT RATE & AMOUNT */}
                     <div className={`space-y-4 ${printCopy === "copy2" ? "print:hidden" : ""}`}>
@@ -3509,8 +3732,34 @@ export default function ChallanPage() {
                         </div>
                       </div>
                     </div>
-
                   </div>
+
+                  {/* PRINT-ONLY SECTION */}
+                  <div className="print-only-layout space-y-6">
+                    {printType === "without_rate" && (
+                      <>
+                        {renderWithoutRateContent("ORIGINAL")}
+                        {copiesCount === 2 && (
+                          <>
+                            <div className="border-t border-dashed border-black my-6" />
+                            {renderWithoutRateContent("DUPLICATE")}
+                          </>
+                        )}
+                      </>
+                    )}
+                    {printType === "with_rate" && (
+                      <>
+                        {renderWithRateContent("ORIGINAL")}
+                        {copiesCount === 2 && (
+                          <>
+                            <div className="border-t border-dashed border-black my-6" />
+                            {renderWithRateContent("DUPLICATE")}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+
                 </div>
               </div>
 
@@ -4474,6 +4723,58 @@ export default function ChallanPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Print Copies Selector Modal */}
+      {showCopiesDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-100">
+          <div className="bg-[#D3DFEE] border-2 border-slate-955 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[380px] max-w-[95vw] font-mono flex flex-col select-none">
+            <div className="border-b-2 border-slate-950 px-3 py-2 flex items-center justify-between text-white shrink-0 bg-slate-900">
+              <span className="text-xs font-black uppercase tracking-wider">PRINT COPIES / प्रतियों का चयन</span>
+              <button
+                type="button"
+                onClick={() => setShowCopiesDialog(false)}
+                className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2.5 py-1 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer font-bold"
+              >
+                X
+              </button>
+            </div>
+            <div className="p-6 bg-[#E5ECF4] space-y-4 text-slate-955">
+              <p className="text-center font-bold text-sm uppercase text-slate-800 tracking-wider">
+                Select copies to print:
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  id="btn-print-copy-1"
+                  onClick={() => triggerFinalPrint(1)}
+                  className="w-full py-2.5 bg-[#FFE600] text-slate-955 border-2 border-slate-900 font-black text-xs uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:bg-[#E5C300] active:translate-y-0.5 active:shadow-none transition-all text-left px-4 flex justify-between items-center"
+                >
+                  <span>1. 1 COPY (ORIGINAL)</span>
+                  <span className="text-[10px] text-slate-600 font-normal">[Press 1]</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-print-copy-2"
+                  onClick={() => triggerFinalPrint(2)}
+                  className="w-full py-2.5 bg-white text-slate-955 border-2 border-slate-900 font-black text-xs uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:bg-slate-100 active:translate-y-0.5 active:shadow-none transition-all text-left px-4 flex justify-between items-center"
+                >
+                  <span>2. 2 COPIES (ORIGINAL & DUPLICATE)</span>
+                  <span className="text-[10px] text-slate-600 font-normal">[Press 2]</span>
+                </button>
+              </div>
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowCopiesDialog(false)}
+                  className="px-4 py-1.5 bg-slate-200 border-2 border-slate-900 text-slate-900 font-black text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-slate-350 active:translate-y-0.5 active:shadow-none transition-all"
+                >
+                  Cancel [Esc]
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
