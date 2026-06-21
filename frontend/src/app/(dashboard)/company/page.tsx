@@ -216,25 +216,8 @@ export default function CompanyAccountsPage() {
         }
       }
 
-      // If search input is focused and we press ArrowDown, focus the first row
-      if (activeEl === pageSearchInputRef.current) {
-        if (e.key === "ArrowDown") {
-          if (companyAccounts.length > 0) {
-            e.preventDefault();
-            e.stopPropagation();
-            setFocusedRowIndex(0);
-            setTimeout(() => {
-              const el = document.getElementById(`account-row-0`);
-              if (el) el.scrollIntoView({ block: "nearest" });
-            }, 10);
-          }
-        }
-        return;
-      }
-
-      // If a row is selected
-      if (focusedRowIndex >= 0 && focusedRowIndex < companyAccounts.length) {
-        if (e.key === "ArrowDown") {
+      if (e.key === "ArrowDown") {
+        if (companyAccounts.length > 0) {
           e.preventDefault();
           e.stopPropagation();
           setFocusedRowIndex((prev) => {
@@ -246,13 +229,16 @@ export default function CompanyAccountsPage() {
             }, 10);
             return index;
           });
-        } else if (e.key === "ArrowUp") {
+        }
+      } else if (e.key === "ArrowUp") {
+        if (focusedRowIndex >= 0) {
           e.preventDefault();
           e.stopPropagation();
           setFocusedRowIndex((prev) => {
             const next = prev - 1;
             if (next < 0) {
               pageSearchInputRef.current?.focus();
+              pageSearchInputRef.current?.select();
               return -1;
             }
             setTimeout(() => {
@@ -261,7 +247,9 @@ export default function CompanyAccountsPage() {
             }, 10);
             return next;
           });
-        } else if (e.key === "Delete") {
+        }
+      } else if (e.key === "Delete") {
+        if (focusedRowIndex >= 0 && focusedRowIndex < companyAccounts.length) {
           e.preventDefault();
           e.stopPropagation();
           const target = companyAccounts[focusedRowIndex];
