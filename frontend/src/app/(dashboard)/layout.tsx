@@ -730,8 +730,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 value={compName}
                 onChange={(e) => setCompName(e.target.value)}
                 onKeyDown={(e) => handleFormKeyDown(e, "name")}
-                placeholder="E.G. SHREE BALAJI TRADERS"
-                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none uppercase font-semibold text-slate-800 placeholder:text-slate-400"
+                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none uppercase font-semibold text-slate-800"
               />
             </div>
 
@@ -746,8 +745,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 onChange={(e) => setCompAddress(e.target.value)}
                 onKeyDown={(e) => handleFormKeyDown(e, "address")}
                 rows={2}
-                placeholder="E.G. GORAKHPUR, U.P."
-                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none uppercase font-semibold text-slate-800 placeholder:text-slate-400 resize-none"
+                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none uppercase font-semibold text-slate-800 resize-none"
               />
             </div>
 
@@ -762,8 +760,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 value={compMobile}
                 onChange={(e) => setCompMobile(e.target.value)}
                 onKeyDown={(e) => handleFormKeyDown(e, "mobile")}
-                placeholder="E.G. 9876543210"
-                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none font-semibold text-slate-800 placeholder:text-slate-400"
+                className="w-full px-3 py-2 border-2 border-slate-300 focus:border-slate-950 focus:outline-none font-semibold text-slate-800"
               />
             </div>
 
