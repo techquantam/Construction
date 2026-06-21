@@ -61,6 +61,7 @@ function parsePaymentModeDetails(mode: string) {
         address: parsed.address || "",
         mobile: parsed.mobile || "",
         crDr: parsed.crDr || "",
+        sequence: parsed.sequence !== undefined && parsed.sequence !== null ? Number(parsed.sequence) : null,
         raw: clean
       };
     } catch {
@@ -78,10 +79,10 @@ function parsePaymentModeDetails(mode: string) {
     if (subParts.length >= 2) {
       const qty = subParts[0];
       const unit = subParts.slice(1).join(" ");
-      return { qty, unit, rate: ratePart, isStructured: true, isCompany: false, material: "", raw: cleanUpper };
+      return { qty, unit, rate: ratePart, isStructured: true, isCompany: false, material: "", sequence: null, raw: cleanUpper };
     }
   }
-  return { qty: "", unit: "", rate: "", isStructured: false, isCompany: false, material: "", raw: cleanUpper };
+  return { qty: "", unit: "", rate: "", isStructured: false, isCompany: false, material: "", sequence: null, raw: cleanUpper };
 }
 
 // Parses Party contact person detail JSON
@@ -1213,8 +1214,9 @@ export default function ChallanPage() {
 
       const generatedChallanNo = getNextChallanNoForDate(dateStr, siteDaybookData || [], localDirectChallans);
 
-      // 3. Post daybook entry for each material item
-      const promises = payload.items.map(async (item) => {
+      // 3. Post daybook entry for each material item sequentially
+      let sequence = 0;
+      for (const item of payload.items) {
         const serializedPaymentMode = JSON.stringify({
           type: "CompanyTransaction",
           address: payload.address.trim().toUpperCase() || "N/A",
@@ -1223,7 +1225,8 @@ export default function ChallanPage() {
           qty: item.qty,
           unit: item.unit.trim().toUpperCase() || "CFT",
           crDr: item.type === "TO" ? "DR" : "CR",
-          rate: item.rate
+          rate: item.rate,
+          sequence: sequence++
         });
 
         const daybookPayload = {
@@ -1236,10 +1239,8 @@ export default function ChallanPage() {
           referenceNumber: generatedChallanNo,
         };
 
-        return api.post("/daybooks", daybookPayload);
-      });
-
-      await Promise.all(promises);
+        await api.post("/daybooks", daybookPayload);
+      }
 
       return { ledgerId, cleanCustomerName };
     },
@@ -1439,9 +1440,20 @@ export default function ChallanPage() {
             unit: parsed.unit || "CFT",
             rate,
             amount,
-            type: isDebit ? "TO" as const : "BY" as const
+            type: isDebit ? "TO" as const : "BY" as const,
+            sequence: parsed.isCompany && parsed.sequence !== undefined ? parsed.sequence : null,
+            createdAt: item.createdAt
           };
         }).filter(item => item.material && (item.qty > 0 || item.amount > 0));
+
+        items.sort((a: any, b: any) => {
+          if (a.sequence !== null && b.sequence !== null) {
+            return a.sequence - b.sequence;
+          }
+          if (a.sequence !== null) return -1;
+          if (b.sequence !== null) return 1;
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        });
 
         const totalAmount = items.reduce((sum, item) => {
           return item.type === "BY" ? sum - item.amount : sum + item.amount;
@@ -1991,11 +2003,25 @@ export default function ChallanPage() {
 
     const latestGroup = groups[latestChallanNo] || [];
 
-    // Sort the latest group chronologically
+    // Sort the latest group chronologically or by sequence if available
     const sorted = [...latestGroup].sort((a: any, b: any) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
       if (dateA !== dateB) return dateA - dateB;
+
+      const parsedA = parsePaymentModeDetails(a.paymentMode || "");
+      const parsedB = parsePaymentModeDetails(b.paymentMode || "");
+
+      if (parsedA.isCompany && parsedB.isCompany) {
+        const seqA = parsedA.sequence;
+        const seqB = parsedB.sequence;
+        if (seqA !== null && seqB !== null) {
+          return seqA - seqB;
+        }
+        if (seqA !== null) return -1;
+        if (seqB !== null) return 1;
+      }
+
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
 
@@ -2346,6 +2372,19 @@ export default function ChallanPage() {
     const firstItem = challanData.items[0];
     const rawItem = firstItem.rawItem;
 
+    let nextSequence = 0;
+    challanData.items.forEach((item: any) => {
+      const parsed = parsePaymentModeDetails(item.rawItem?.paymentMode || "");
+      if (parsed.isCompany && parsed.sequence !== null && parsed.sequence !== undefined) {
+        if (parsed.sequence >= nextSequence) {
+          nextSequence = parsed.sequence + 1;
+        }
+      }
+    });
+    if (nextSequence === 0) {
+      nextSequence = challanData.items.length;
+    }
+
     const serializedPaymentMode = JSON.stringify({
       type: "CompanyTransaction",
       address: supplierAddress.trim().toUpperCase() || "N/A",
@@ -2354,7 +2393,8 @@ export default function ChallanPage() {
       qty: 0,
       unit: "CFT",
       crDr: "DR",
-      rate: 0
+      rate: 0,
+      sequence: nextSequence
     });
 
     const daybookPayload = {
@@ -2455,6 +2495,22 @@ export default function ChallanPage() {
     }
 
     const cleanCustomerName = selectedLedgerObj.name.toUpperCase();
+    
+    let nextSequence = 0;
+    if (challanData && challanData.items) {
+      challanData.items.forEach((item: any) => {
+        const parsed = parsePaymentModeDetails(item.rawItem?.paymentMode || "");
+        if (parsed.isCompany && parsed.sequence !== null && parsed.sequence !== undefined) {
+          if (parsed.sequence >= nextSequence) {
+            nextSequence = parsed.sequence + 1;
+          }
+        }
+      });
+      if (nextSequence === 0) {
+        nextSequence = challanData.items.length;
+      }
+    }
+
     const serializedPaymentMode = JSON.stringify({
       type: "CompanyTransaction",
       address: supplierAddress.trim().toUpperCase() || "N/A",
@@ -2463,7 +2519,8 @@ export default function ChallanPage() {
       qty: 0,
       unit: "BAGS",
       crDr: "CR",
-      rate: 0
+      rate: 0,
+      sequence: nextSequence
     });
 
     const daybookPayload = {
@@ -2560,6 +2617,19 @@ export default function ChallanPage() {
     const firstItem = challanData.items[0];
     const rawItem = firstItem.rawItem;
 
+    let nextSequence = 0;
+    challanData.items.forEach((item: any) => {
+      const parsed = parsePaymentModeDetails(item.rawItem?.paymentMode || "");
+      if (parsed.isCompany && parsed.sequence !== null && parsed.sequence !== undefined) {
+        if (parsed.sequence >= nextSequence) {
+          nextSequence = parsed.sequence + 1;
+        }
+      }
+    });
+    if (nextSequence === 0) {
+      nextSequence = challanData.items.length;
+    }
+
     const serializedPaymentMode = JSON.stringify({
       type: "CompanyTransaction",
       address: supplierAddress.trim().toUpperCase() || "N/A",
@@ -2568,7 +2638,8 @@ export default function ChallanPage() {
       qty: qtyVal,
       unit: addRowUnit.trim().toUpperCase() || "CFT",
       crDr: "DR",
-      rate: rateVal
+      rate: rateVal,
+      sequence: nextSequence
     });
 
     const daybookPayload = {

@@ -1677,6 +1677,16 @@ function LedgerContent() {
       return;
     }
 
+    let existingSequence = null;
+    if (ledgerTypeTab === "COMPANY" && item && item.paymentMode) {
+      try {
+        const parsed = JSON.parse(item.paymentMode);
+        if (parsed.sequence !== undefined && parsed.sequence !== null) {
+          existingSequence = parsed.sequence;
+        }
+      } catch (e) {}
+    }
+
     const serializedPaymentMode = ledgerTypeTab === "COMPANY" ? JSON.stringify({
       type: "CompanyTransaction",
       address: compAddress,
@@ -1685,7 +1695,8 @@ function LedgerContent() {
       qty: qtyVal,
       unit: editUnit,
       crDr: editType === "TO" ? "DR" : "CR",
-      rate: rateVal
+      rate: rateVal,
+      ...(existingSequence !== null ? { sequence: existingSequence } : {})
     }) : editNarrationText.trim().toUpperCase() || "CASH";
 
     const payload = {
