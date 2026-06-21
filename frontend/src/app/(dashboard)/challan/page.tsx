@@ -3486,14 +3486,28 @@ export default function ChallanPage() {
                   left: 8mm !important; 
                   top: 8mm !important; 
                   right: 8mm !important; 
-                  border: 2px solid #000 !important; 
-                  padding: 18px !important; 
-                  border-radius: 4px !important; 
+                  border: none !important; 
+                  padding: 0 !important; 
                   box-shadow: none !important; 
                   background: white !important;
                   display: block !important;
                   z-index: 99999999 !important;
                   zoom: 1 !important;
+                }
+                .print-page {
+                  page-break-after: always !important;
+                  break-after: page !important;
+                  border: 2px solid #000 !important;
+                  padding: 18px !important;
+                  border-radius: 4px !important;
+                  background: white !important;
+                  box-sizing: border-box !important;
+                  margin-bottom: 0 !important;
+                  display: block !important;
+                }
+                .print-page:last-child {
+                  page-break-after: avoid !important;
+                  break-after: avoid !important;
                 }
                 
                 /* Large typography for A5 half-page readability */
@@ -3738,23 +3752,25 @@ export default function ChallanPage() {
                   <div className="print-only-layout space-y-6">
                     {printType === "without_rate" && (
                       <>
-                        {renderWithoutRateContent("ORIGINAL")}
+                        <div className="print-page">
+                          {renderWithoutRateContent("ORIGINAL")}
+                        </div>
                         {copiesCount === 2 && (
-                          <>
-                            <div className="border-t border-dashed border-black my-6" />
+                          <div className="print-page">
                             {renderWithoutRateContent("DUPLICATE")}
-                          </>
+                          </div>
                         )}
                       </>
                     )}
                     {printType === "with_rate" && (
                       <>
-                        {renderWithRateContent("ORIGINAL")}
+                        <div className="print-page">
+                          {renderWithRateContent("ORIGINAL")}
+                        </div>
                         {copiesCount === 2 && (
-                          <>
-                            <div className="border-t border-dashed border-black my-6" />
+                          <div className="print-page">
                             {renderWithRateContent("DUPLICATE")}
-                          </>
+                          </div>
                         )}
                       </>
                     )}
