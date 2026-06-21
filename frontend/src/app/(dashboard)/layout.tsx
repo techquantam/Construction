@@ -199,7 +199,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ];
       case 5:
         return [
-          { label: "5.1. COMPANY ACCOUNT", href: "/company", code: "5.1" },
+          { label: "5.1. OPEN ACCOUNT", href: "/company", code: "5.1" },
           { label: "5.2. EXIT", href: "exit", code: "exit" },
         ];
       case 6:
@@ -376,7 +376,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         activeMainMenu === 2 ? "2. PRINT" :
           activeMainMenu === 3 ? "3. CHALLAN" :
             activeMainMenu === 4 ? "4. MATERIAL" :
-              activeMainMenu === 5 ? "5. COMPANY ACCOUNT" :
+              activeMainMenu === 5 ? "5. OPEN ACCOUNT" :
                 activeMainMenu === 6 ? "6. DATA BACKUP" : "";
 
     return (
@@ -459,7 +459,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               { label: "2. PRINT", menuNum: 2, icon: Printer },
               { label: "3. CHALLAN", menuNum: 3, icon: FileText },
               { label: "4. MATERIAL", menuNum: 4, icon: Package },
-              { label: "5. COMPANY ACCOUNT", menuNum: 5, icon: User },
+              { label: "5. OPEN ACCOUNT", menuNum: 5, icon: User },
               { label: "6. DATA BACKUP", menuNum: 6, icon: Database },
             ].filter((menu) => {
               if (userRole === "PRINTER") {
