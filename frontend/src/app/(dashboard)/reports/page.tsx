@@ -857,6 +857,7 @@ function ReportsContent() {
         if (ledger) {
           setLgSelectedLedgerId(ledger.id);
           setLgLedgerSearchVal(ledger.name.toUpperCase());
+          setLgTypedSearchVal(ledger.name.toUpperCase());
         }
 
         return index;
@@ -876,6 +877,7 @@ function ReportsContent() {
         if (ledger) {
           setLgSelectedLedgerId(ledger.id);
           setLgLedgerSearchVal(ledger.name.toUpperCase());
+          setLgTypedSearchVal(ledger.name.toUpperCase());
         }
 
         return index;
