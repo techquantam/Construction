@@ -2353,6 +2353,11 @@ function ReportsContent() {
  
         <style>{`
           @media print {
+            html, body {
+              height: auto !important;
+              min-height: 0 !important;
+              overflow: visible !important;
+            }
             body {
               background: white !important;
               color: black !important;
@@ -2364,6 +2369,8 @@ function ReportsContent() {
               padding: 0 !important;
               margin: 0 !important;
               background: transparent !important;
+              overflow: visible !important;
+              height: auto !important;
             }
             /* Neutralize layout flex and screen height wrappers in print */
             .flex.h-screen, .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden {
@@ -2373,6 +2380,7 @@ function ReportsContent() {
               overflow: visible !important;
               position: static !important;
               width: 100% !important;
+              max-width: 100% !important;
             }
             /* Neutralize absolute modal backdrop and flex centering */
             .absolute.inset-0.bg-slate-900\\/40 {
@@ -2382,8 +2390,10 @@ function ReportsContent() {
               padding: 0 !important;
               margin: 0 !important;
               height: auto !important;
+              max-height: none !important;
               width: 100% !important;
               max-width: 100% !important;
+              overflow: visible !important;
             }
             /* Strip modal borders, shadows, backgrounds, and viewports in print */
             .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
@@ -2414,6 +2424,7 @@ function ReportsContent() {
               box-shadow: none !important;
               border-radius: 0 !important;
               border: none !important;
+              overflow: visible !important;
             }
             .bg-\\[\\#E5ECF4\\] {
               background: transparent !important;
@@ -2927,6 +2938,11 @@ function ReportsContent() {
 
         <style>{`
           @media print {
+            html, body {
+              height: auto !important;
+              min-height: 0 !important;
+              overflow: visible !important;
+            }
             body {
               background: white !important;
               color: black !important;
@@ -2938,6 +2954,8 @@ function ReportsContent() {
               padding: 0 !important;
               margin: 0 !important;
               background: transparent !important;
+              overflow: visible !important;
+              height: auto !important;
             }
             /* Neutralize layout flex and screen height wrappers in print */
             .flex.h-screen, .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden {
@@ -2955,8 +2973,10 @@ function ReportsContent() {
               padding: 0 !important;
               margin: 0 !important;
               height: auto !important;
+              max-height: none !important;
               width: 100% !important;
               max-width: 100% !important;
+              overflow: visible !important;
             }
             /* Strip modal borders, shadows, backgrounds, and viewports in print */
             .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
@@ -2987,6 +3007,7 @@ function ReportsContent() {
               box-shadow: none !important;
               border-radius: 0 !important;
               border: none !important;
+              overflow: visible !important;
             }
             .bg-\\[\\#E5ECF4\\] {
               background: transparent !important;
@@ -3457,6 +3478,11 @@ function ReportsContent() {
 
         <style>{`
           @media print {
+            html, body {
+              height: auto !important;
+              min-height: 0 !important;
+              overflow: visible !important;
+            }
             body {
               background: white !important;
               color: black !important;
@@ -3468,6 +3494,8 @@ function ReportsContent() {
               padding: 0 !important;
               margin: 0 !important;
               background: transparent !important;
+              overflow: visible !important;
+              height: auto !important;
             }
             /* Neutralize layout flex and screen height wrappers in print */
             .flex.h-screen, .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden {
@@ -3485,8 +3513,10 @@ function ReportsContent() {
               padding: 0 !important;
               margin: 0 !important;
               height: auto !important;
+              max-height: none !important;
               width: 100% !important;
               max-width: 100% !important;
+              overflow: visible !important;
             }
             /* Strip modal borders, shadows, backgrounds, and viewports in print */
             .w-\\[98vw\\], .flex-1.overflow-y-auto.p-6.bg-slate-100 {
@@ -3513,6 +3543,7 @@ function ReportsContent() {
               box-shadow: none !important;
               border-radius: 0 !important;
               border: none !important;
+              overflow: visible !important;
             }
             .bg-\\[\\#E5ECF4\\] {
               background: transparent !important;
