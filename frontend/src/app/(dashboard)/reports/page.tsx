@@ -1416,7 +1416,8 @@ function ReportsContent() {
             debit: debitVal,
             credit: creditVal,
             drCr: status,
-            amount: Math.abs(cumulativeBalance)
+            amount: Math.abs(cumulativeBalance),
+            referenceNumber: item.referenceNumber || ""
           });
         }
       });
@@ -1828,13 +1829,6 @@ function ReportsContent() {
         lgLedgerInputRef.current?.focus();
         setTimeout(() => {
           lgLedgerInputRef.current?.select();
-          setIsLgLedgerSuggestionsOpen(true);
-          setHighlightedLgLedgerIndex(() => {
-            const activeIndex = filteredLgLedgers.findIndex(
-              (l) => String(l.id) === String(lgSelectedLedgerId)
-            );
-            return activeIndex >= 0 ? activeIndex : 0;
-          });
         }, 50);
       }
     };
@@ -2626,9 +2620,22 @@ function ReportsContent() {
                       }}
                       onFocus={(e) => {
                         setIsLgLedgerSuggestionsOpen(true);
-                        setHighlightedLgLedgerIndex(-1);
                         setIsLgLedgerFocused(true);
                         e.target.select();
+                        if (lgSelectedLedgerId) {
+                          const idx = filteredLgLedgers.findIndex(
+                            (l: any) => String(l.id) === String(lgSelectedLedgerId)
+                          );
+                          if (idx >= 0) {
+                            setHighlightedLgLedgerIndex(idx);
+                            setTimeout(() => {
+                              const el = document.getElementById(`lg-acct-opt-${idx}`);
+                              if (el) el.scrollIntoView({ block: "nearest" });
+                            }, 50);
+                            return;
+                          }
+                        }
+                        setHighlightedLgLedgerIndex(-1);
                       }}
                       onBlur={() => {
                         setTimeout(() => setIsLgLedgerFocused(false), 200);
@@ -2642,8 +2649,24 @@ function ReportsContent() {
                       <button 
                         type="button"
                         onClick={() => {
-                          setIsLgLedgerSuggestionsOpen((prev) => !prev);
-                          setHighlightedLgLedgerIndex(-1);
+                          setIsLgLedgerSuggestionsOpen((prev) => {
+                            const nextOpen = !prev;
+                            if (nextOpen && lgSelectedLedgerId) {
+                              const idx = filteredLgLedgers.findIndex(
+                                (l: any) => String(l.id) === String(lgSelectedLedgerId)
+                              );
+                              if (idx >= 0) {
+                                setHighlightedLgLedgerIndex(idx);
+                                setTimeout(() => {
+                                  const el = document.getElementById(`lg-acct-opt-${idx}`);
+                                  if (el) el.scrollIntoView({ block: "nearest" });
+                                }, 50);
+                              }
+                            } else {
+                              setHighlightedLgLedgerIndex(-1);
+                            }
+                            return nextOpen;
+                          });
                         }}
                         className="px-2 border-l border-slate-300 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none flex items-center justify-center"
                       >
@@ -2741,10 +2764,11 @@ function ReportsContent() {
                     </div>
                   </div>
                 )}
-                     <table className="w-full border-collapse border-2 border-slate-800 font-mono text-[13px] sm:text-sm text-slate-900">
+                <table className="w-full border-collapse border-2 border-slate-800 font-mono text-[13px] sm:text-sm text-slate-900">
                   <thead>
                     <tr className="bg-slate-100 text-black border-b-2 border-slate-800 font-black uppercase text-[12px]">
                       <th className="border border-slate-800 py-3 px-4 text-center w-28 text-black font-black">Date</th>
+                      <th className="border border-slate-800 py-3 px-4 text-center w-28 text-black font-black">Challan No</th>
                       <th className="border border-slate-800 py-3 px-4 text-left text-black font-black">Particulars</th>
                       <th className="border border-slate-800 py-3 px-4 text-right w-20 text-black font-black">Qty</th>
                       <th className="border border-slate-800 py-3 px-4 text-center w-20 text-black font-black">Unit</th>
@@ -2758,20 +2782,20 @@ function ReportsContent() {
                   <tbody>
                     {!lgSelectedSiteId ? (
                       <tr>
-                        <td colSpan={9} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
+                        <td colSpan={10} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
                           Please select a Site location to view account ledgers.
                         </td>
                       </tr>
                     ) : !lgSelectedLedgerId ? (
                       <tr>
-                        <td colSpan={9} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
+                        <td colSpan={10} className="text-center py-20 bg-slate-50 text-slate-400 font-bold uppercase tracking-wider italic">
                           Please select a specific Account Ledger to view transactions.
                         </td>
                       </tr>
                     ) : processedLgData.items.length === 0 ? (
                       <>
                         <tr key="no-records">
-                          <td colSpan={9} className="text-center py-12 bg-slate-50 text-slate-400 italic">
+                          <td colSpan={10} className="text-center py-12 bg-slate-50 text-slate-400 italic">
                             No transactions recorded for this account.
                           </td>
                         </tr>
@@ -2779,10 +2803,12 @@ function ReportsContent() {
                           <tr key={`filler-${i}`} className="h-8.5 border-b border-slate-350 select-none bg-white/40">
                             <td className="border-r border-slate-350 px-4 py-2.5"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5"></td>
+                            <td className="border-r border-slate-350 px-4 py-2.5"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-right w-20"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-center w-20"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-right w-36"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-right w-36"></td>
+                            <td className="border-r border-slate-350 px-4 py-2.5 text-center"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-center"></td>
                             <td className="px-4 py-2.5 text-right w-44"></td>
                           </tr>
@@ -2808,6 +2834,9 @@ function ReportsContent() {
                               <td className="border-r border-slate-450 border-slate-400 px-4 py-2.5 text-center font-bold">
                                 {formatRenderDate(item.date)}
                               </td>
+                              <td className="border-r border-slate-450 border-slate-400 px-4 py-2.5 text-center font-bold text-slate-900 w-28">
+                                {item.referenceNumber || "-"}
+                              </td>
                               <td className="border-r border-slate-450 border-slate-400 px-4 py-2.5 font-black">
                                 {item.displayParticular}
                               </td>
@@ -2829,7 +2858,7 @@ function ReportsContent() {
                               <td className="border-r border-slate-450 border-slate-400 px-4 py-2.5 text-center w-20 font-black text-slate-650">
                                 {rowDrCr}
                               </td>
-                              <td className="px-4 py-2.5 text-right font-black text-slate-950 w-44">
+                              <td className="px-4 py-2.5 text-right font-black text-slate-955 w-44">
                                 {item.runningBalance === 0 ? "NILL" : `${runningBalSign}${Math.abs(item.runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                               </td>
                             </tr>
@@ -2839,16 +2868,18 @@ function ReportsContent() {
                           <tr key={`filler-${i}`} className="h-8.5 border-b border-slate-350 select-none bg-white/40">
                             <td className="border-r border-slate-350 px-4 py-2.5"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5"></td>
+                            <td className="border-r border-slate-350 px-4 py-2.5"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-right w-20"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-center w-20"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-right w-36"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-right w-36"></td>
                             <td className="border-r border-slate-350 px-4 py-2.5 text-center"></td>
+                            <td className="border-r border-slate-350 px-4 py-2.5 text-center"></td>
                             <td className="px-4 py-2.5 text-right w-44"></td>
                           </tr>
                         ))}
                         <tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[12px] text-slate-955">
-                          <td colSpan={5} className="border-r border-slate-400 px-4 py-3 text-right font-black">TOTAL:</td>
+                          <td colSpan={6} className="border-r border-slate-400 px-4 py-3 text-right font-black">TOTAL:</td>
                           <td className="border-r border-slate-400 px-4 py-3 text-right text-slate-955 font-black">
                             {processedLgData.totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </td>
@@ -3260,11 +3291,11 @@ function ReportsContent() {
                   <div key={group.name} className="ledger-group-block mb-6">
                     <div className="font-bold text-xs uppercase mb-1">
                       Name: <span className="underline">{group.name}</span>
-                    </div>
-                    <table className="ledger-print-table w-full border-collapse font-mono text-xs">
+                    </div>                     <table className="ledger-print-table w-full border-collapse font-mono text-xs">
                       <thead>
                         <tr className="border-t border-b border-black">
                           <th className="py-1 px-1 border-r border-black text-center w-20">DATE</th>
+                          <th className="py-1 px-1 border-r border-black text-center w-24">CHALLAN NO</th>
                           <th className="py-1 px-1 border-r border-black text-left">PARTICULARS</th>
                           <th className="py-1 px-1 border-r border-black text-right w-24">DEBIT</th>
                           <th className="py-1 px-1 border-r border-black text-right w-24">CREDIT</th>
@@ -3277,6 +3308,9 @@ function ReportsContent() {
                           <tr key={idx} className="border-b border-black last:border-b-0">
                             <td className="py-1 px-1 border-r border-black text-center">
                               {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateLedger(row.date)}
+                            </td>
+                            <td className="py-1 px-1 border-r border-black text-center uppercase font-bold text-slate-900 w-24">
+                              {row.isOpening ? "-" : (row.referenceNumber || "-")}
                             </td>
                             <td className="py-1 px-1 border-r border-black text-left uppercase">{row.particulars}</td>
                             <td className="py-1 px-1 border-r border-black text-right">

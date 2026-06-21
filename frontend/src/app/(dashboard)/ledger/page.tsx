@@ -3657,6 +3657,7 @@ function LedgerContent() {
                   {ledgerTypeTab === "COMPANY" ? (
                     <tr className={`bg-[#2B547E] text-white border-b-2 border-slate-800 font-extrabold uppercase text-[12px] text-left ${action === "entry" ? "h-9" : ""}`}>
                       <th className={`sticky top-0 bg-[#2B547E] z-20 border-r border-b border-slate-800 ${action === "entry" ? "py-2" : "py-3"} px-4 text-white font-extrabold w-24`}>Date</th>
+                      <th className={`sticky top-0 bg-[#2B547E] z-20 border-r border-b border-slate-800 ${action === "entry" ? "py-2" : "py-3"} px-4 text-white font-extrabold w-28`}>Challan No</th>
                       {!isParticularLedgerOpen && (
                         <th className={`sticky top-0 bg-[#2B547E] z-20 border-r border-b border-slate-800 ${action === "entry" ? "py-2" : "py-3"} px-4 text-white font-extrabold w-72`}>Particulars (Name / Mob / Addr)</th>
                       )}
@@ -3712,6 +3713,20 @@ function LedgerContent() {
                             />
                           </td>
 
+                          {ledgerTypeTab === "COMPANY" && (
+                            <td className="border-r border-slate-300 p-1.5 w-28">
+                              <input 
+                                id="edit-inline-challanno"
+                                type="text"
+                                value={editChallanNo}
+                                onChange={(e) => setEditChallanNo(e.target.value)}
+                                onKeyDown={(e) => handleInlineFieldKeyDown(e, "challanno")}
+                                placeholder="CH"
+                                className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800 text-center font-mono h-7"
+                              />
+                            </td>
+                          )}
+
                           {ledgerTypeTab === "COMPANY" ? (
                             <>
                               {!isParticularLedgerOpen && (
@@ -3763,26 +3778,15 @@ function LedgerContent() {
                                       </div>
                                     </div>
 
-                                    <div className="flex gap-1 items-center">
-                                      <input 
-                                        id="edit-inline-narration"
-                                        type="text"
-                                        value={editNarrationText}
-                                        onChange={(e) => setEditNarrationText(e.target.value)}
-                                        onKeyDown={(e) => handleInlineFieldKeyDown(e, "narration")}
-                                        placeholder="Narration (e.g. CASH)"
-                                        className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800 placeholder:text-slate-400 font-mono h-7"
-                                      />
-                                      <input 
-                                        id="edit-inline-challanno"
-                                        type="text"
-                                        value={editChallanNo}
-                                        onChange={(e) => setEditChallanNo(e.target.value)}
-                                        onKeyDown={(e) => handleInlineFieldKeyDown(e, "challanno")}
-                                        placeholder="CH"
-                                        className="w-12 bg-white border border-slate-300 rounded px-1 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800 text-center font-mono h-7 shrink-0"
-                                      />
-                                    </div>
+                                    <input 
+                                      id="edit-inline-narration"
+                                      type="text"
+                                      value={editNarrationText}
+                                      onChange={(e) => setEditNarrationText(e.target.value)}
+                                      onKeyDown={(e) => handleInlineFieldKeyDown(e, "narration")}
+                                      placeholder="Narration (e.g. CASH)"
+                                      className="w-full bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold uppercase focus:outline-none focus:border-slate-800 placeholder:text-slate-400 font-mono h-7"
+                                    />
 
                                     {isEditParticularSuggestionsOpen && (
                                       <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-slate-900 rounded shadow-lg z-[999] max-h-40 overflow-y-auto font-mono text-xs uppercase">
@@ -4226,6 +4230,14 @@ function LedgerContent() {
                         >
                           <div>{tx.date}</div>
                         </td>
+                        {ledgerTypeTab === "COMPANY" && (
+                          <td 
+                            onClick={() => { if (action === "correction") handleEditClick(tx, "challanno"); }}
+                            className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-center font-bold text-slate-800 group-focus:text-white w-28`}
+                          >
+                            {tx.referenceNumber && tx.referenceNumber !== "DIRECT_FORM_V2" && tx.referenceNumber !== "AUTO_DEBIT" && tx.referenceNumber !== "COMPANY_DIRECT" && tx.referenceNumber !== "LEDGER_DIRECT" ? tx.referenceNumber : "-"}
+                          </td>
+                        )}
                         {(!isParticularLedgerOpen || ledgerTypeTab !== "COMPANY") && (
                           <td 
                             onClick={() => { if (action === "correction") handleEditClick(tx, "particular"); }}
@@ -4234,11 +4246,6 @@ function LedgerContent() {
                             {ledgerTypeTab === "COMPANY" ? (
                               <div className="flex items-center gap-2">
                                 <span className="font-extrabold text-slate-900 group-focus:text-white uppercase">{parsedName}</span>
-                                {tx.referenceNumber && tx.referenceNumber !== "DIRECT_FORM_V2" && tx.referenceNumber !== "AUTO_DEBIT" && tx.referenceNumber !== "COMPANY_DIRECT" && tx.referenceNumber !== "LEDGER_DIRECT" && (
-                                  <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold whitespace-nowrap group-focus:bg-slate-700 group-focus:text-white">
-                                    CH: {tx.referenceNumber}
-                                  </span>
-                                )}
                               </div>
                             ) : (
                               <div className="flex items-center gap-2">
@@ -4253,14 +4260,7 @@ function LedgerContent() {
                               onClick={() => { if (action === "correction") handleEditClick(tx, "material"); }}
                               className={`border-r border-slate-400 ${action === "entry" ? "py-2" : "py-3"} px-4 text-slate-800 group-focus:text-white uppercase`}
                             >
-                              <div className="flex items-center gap-2">
-                                <span>{material || "-"}</span>
-                                {tx.referenceNumber && tx.referenceNumber !== "DIRECT_FORM_V2" && tx.referenceNumber !== "AUTO_DEBIT" && tx.referenceNumber !== "COMPANY_DIRECT" && tx.referenceNumber !== "LEDGER_DIRECT" && (
-                                  <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold whitespace-nowrap group-focus:bg-slate-700 group-focus:text-white">
-                                    CH: {tx.referenceNumber}
-                                  </span>
-                                )}
-                              </div>
+                              <span>{material || "-"}</span>
                             </td>
                             <td 
                               onClick={() => { if (action === "correction") handleEditClick(tx, "qty"); }}
@@ -4399,6 +4399,11 @@ function LedgerContent() {
                             }}
                             className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold font-mono text-center focus:outline-none focus:border-slate-800"
                           />
+                        </td>
+
+                        {/* Challan No cell to align column */}
+                        <td className="relative bg-slate-50 border-t-2 border-slate-400 border-r border-slate-400 p-1.5 w-28 text-center z-10 font-bold font-mono text-slate-900 text-xs">
+                          {challanNo || "-"}
                         </td>
 
                         {/* Particulars (Name / Mob / Addr) */}
@@ -5539,7 +5544,7 @@ function LedgerContent() {
 
                   {selectedSiteId && selectedSiteId !== "all" && action === "entry" && (
                     <tr className="select-none pointer-events-none border-none">
-                      <td colSpan={12} className="h-32 bg-transparent border-none"></td>
+                      <td colSpan={13} className="h-32 bg-transparent border-none"></td>
                     </tr>
                   )}
 
@@ -5552,6 +5557,7 @@ function LedgerContent() {
                         ledgerTypeTab === "COMPANY" ? (
                           <tr key={`filler-${i}`} className="border-b border-slate-355 select-none bg-white/40">
                             <td className="border-r border-slate-350 py-3 px-4 h-9.5"></td>
+                            <td className="border-r border-slate-350 py-3 px-4 w-28"></td>
                             {!isParticularLedgerOpen && (
                               <td className="border-r border-slate-350 py-3 px-4"></td>
                             )}
