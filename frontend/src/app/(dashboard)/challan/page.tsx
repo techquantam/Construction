@@ -547,6 +547,7 @@ export default function ChallanPage() {
   const [showCopiesDialog, setShowCopiesDialog] = useState(false);
   const [printType, setPrintType] = useState<"without_rate" | "with_rate" | null>(null);
   const [copiesCount, setCopiesCount] = useState<1 | 2>(1);
+  const [isPrinting, setIsPrinting] = useState(false);
 
 
   // States for Direct Challan Creation
@@ -2747,10 +2748,18 @@ export default function ChallanPage() {
   const triggerFinalPrint = (copies: 1 | 2) => {
     setCopiesCount(copies);
     setShowCopiesDialog(false);
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    setIsPrinting(true);
   };
+
+  useEffect(() => {
+    if (isPrinting) {
+      const timer = setTimeout(() => {
+        window.print();
+        setIsPrinting(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isPrinting]);
 
 
   // Connect hotkeys (1: Print Without Rate, 2: Print With Rate, F3: Excel)
@@ -3020,7 +3029,7 @@ export default function ChallanPage() {
     );
   };
 
-  const renderWithoutRateContent = (designation: "O" | "D") => {
+  const renderWithoutRateContent = (designation: "OR" | "DU") => {
     return (
       <div className="space-y-4">
         <div className="text-center border-b-2 border-slate-800 pb-2 flex justify-between items-center">
@@ -3134,7 +3143,7 @@ export default function ChallanPage() {
     );
   };
 
-  const renderWithRateContent = (designation: "O" | "D") => {
+  const renderWithRateContent = (designation: "OR" | "DU") => {
     const debitItems = challanData.items.filter((item: any) => item.type === "TO");
     const creditItems = challanData.items.filter((item: any) => item.type === "BY");
 
@@ -3785,11 +3794,11 @@ export default function ChallanPage() {
                     {printType === "without_rate" && (
                       <>
                         <div className="print-page">
-                          {renderWithoutRateContent("O")}
+                          {renderWithoutRateContent("OR")}
                         </div>
                         {copiesCount === 2 && (
                           <div className="print-page">
-                            {renderWithoutRateContent("D")}
+                            {renderWithoutRateContent("DU")}
                           </div>
                         )}
                       </>
@@ -3797,11 +3806,11 @@ export default function ChallanPage() {
                     {printType === "with_rate" && (
                       <>
                         <div className="print-page">
-                          {renderWithRateContent("O")}
+                          {renderWithRateContent("OR")}
                         </div>
                         {copiesCount === 2 && (
                           <div className="print-page">
-                            {renderWithRateContent("D")}
+                            {renderWithRateContent("DU")}
                           </div>
                         )}
                       </>
