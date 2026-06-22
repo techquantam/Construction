@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, Suspense, useRef, useMemo } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Printer, Building2, Wallet, ArrowDown } from "lucide-react";
+import { createPortal } from "react-dom";
 import api from "@/lib/axios";
 import { toast } from "sonner";
 import {
@@ -119,6 +120,411 @@ function formatRenderDate(dateISO: string) {
   }
 }
 
+const HINDI_DICTIONARY: { [key: string]: string } = {
+  // Specific Material Translations (User Provided List)
+  "PIPE RUBBER 1/2\"": "पाइप रबर 1/2 इंच",
+  "GRIT 1/2\" BAG": "गिट्टी 1/2 इंच बोरी",
+  "KAMDHENU 20 MM": "कामधेनु 20 मिमी",
+  "DUST": "स्टोन डस्ट",
+  "SABAR KISAN": "साबर किसान",
+  "GURRA": "गुर्रा",
+  "HOLD FAST NAIL WALA": "होल्ड फास्ट नेल वाला",
+  "GRITT 1/2\" GREY": "ग्रिट 1/2 इंच ग्रे",
+  "GALLANT 12 MM": "गैलेंट 12 मिमी",
+  "WP+ 1 LTR": "डब्ल्यूपी प्लस 1 लीटर",
+  "TMT 10 MM": "टीएमटी 10 मिमी",
+  "ULTRATECH WEATHER+": "अल्ट्राटेक वेदर प्लस",
+  "GALLANT 25 MM": "गैलेंट 25 मिमी",
+  "BUCKET 10 LTR": "बाल्टी 10 लीटर",
+  "LW+ 50 LTR": "एलडब्ल्यू प्लस 50 लीटर",
+  "PIPE REENA MEDIUM 25 MM": "रीना Medium पाइप 25 मिमी",
+  "ACC CONCRETE": "एसीसी कंक्रीट",
+  "TMT 8 MM": "टीएमटी 8 मिमी",
+  "WP+ 20 LTR": "डब्ल्यूपी प्लस 20 लीटर",
+  "LW+ 5 LTR": "एलडब्ल्यू प्लस 5 लीटर",
+  "RHL 16 MM": "आरएचएल 16 मिमी",
+  "URP 20 KG": "यूआरपी 20 किग्रा",
+  "TRIPAL 12'X15'": "तिरपाल 12×15 फीट",
+  "COVER BLOCK 25 MM": "कवर ब्लॉक 25 मिमी",
+  "BUCKET 15 LTR": "बाल्टी 15 लीटर",
+  "RHL 10 MM": "आरएचएल 10 मिमी",
+  "TASLA NAREGA ROLEX 17\"": "तसला नरेगा रोलेक्स 17 इंच",
+  "SHUTTERING TAPE LOTUS 3\"": "शटरिंग टेप लोटस 3 इंच",
+  "TERMINATOR STRUCTURE 1 LTR": "टर्मिनेटर स्ट्रक्चर 1 लीटर",
+  "TATA 25 MM": "टाटा 25 मिमी",
+  "SHUTTERING OIL 5 LTR PKG": "शटरिंग ऑयल 5 लीटर पैक",
+  "SABAR BHAGAT": "साबर भगत",
+  "TMT 12 MM": "टीएमटी 12 मिमी",
+  "PIPE RUBBER 1\"": "पाइप रबर 1 इंच",
+  "NAIL 2\"": "कील 2 इंच",
+  "WIRE LOCAL": "लोकल तार",
+  "TRIPAL 10'X10'": "तिरपाल 10×10 फीट",
+  "GRITT 3/4\" BLACK": "ग्रिट 3/4 इंच काला",
+  "GALLANT 10 MM": "गैलेंट 10 मिमी",
+  "PIPE REENA EXTRA HEAVY 25 MM": "रीना एक्स्ट्रा हेवी पाइप 25 मिमी",
+  "KAMDHENU 16 MM": "कामधेनु 16 मिमी",
+  "BEND HEAVY REENA 25 MM": "रीना हेवी बेंड 25 मिमी",
+  "FARAWA CHETAK": "फावड़ा चेतक",
+  "WP+ 5 LTR": "डब्ल्यूपी प्लस 5 लीटर",
+  "BALU": "बालू",
+  "KAMDHENU 25 MM": "कामधेनु 25 मिमी",
+  "NAIL 4\"": "कील 4 इंच",
+  "FREME HEXA": "फ्रेम हेक्सा",
+  "CART": "गाड़ी",
+  "TMT 20 MM": "टीएमटी 20 मिमी",
+  "WP+ 10 LTR": "डब्ल्यूपी प्लस 10 लीटर",
+  "LW+ 200 ML": "एलडब्ल्यू प्लस 200 मि.ली.",
+  "FAN BOX": "फैन बॉक्स",
+  "MORANG MEDIUM": "मोरंग मीडियम",
+  "BLADE HEXA": "हेक्सा ब्लेड",
+  "JSB": "जेएसबी",
+  "KAMDHENU 8 MM": "कामधेनु 8 मिमी",
+  "TASLA NAREGA ROLEX 18\"": "तसला नरेगा रोलेक्स 18 इंच",
+  "BITUFIX 20KG": "बिटुफिक्स 20 किग्रा",
+  "ULTRATECH": "अल्ट्राटेक",
+  "RHL 8 MM": "आरएचएल 8 मिमी",
+  "SHUTTERING TAPE SUNRISE 2.5\"": "शटरिंग टेप सनराइज 2.5 इंच",
+  "GALLANT 16 MM": "गैलेंट 16 मिमी",
+  "ACC GOLD": "एसीसी गोल्ड",
+  "GALLANT 20 MM": "गैलेंट 20 मिमी",
+  "MORANG MAHEEN": "महीन मोरंग",
+  "TATA 8 MM": "टाटा 8 मिमी",
+  "JAALI KHARCHAL 3'": "जाली खरचल 3 फीट",
+  "MYCEM": "माइसेम",
+  "LW+ 1 LTR": "एलडब्ल्यू प्लस 1 लीटर",
+  "BALU BAG": "बालू बोरी",
+  "TRIPAL 12'X18'": "तिरपाल 12×18 फीट",
+  "JOINTER 1/2\"": "जॉइंटर 1/2 इंच",
+  "MORANG MOTI": "मोती मोरंग",
+  "KAMDHENU 12 MM": "कामधेनु 12 मिमी",
+  "TATA 20 MM": "टाटा 20 मिमी",
+  "RHL 20 MM": "आरएचएल 20 मिमी",
+  "TATA 10 MM": "टाटा 10 मिमी",
+  "LW+ 10 LTR": "एलडब्ल्यू प्लस 10 लीटर",
+  "RHL 12 MM": "आरएचएल 12 मिमी",
+  "TATA 12 MM": "टाटा 12 मिमी",
+  "SHUTTERING OIL 1 LTR PKG": "शटरिंग ऑयल 1 लीटर पैक",
+  "JOINTER 1\"": "जॉइंटर 1 इंच",
+  "HOLD FAST BOLT WALA": "होल्ड फास्ट बोल्ट वाला",
+  "GALLANT 8 MM": "गैलेंट 8 मिमी",
+  "KAMDHENU 10 MM": "कामधेनु 10 मिमी",
+  "LW+ 20 LTR": "एलडब्ल्यू प्लस 20 लीटर",
+  "URP 500 GRM": "यूआरपी 500 ग्राम",
+  "DURMUT DEGCHUNE": "दुर्मुट डेगचूने",
+  "JEERA": "जीरा",
+  "LIGHT BOX 3\"": "लाइट BOX 3 इंच",
+  "PIPE 19 MM": "पाइप 19 मिमी",
+  "SHUTTERING TAPE SUNRISE 3\"": "शटरिंग टेप सनराइज 3 इंच",
+  "J BOX SURFACE 25 MM": "जे बॉक्स सरफेस 25 मिमी",
+  "SHUTTERING OIL LOOSE": "शटरिंग ऑयल खुला",
+  "TMT 16 MM": "टीएमटी 16 मिमी",
+  "FARAWA PANJABI": "फावड़ा पंजाबी",
+  "J BOX DEEP": "जे बॉक्स डीप",
+  "URP 1 LTR": "यूआरपी 1 लीटर",
+  "URP 10 KG": "यूआरपी 10 किग्रा",
+  "L BOW 25 MM": "एल बो 25 मिमी",
+  "L BOW 19 MM": "एल बो 19 मिमी",
+  "TMT 25 MM": "टीएमटी 25 मिमी",
+  "WIRE TATA": "टाटा तार",
+  "GRITT 3/4\" GREY": "ग्रिट 3/4 इंच ग्रे",
+  "SABAR BK": "साबर बीके",
+  "BLADE STEEL CUTTING": "स्टील कटिंग ब्लेड",
+  "URP 5 KG": "यूआरपी 5 किग्रा",
+  "KJS": "केजेएस",
+  "RHL 25 MM": "आरएचएल 25 मिमी",
+  "TERMINATOR STRUCTURE 5 LTR": "टर्मिनेटर स्ट्रक्चर 5 लीटर",
+  "TATA 16 MM": "टाटा 16 मिमी",
+
+  // Word-level fallbacks & Additional items
+  "BALU GANGA": "गंगा बालू",
+  "BALU GHAGHRA": "घाघरा बालू",
+  "GANGA": "गंगा",
+  "GHAGHRA": "घाघरा",
+  "FARAWA": "फावड़ा",
+  "CHETAK": "चेतक",
+  "BOX DEEP": "बॉक्स डीप",
+  "BOX": "बॉक्स",
+  "DEEP": "डीप",
+  "J": "जे.",
+  "ACC": "एसीसी",
+  "CONCRETE": "कंक्रीट",
+  "GOLD": "गोल्ड",
+  "BEND": "बेंड",
+  "HEAVY": "हैवी",
+  "CEMENT": "सीमेंट",
+  "SAND": "बालू / रेत",
+  "STEEL": "स्टील",
+  "IRON": "लोहा",
+  "BRICKS": "ईंट",
+  "BRICK": "ईंट",
+  "RODI": "रोड़ी",
+  "GITI": "गिट्टी",
+  "STONE": "पत्थर",
+  "TILES": "टाइल",
+  "CHIPS": "चिप्स",
+  "PAINT": "पेंट",
+  "PIPES": "पाइप",
+  "TRANSPORT": "परिवहन",
+  "DIESEL": "डीजल",
+  "LABOUR": "मजदूरी",
+  "WOOD": "लकड़ी",
+  "SOIL": "मिट्टी",
+  "PLASTER": "प्लास्टर",
+  "PUTTY": "पुट्टी",
+  "AGGREGATE": "गिट्टी",
+  "RODEE": "रोड़ी",
+  "COARSE SAND": "मोटा बालू",
+  "FINE SAND": "महीन रेत",
+  "JUNCTION": "जंक्शन",
+  "SURFACE": "सरफेस",
+  "RAFT": "राफ्ट",
+  "SLAB": "स्लैब",
+  "MM": "मिमी",
+  "NO.": "नंबर",
+  "NOS": "नंबर",
+  "PCS": "पीस",
+  "BAGS": "बोरी",
+  "BAG": "बोरी",
+  "CFT": "सीएफटी",
+  "KG": "किग्रा",
+  "TON": "टन",
+  "MT": "मीट्रिक टन",
+  "LITRE": "लीटर",
+  "LTR": "लीटर",
+  "METER": "मीटर",
+  "MTR": "मीटर",
+  "FEET": "फिट",
+  "FT": "फिट",
+
+  // Cash / Payments
+  "RECD CASH": "प्राप्त नकद",
+  "RECD": "प्राप्त",
+  "CASH": "नकद",
+  "RECEIVED CASH": "प्राप्त नकद",
+  "RECEIVED": "प्राप्त",
+  "PAYMENT": "भुगतान",
+  "PAID": "भुगतान किया",
+  "BALANCE": "शेष",
+
+  // General terms
+  "TEST": "टेस्ट",
+  "TESTING": "टेस्टिंग",
+
+  // Suppliers & Names
+  "SADA SHIV": "सदा शिव",
+  "SADA": "सदा",
+  "SHIV": "शिव",
+  "ANKIT AWASTHI": "अंकित अवस्थी",
+  "ANKIT": "अंकित",
+  "AWASTHI": "अवस्थी",
+  "DIRECT CLIENT": "प्रत्यक्ष ग्राहक",
+  "ADMIN": "एडमिन",
+  "SUPPLIER": "आपूर्तिकर्ता",
+  "CONTRACTOR": "ठेकेदार",
+  "PARTY": "पार्टी",
+
+  // Locations & Addresses
+  "KAPATANAGANAJ": "कप्तानगंज",
+  "KAPTANGANJ": "कप्तानगंज",
+  "PIPL": "पीआईपीएल",
+  "MOTINAGAR": "मोतीनगर",
+  "MOTI NAGAR": "मोतीनगर",
+  "MOTI": "मोती",
+  "NAGAR": "नगर",
+  "LUCKNOW": "लखनऊ",
+  "KANPUR": "कानपुर",
+  "DELHI": "दिल्ली",
+  "ROAD": "मार्ग",
+  "STREET": "गली",
+  "SECTOR": "सेक्टर",
+  "COLONY": "कालोनी",
+  "GALI": "गली",
+  "OFFICE": "कार्यालय",
+  "HOME": "घर",
+  "SHOP": "दुकान",
+  "MARKET": "बाजार",
+  "NEAR": "के पास",
+  "OPPOSITE": "के सामने",
+  "BEHIND": "के पीछे",
+  "MAIN": "मुख्य",
+  "BLOCK": "ब्लॉक",
+  "UTTAR PRADESH": "उत्तर प्रदेश",
+  "UP": "उत्तर प्रदेश",
+  "NOT AVAILABLE": "उपलब्ध नहीं",
+  "N/A": "उपलब्ध नहीं"
+};
+
+function phoneticTransliterateWord(word: string): string {
+  const cleanWord = word.toUpperCase().trim();
+  if (!cleanWord) return "";
+
+  if (HINDI_DICTIONARY[cleanWord]) {
+    return HINDI_DICTIONARY[cleanWord];
+  }
+
+  if (/[\u0900-\u097F]/.test(word)) {
+    return word;
+  }
+
+  let i = 0;
+  let result = "";
+  const len = cleanWord.length;
+
+  const startsWithVowel = (char: string) => char && "AEIOU".includes(char);
+
+  while (i < len) {
+    let matched = false;
+    const peek = (n: number) => cleanWord.substring(i, i + n);
+
+    const blends3 = [
+      { eng: "CHH", hin: "छ" },
+      { eng: "SHR", hin: "श्र" },
+      { eng: "GYA", hin: "ज्ञा" },
+      { eng: "KSH", hin: "क्ष" },
+    ];
+    for (const blend of blends3) {
+      if (peek(3) === blend.eng) {
+        result += blend.hin;
+        i += 3;
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    const blends2 = [
+      { eng: "SH", hin: "श" },
+      { eng: "CH", hin: "च" },
+      { eng: "KH", hin: "ख" },
+      { eng: "GH", hin: "घ" },
+      { eng: "JH", hin: "झ" },
+      { eng: "BH", hin: "भ" },
+      { eng: "DH", hin: "ध" },
+      { eng: "TH", hin: "थ" },
+      { eng: "PH", hin: "फ" },
+      { eng: "GY", hin: "ज्ञ" },
+      { eng: "TR", hin: "त्र" },
+      { eng: "KS", hin: "क्ष" },
+      { eng: "AI", hin: "ै" },
+      { eng: "AU", hin: "ौ" },
+      { eng: "EE", hin: "ी" },
+      { eng: "OO", hin: "ू" },
+    ];
+    for (const blend of blends2) {
+      if (peek(2) === blend.eng) {
+        if (i === 0) {
+          if (blend.eng === "AI") { result += "ऐ"; i += 2; matched = true; break; }
+          if (blend.eng === "AU") { result += "औ"; i += 2; matched = true; break; }
+          if (blend.eng === "EE") { result += "ई"; i += 2; matched = true; break; }
+          if (blend.eng === "OO") { result += "ऊ"; i += 2; matched = true; break; }
+        }
+        result += blend.hin;
+        i += 2;
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    const char = cleanWord[i];
+
+    if (char === "N" && i + 1 < len && !startsWithVowel(cleanWord[i + 1])) {
+      result += "ं";
+      i += 1;
+      continue;
+    }
+
+    if (char === "A") {
+      if (i === 0) {
+        if (peek(2) === "AA") { result += "आ"; i += 2; }
+        else { result += "अ"; i += 1; }
+      } else {
+        if (peek(2) === "AA") { result += "ा"; i += 2; }
+        else {
+          const remaining = cleanWord.substring(i + 1);
+          if (remaining.length <= 2 && !startsWithVowel(remaining[0])) {
+            result += "ा";
+          } else if (i === len - 1) {
+            result += "ा";
+          }
+          i += 1;
+        }
+      }
+      continue;
+    }
+
+    if (char === "E") {
+      result += (i === 0) ? "ए" : "े";
+      i += 1;
+      continue;
+    }
+
+    if (char === "I") {
+      result += (i === 0) ? "इ" : "ि";
+      i += 1;
+      continue;
+    }
+
+    if (char === "O") {
+      result += (i === 0) ? "ओ" : "ो";
+      i += 1;
+      continue;
+    }
+
+    if (char === "U") {
+      result += (i === 0) ? "उ" : "ु";
+      i += 1;
+      continue;
+    }
+
+    const singleConsonants: { [key: string]: string } = {
+      "B": "ब", "C": "क", "D": "द", "F": "फ", "G": "ग",
+      "H": "ह", "J": "ज", "K": "क", "L": "ल", "M": "म",
+      "N": "न", "P": "प", "Q": "क", "R": "र", "S": "स",
+      "T": "त", "V": "व", "W": "व", "X": "क्स", "Y": "य",
+      "Z": "ज़"
+    };
+
+    if (singleConsonants[char]) {
+      result += singleConsonants[char];
+    } else {
+      result += char;
+    }
+    i += 1;
+  }
+
+  return result;
+}
+
+function translateToHindi(text: string): string {
+  if (!text) return "";
+  const upperText = text.toUpperCase().trim();
+
+  if (HINDI_DICTIONARY[upperText]) {
+    return HINDI_DICTIONARY[upperText];
+  }
+
+  const words = text.split(/\s+/);
+  const translatedWords = words.map(word => {
+    const cleanWord = word.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!cleanWord) return word;
+    if (HINDI_DICTIONARY[cleanWord]) {
+      return HINDI_DICTIONARY[cleanWord];
+    }
+    return phoneticTransliterateWord(word);
+  });
+
+  return translatedWords.join(" ");
+}
+
+function translateBilingual(text: string): string {
+  if (!text) return "";
+  const eng = text.toUpperCase().trim();
+  const hin = translateToHindi(text);
+  if (eng === hin || !hin) return eng;
+  return `${eng} / ${hin}`;
+}
+
 function ReportsContent() {
   const searchParams = useSearchParams();
   const reportType = searchParams.get("type");
@@ -217,9 +623,18 @@ function ReportsContent() {
     const year = String(d.getFullYear()).substring(2);
     return `${day}.${month}.${year}`;
   };
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const [showCopiesDialog, setShowCopiesDialog] = useState(false);
+  const [copiesCount, setCopiesCount] = useState<1 | 2>(1);
+  const [printTargetReport, setPrintTargetReport] = useState<"ledger" | "summary" | "daybook" | null>(null);
+
   const [printEndDate, setPrintEndDate] = useState("");
   const [printTargetType, setPrintTargetType] = useState<"daybook" | "ledger" | null>(null);
-  const [printLayoutMode, setPrintLayoutMode] = useState<"daybook" | "ledger" | null>(null);
+  const [printLayoutMode, setPrintLayoutMode] = useState<"daybook" | "ledger" | "summary" | null>(null);
   // Ledgers query
   const { data: ledgers } = useQuery({
     queryKey: ["ledgers", lgSelectedSiteId, smSelectedSiteId],
@@ -1552,11 +1967,8 @@ function ReportsContent() {
     if (target === "ledger") {
       setPrintStartDate("");
       setPrintEndDate("");
-      setPrintTargetType("ledger");
+      setPrintTargetReport("ledger");
       setPrintLayoutMode("ledger");
-      setTimeout(() => {
-        window.print();
-      }, 150);
       return;
     }
     setPrintTargetType(target);
@@ -1565,8 +1977,39 @@ function ReportsContent() {
 
   const handleExecutePrint = () => {
     if (!printTargetType) return;
-    setPrintLayoutMode(printTargetType);
+    setPrintTargetReport(printTargetType);
     setShowDateRangeModal(false);
+    setPrintLayoutMode(printTargetType);
+  };
+
+  const triggerFinalPrint = (copies: 1 | 2) => {
+    setCopiesCount(copies);
+    setShowCopiesDialog(false);
+    if (printTargetReport) {
+      setPrintLayoutMode(printTargetReport);
+    }
+  };
+
+  const handlePrintLedgerPDF = () => {
+    if (!lgSelectedSiteId) {
+      toast.error("Please select a Site location first");
+      return;
+    }
+    if (!lgSelectedLedgerId) {
+      toast.error("Please select an Account Ledger first");
+      return;
+    }
+    setPrintTargetReport("ledger");
+    setPrintLayoutMode("ledger");
+  };
+
+  const handlePrintSummaryPDF = () => {
+    if (!smSelectedSiteId) {
+      toast.error("Please select a Site location first");
+      return;
+    }
+    setPrintTargetReport("summary");
+    setPrintLayoutMode("summary");
   };
 
   // EXPORT EXCEL & PDF HANDLERS
@@ -1697,9 +2140,1035 @@ function ReportsContent() {
     toast.success("Excel CSV file downloaded successfully");
   };
 
+  const renderLedgerPrintContent = (copyIndicator: string) => {
+    const isSingle = lgSelectedLedgerId && lgSelectedLedgerId !== "all";
+    const copyLabel = copyIndicator === "OR" ? "ORIGINAL COPY" : "DUPLICATE COPY";
+    
+    if (isSingle) {
+      const selectedLedgerObj = activeSiteLedgers.find((l: any) => String(l.id) === String(lgSelectedLedgerId)) || 
+                               (ledgers ? ledgers.find((l: any) => String(l.id) === String(lgSelectedLedgerId)) : null);
+      const selectedLedgerName = selectedLedgerObj ? selectedLedgerObj.name : "";
+      const selectedLedgerPhone = selectedLedgerObj ? selectedLedgerObj.phone : "";
+      const selectedLedgerAddress = selectedLedgerObj 
+        ? (() => {
+            const details = parsePartyDetails(selectedLedgerObj.contactPerson);
+            return details ? details.address : selectedLedgerObj.contactPerson;
+          })()
+        : "";
+
+      return (
+        <div className="ledger-print-wrapper p-4 bg-white">
+          <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
+            <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">{copyLabel}</span>
+            <span className="font-mono text-xs font-black text-slate-900">DATE: {getTodayDateStr()}</span>
+          </div>
+          <div className="text-center font-bold text-base uppercase mb-4 estimate-title text-slate-900">
+            {lgFilterDate ? `LEDGER FOR DATE ( ${formatTitleDate(lgFilterDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
+          </div>
+          <div className="mb-4 text-xs font-bold font-mono text-slate-900 space-y-1">
+            <div className="flex">
+              <span className="w-24 text-slate-500">Name :</span>
+              <span className="font-black uppercase text-slate-900 supplier-name">
+                {translateBilingual(selectedLedgerName)}
+              </span>
+            </div>
+            <div className="flex">
+              <span className="w-24 text-slate-500">Address :</span>
+              <span className="font-black uppercase text-slate-900 supplier-info">
+                {translateBilingual(selectedLedgerAddress)}
+              </span>
+            </div>
+            <div className="flex">
+              <span className="w-24 text-slate-500">Phone No. :</span>
+              <span className="font-black text-slate-900">
+                {selectedLedgerPhone || ""}
+              </span>
+            </div>
+          </div>
+          
+          <table className="ledger-print-table w-full border-collapse font-mono text-xs text-slate-900">
+            <thead>
+              <tr className="border-t border-b border-black">
+                <th className="py-1 px-1 border-r border-black text-center w-20">DATE</th>
+                <th className="py-1 px-1 border-r border-black text-center w-24">CHALLAN NO</th>
+                <th className="py-1 px-1 border-r border-black text-left">PARTICULARS</th>
+                <th className="py-1 px-1 border-r border-black text-right w-16">QTY</th>
+                <th className="py-1 px-1 border-r border-black text-center w-16">UNIT</th>
+                <th className="py-1 px-1 border-r border-black text-right w-20">RATE</th>
+                <th className="py-1 px-1 border-r border-black text-right w-24">DEBIT</th>
+                <th className="py-1 px-1 border-r border-black text-right w-24">CREDIT</th>
+                <th className="py-1 px-1 border-r border-black text-center w-14">DR/CR</th>
+                <th className="py-1 px-1 text-right w-28">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {processedLgData.items.map((row: any, idx: number) => {
+                const rowDrCr = (row.debit > 0 || row.parsedType === "TO") ? "DR" : "CR";
+                const runningBalSign = row.runningBalance < 0 ? "CR " : row.runningBalance > 0 ? "DR " : "";
+                return (
+                  <tr key={idx} className="border-b border-black last:border-b-0">
+                    <td className="py-1 px-1 border-r border-black text-center">
+                      {formatRenderDate(row.date)}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-center uppercase font-bold text-slate-900 w-24">
+                      {row.referenceNumber || "-"}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-left uppercase">
+                      {translateBilingual(row.particulars)}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-right">
+                      {row.isStructured ? row.qty : "-"}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-center">
+                      {row.isStructured ? translateBilingual(row.unit) : "-"}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-right">
+                      {row.isStructured ? row.rate : "-"}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-right">
+                      {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-right">
+                      {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-center">{rowDrCr}</td>
+                    <td className="py-1 px-1 text-right">
+                      {row.runningBalance === 0 ? "NILL" : `${runningBalSign}${Math.abs(row.runningBalance).toFixed(2)}`}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[11px] text-slate-955">
+                <td colSpan={6} className="border-r border-slate-400 px-2 py-1.5 text-right font-black">TOTAL:</td>
+                <td className="border-r border-slate-400 px-2 py-1.5 text-right text-slate-955 font-black">
+                  {processedLgData.totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </td>
+                <td className="border-r border-slate-400 px-2 py-1.5 text-right text-slate-955 font-black">
+                  {processedLgData.totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </td>
+                <td className="border-r border-slate-400 px-2 py-1.5 text-center text-slate-955 font-black">
+                  {processedLgData.finalBalance === 0 ? "NIL" : (processedLgData.finalBalance < 0 ? "CR" : "DR")}
+                </td>
+                <td className="px-2 py-1.5 text-right text-slate-955 font-black">
+                  {processedLgData.finalBalance === 0 ? "NILL" : `${processedLgData.finalBalance < 0 ? "CR " : "DR "}${Math.abs(processedLgData.finalBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      );
+    } else {
+      const ledgerPrintData = getGroupedLedgersData();
+      return (
+        <div className="ledger-print-wrapper p-4 bg-white text-slate-900">
+          <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
+            <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">{copyLabel}</span>
+            <span className="font-mono text-xs font-black">DATE: {getTodayDateStr()}</span>
+          </div>
+          <div className="text-center font-bold text-base uppercase mb-4 estimate-title">
+            {printEndDate ? `LEDGER UP TO ( ${formatTitleDate(printEndDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
+          </div>
+          {ledgerPrintData.map((group: any) => (
+            <div key={group.name} className="ledger-group-block mb-6">
+              <div className="font-bold text-xs uppercase mb-1 supplier-name">
+                Name: <span className="underline">{translateBilingual(group.name)}</span>
+              </div>
+              <table className="ledger-print-table w-full border-collapse font-mono text-xs">
+                <thead>
+                  <tr className="border-t border-b border-black">
+                    <th className="py-1 px-1 border-r border-black text-center w-20">DATE</th>
+                    <th className="py-1 px-1 border-r border-black text-center w-24">CHALLAN NO</th>
+                    <th className="py-1 px-1 border-r border-black text-left">PARTICULARS</th>
+                    <th className="py-1 px-1 border-r border-black text-right w-24">DEBIT</th>
+                    <th className="py-1 px-1 border-r border-black text-right w-24">CREDIT</th>
+                    <th className="py-1 px-1 border-r border-black text-center w-14">DR/CR</th>
+                    <th className="py-1 px-1 text-right w-28">AMOUNT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.rows.map((row: any, idx: number) => (
+                    <tr key={idx} className="border-b border-black last:border-b-0">
+                      <td className="py-1 px-1 border-r border-black text-center">
+                        {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateLedger(row.date)}
+                      </td>
+                      <td className="py-1 px-1 border-r border-black text-center uppercase font-bold text-slate-900 w-24">
+                        {row.isOpening ? "-" : (row.referenceNumber || "-")}
+                      </td>
+                      <td className="py-1 px-1 border-r border-black text-left uppercase">
+                        {translateBilingual(row.particulars)}
+                      </td>
+                      <td className="py-1 px-1 border-r border-black text-right">
+                        {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
+                      </td>
+                      <td className="py-1 px-1 border-r border-black text-right">
+                        {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
+                      </td>
+                      <td className="py-1 px-1 border-r border-black text-center">{row.drCr}</td>
+                      <td className="py-1 px-1 text-right">{formatPrintAmount(row.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      );
+    }
+  };
+
+  const renderSummaryPrintContent = (copyIndicator: string) => {
+    const copyLabel = copyIndicator === "OR" ? "ORIGINAL COPY" : "DUPLICATE COPY";
+    const selectedLedgerObj = smSelectedLedgerId === "all" || !smSelectedLedgerId
+      ? null
+      : summaryLedgersList.find((l: any) => String(l.id) === String(smSelectedLedgerId));
+
+    const selectedLedgerName = selectedLedgerObj ? selectedLedgerObj.name : "";
+    const selectedLedgerPhone = selectedLedgerObj ? selectedLedgerObj.phone : "";
+    const selectedLedgerAddress = selectedLedgerObj ? selectedLedgerObj.address : "";
+
+    const singleAccountBalance = selectedLedgerObj ? selectedLedgerObj.balance : 0;
+    const singleAccountStatus = selectedLedgerObj ? selectedLedgerObj.status : "NIL";
+    const singleAccountDebit = selectedLedgerObj ? selectedLedgerObj.totalDebit : 0;
+    const singleAccountCredit = selectedLedgerObj ? selectedLedgerObj.totalCredit : 0;
+
+    return (
+      <div className="summary-print-wrapper p-4 bg-white font-mono text-slate-900">
+        <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
+          <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">{copyLabel}</span>
+          <span className="font-mono text-xs font-black">DATE: {getTodayDateStr()}</span>
+        </div>
+        <div className="text-center font-bold text-base uppercase mb-4 estimate-title">
+          ACCOUNTS SUMMARY {smSelectedSiteId ? `( SITE: ${sites?.find((s: any) => s.id === smSelectedSiteId)?.name.toUpperCase() || ""} )` : ""}
+        </div>
+
+        {selectedLedgerObj ? (
+          <div className="space-y-6 text-slate-900 font-mono">
+            <div className="border-b-2 border-black pb-4 space-y-1">
+              <div className="flex">
+                <span className="w-24 text-slate-500 uppercase">Name :</span>
+                <span className="font-black uppercase text-slate-900 supplier-name">
+                  {translateBilingual(selectedLedgerName)}
+                </span>
+              </div>
+              <div className="flex">
+                <span className="w-24 text-slate-500 uppercase">Address :</span>
+                <span className="font-black uppercase text-slate-900 supplier-info">
+                  {translateBilingual(selectedLedgerAddress)}
+                </span>
+              </div>
+              <div className="flex">
+                <span className="w-24 text-slate-500 uppercase">Mobile No :</span>
+                <span className="font-black text-slate-900">
+                  {selectedLedgerPhone || ""}
+                </span>
+              </div>
+            </div>
+
+            <div className="border border-black p-4 rounded space-y-4">
+              <h5 className="font-black text-xs uppercase tracking-wider text-slate-700">Financial Summary</h5>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="border border-black p-3 bg-slate-50">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Debit</div>
+                  <div className="text-sm font-black text-slate-900">
+                    {singleAccountDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="border border-black p-3 bg-slate-50">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Credit</div>
+                  <div className="text-sm font-black text-slate-900">
+                    {singleAccountCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="border border-black p-3 bg-slate-50">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Net Balance</div>
+                  <div className="text-sm font-black text-slate-900">
+                    {singleAccountBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} {singleAccountStatus}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <table className="summary-print-table w-full border-collapse font-mono text-xs text-slate-900">
+              <thead>
+                <tr className="border-t border-b border-black">
+                  <th className="py-1.5 px-2 border-r border-black text-center w-12">S.N.</th>
+                  <th className="py-1.5 px-2 border-r border-black text-left">Account Name</th>
+                  <th className="py-1.5 px-2 border-r border-black text-left">Address</th>
+                  <th className="py-1.5 px-2 border-r border-black text-center w-28">Mobile No.</th>
+                  <th className="py-1.5 px-2 border-r border-black text-center w-16">Dr/Cr</th>
+                  <th className="py-1.5 px-2 text-right w-36">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summaryLedgersList.map((item: any, idx: number) => (
+                  <tr key={idx} className="border-b border-black last:border-b-0">
+                    <td className="py-1 px-2 border-r border-black text-center">{idx + 1}</td>
+                    <td className="py-1 px-2 border-r border-black text-left font-black">
+                      {translateBilingual(item.name)}
+                    </td>
+                    <td className="py-1 px-2 border-r border-black text-left text-[11px]">
+                      {translateBilingual(item.address)}
+                    </td>
+                    <td className="py-1 px-2 border-r border-black text-center text-[11px]">{item.phone || "-"}</td>
+                    <td className="py-1 px-2 border-r border-black text-center font-bold">{item.status}</td>
+                    <td className="py-1 px-2 text-right font-black text-slate-900">
+                      {item.balance === 0 ? "NILL" : item.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-4 border border-black p-3 bg-slate-50 space-y-2 font-mono text-slate-900">
+              {(() => {
+                const drSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "DR" ? curr.balance : 0), 0);
+                const crSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "CR" ? curr.balance : 0), 0);
+                return (
+                  <div className="flex justify-between font-black text-xs">
+                    <span>TOTAL DEBIT (DR): {drSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span>TOTAL CREDIT (CR): {crSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                );
+              })()}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderDaybookPrintContent = (copyIndicator: string) => {
+    const copyLabel = copyIndicator === "OR" ? "ORIGINAL COPY" : "DUPLICATE COPY";
+    const daybookPrintData = getPrintDaybookItems();
+    return (
+      <div className="daybook-print-wrapper p-4 bg-white text-slate-900">
+        <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
+          <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">{copyLabel}</span>
+          <span className="font-mono text-xs font-black">DATE: {getTodayDateStr()}</span>
+        </div>
+        <div className="text-center font-bold text-base uppercase mb-1 estimate-title">
+          DAY BOOK {formatTitleDate(printStartDate)} TO {formatTitleDate(printEndDate)}
+        </div>
+        <div className="text-right text-[10px] font-bold mb-2">Page 1 of 1</div>
+        <table className="daybook-print-table w-full border-collapse font-mono text-xs">
+          <thead>
+            <tr className="border-t border-b border-black">
+              <th className="py-1 px-1.5 border-r border-black text-center w-24">DATE</th>
+              <th className="py-1 px-1.5 border-r border-black text-left">PARTICULARS</th>
+              <th className="py-1 px-1.5 border-r border-black text-right w-28">DEBIT</th>
+              <th className="py-1 px-1.5 border-r border-black text-right w-28">CREDIT</th>
+              <th className="py-1 px-1.5 border-r border-black text-center w-14">DR/CR</th>
+              <th className="py-1 px-1.5 text-right w-28">R-TOTALS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {daybookPrintData.items.map((row: any, idx: number) => (
+              <tr key={idx} className="border-b border-black last:border-b-0">
+                <td className="py-1 px-1.5 border-r border-black text-center">
+                  {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateDaybook(row.date)}
+                </td>
+                <td className="py-1 px-1.5 border-r border-black text-left uppercase">
+                  {translateBilingual(row.particulars)}
+                </td>
+                <td className="py-1 px-1.5 border-r border-black text-right">
+                  {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
+                </td>
+                <td className="py-1 px-1.5 border-r border-black text-right">
+                  {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
+                </td>
+                <td className="py-1 px-1.5 border-r border-black text-center">{row.drCr}</td>
+                <td className="py-1 px-1.5 text-right">{row.runningBalance.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderCopiesSelectorModal = () => {
+    return (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] animate-in fade-in duration-100 no-print">
+        <div className="bg-[#D3DFEE] border-2 border-slate-955 rounded shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] overflow-hidden w-[380px] max-w-[95vw] font-mono flex flex-col select-none">
+          <div className="border-b-2 border-slate-955 px-3 py-2 flex items-center justify-between text-white shrink-0 bg-slate-900">
+            <span className="text-xs font-black uppercase tracking-wider">PRINT COPIES / प्रतियों का चयन</span>
+            <button
+              type="button"
+              onClick={() => setShowCopiesDialog(false)}
+              className="bg-red-650 hover:bg-red-700 text-white font-black text-xs px-2.5 py-1 rounded border border-slate-955 active:translate-y-0.5 cursor-pointer font-bold"
+            >
+              X
+            </button>
+          </div>
+          <div className="p-6 bg-[#E5ECF4] space-y-4 text-slate-955 animate-in fade-in">
+            <p className="text-center font-bold text-sm uppercase text-slate-800 tracking-wider">
+              Select copies to print:
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                id="btn-print-copy-1"
+                onClick={() => triggerFinalPrint(1)}
+                className="w-full py-2.5 bg-[#FFE600] text-slate-955 border-2 border-slate-900 font-black text-xs uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:bg-[#E5C300] active:translate-y-0.5 active:shadow-none transition-all text-left px-4 flex justify-between items-center"
+              >
+                <span>1. 1 COPY (ORIGINAL)</span>
+                <span className="text-[10px] text-slate-600 font-normal">[Press 1]</span>
+              </button>
+              <button
+                type="button"
+                id="btn-print-copy-2"
+                onClick={() => triggerFinalPrint(2)}
+                className="w-full py-2.5 bg-white text-slate-955 border-2 border-slate-900 font-black text-xs uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:bg-slate-100 active:translate-y-0.5 active:shadow-none transition-all text-left px-4 flex justify-between items-center"
+              >
+                <span>2. 2 COPIES (ORIGINAL & DUPLICATE)</span>
+                <span className="text-[10px] text-slate-600 font-normal">[Press 2]</span>
+              </button>
+            </div>
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => setShowCopiesDialog(false)}
+                className="px-4 py-1.5 bg-slate-200 border-2 border-slate-900 text-slate-900 font-black text-[10px] uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-slate-350 active:translate-y-0.5 active:shadow-none transition-all"
+              >
+                Cancel [Esc]
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  };
+
+  const renderLedgerSinglePageContent = (chunk: any[], chunkIdx: number, totalChunks: number, selectedLedgerObj: any) => {
+    const selectedLedgerName = selectedLedgerObj ? selectedLedgerObj.name : "";
+    const selectedLedgerPhone = selectedLedgerObj ? selectedLedgerObj.phone : "";
+    const selectedLedgerAddress = selectedLedgerObj 
+      ? (() => {
+          const details = parsePartyDetails(selectedLedgerObj.contactPerson);
+          return details ? details.address : selectedLedgerObj.contactPerson;
+        })()
+      : "";
+
+    return (
+      <div className="ledger-print-wrapper p-4 bg-white text-slate-900">
+        <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
+          <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">
+            LEDGER REPORT / खाता बही
+          </span>
+          <span className="font-mono text-xs font-black">
+            DATE: {getTodayDateStr()} | Page {chunkIdx + 1} of {totalChunks}
+          </span>
+        </div>
+        <div className="text-center font-bold text-base uppercase mb-4 estimate-title">
+          {lgFilterDate ? `LEDGER FOR DATE ( ${formatTitleDate(lgFilterDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
+        </div>
+        <div className="mb-4 text-xs font-bold font-mono space-y-1">
+          <div className="flex">
+            <span className="w-24 text-slate-500">Name :</span>
+            <span className="font-black uppercase text-slate-900 supplier-name">
+              {translateBilingual(selectedLedgerName)}
+            </span>
+          </div>
+          <div className="flex">
+            <span className="w-24 text-slate-500">Address :</span>
+            <span className="font-black uppercase text-slate-900 supplier-info">
+              {translateBilingual(selectedLedgerAddress)}
+            </span>
+          </div>
+          <div className="flex">
+            <span className="w-24 text-slate-500">Phone No. :</span>
+            <span className="font-black text-slate-900">
+              {selectedLedgerPhone || ""}
+            </span>
+          </div>
+        </div>
+        
+        <table className="ledger-print-table w-full border-collapse font-mono text-xs">
+          <thead>
+            <tr className="border-t border-b border-black">
+              <th className="py-1 px-1 border-r border-black text-center w-20">DATE</th>
+              <th className="py-1 px-1 border-r border-black text-center w-24">CHALLAN NO</th>
+              <th className="py-1 px-1 border-r border-black text-left">PARTICULARS</th>
+              <th className="py-1 px-1 border-r border-black text-right w-16">QTY</th>
+              <th className="py-1 px-1 border-r border-black text-center w-16">UNIT</th>
+              <th className="py-1 px-1 border-r border-black text-right w-20">RATE</th>
+              <th className="py-1 px-1 border-r border-black text-right w-24">DEBIT</th>
+              <th className="py-1 px-1 border-r border-black text-right w-24">CREDIT</th>
+              <th className="py-1 px-1 border-r border-black text-center w-14">DR/CR</th>
+              <th className="py-1 px-1 text-right w-28">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {chunk.map((row: any, idx: number) => {
+              const rowDrCr = (row.debit > 0 || row.parsedType === "TO") ? "DR" : "CR";
+              const runningBalSign = row.runningBalance < 0 ? "CR " : row.runningBalance > 0 ? "DR " : "";
+              return (
+                <tr key={idx} className="border-b border-black last:border-b-0">
+                  <td className="py-1 px-1 border-r border-black text-center">
+                    {formatRenderDate(row.date)}
+                  </td>
+                  <td className="py-1 px-1 border-r border-black text-center uppercase font-bold text-slate-900 w-24">
+                    {row.referenceNumber || "-"}
+                  </td>
+                  <td className="py-1 px-1 border-r border-black text-left uppercase">
+                    {translateBilingual(row.particulars)}
+                  </td>
+                  <td className="py-1 px-1 border-r border-black text-right">
+                    {row.isStructured ? row.qty : "-"}
+                  </td>
+                  <td className="py-1 px-1 border-r border-black text-center">
+                    {row.isStructured ? translateBilingual(row.unit) : "-"}
+                  </td>
+                  <td className="py-1 px-1 border-r border-black text-right">
+                    {row.isStructured ? row.rate : "-"}
+                  </td>
+                  <td className="py-1 px-1 border-r border-black text-right">
+                    {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
+                  </td>
+                  <td className="py-1 px-1 border-r border-black text-right">
+                    {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
+                  </td>
+                  <td className="py-1 px-1 border-r border-black text-center">{rowDrCr}</td>
+                  <td className="py-1 px-1 text-right">
+                    {row.runningBalance === 0 ? "NILL" : `${runningBalSign}${Math.abs(row.runningBalance).toFixed(2)}`}
+                  </td>
+                </tr>
+              );
+            })}
+            {chunkIdx === totalChunks - 1 && (
+              <tr className="bg-[#D3DFEE] font-black border-t-2 border-slate-800 uppercase text-[11px] text-slate-955">
+                <td colSpan={6} className="border-r border-slate-400 px-2 py-1.5 text-right font-black">TOTAL:</td>
+                <td className="border-r border-slate-400 px-2 py-1.5 text-right text-slate-955 font-black">
+                  {processedLgData.totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </td>
+                <td className="border-r border-slate-400 px-2 py-1.5 text-right text-slate-955 font-black">
+                  {processedLgData.totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </td>
+                <td className="border-r border-slate-400 px-2 py-1.5 text-center text-slate-955 font-black">
+                  {processedLgData.finalBalance === 0 ? "NIL" : (processedLgData.finalBalance < 0 ? "CR" : "DR")}
+                </td>
+                <td className="px-2 py-1.5 text-right text-slate-955 font-black">
+                  {processedLgData.finalBalance === 0 ? "NILL" : `${processedLgData.finalBalance < 0 ? "CR " : "DR "}${Math.abs(processedLgData.finalBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderLedgerGroupPageContent = (pageGroups: any[], pageIdx: number, totalPages: number) => {
+    return (
+      <div className="ledger-print-wrapper p-4 bg-white text-slate-900">
+        <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
+          <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">
+            ALL LEDGERS REPORT / समस्त खाता बही
+          </span>
+          <span className="font-mono text-xs font-black">
+            DATE: {getTodayDateStr()} | Page {pageIdx + 1} of {totalPages}
+          </span>
+        </div>
+        <div className="text-center font-bold text-base uppercase mb-4 estimate-title">
+          {printEndDate ? `LEDGER UP TO ( ${formatTitleDate(printEndDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
+        </div>
+        
+        {pageGroups.map((group: any, gIdx: number) => (
+          <div key={gIdx} className="ledger-group-block mb-6">
+            <div className="font-bold text-xs uppercase mb-1 supplier-name">
+              Name: <span className="underline">{translateBilingual(group.name)}</span> {!group.isFirstPart && <span className="text-slate-500 lowercase font-normal">(continued)</span>}
+            </div>
+            <table className="ledger-print-table w-full border-collapse font-mono text-xs">
+              <thead>
+                <tr className="border-t border-b border-black">
+                  <th className="py-1 px-1 border-r border-black text-center w-20">DATE</th>
+                  <th className="py-1 px-1 border-r border-black text-center w-24">CHALLAN NO</th>
+                  <th className="py-1 px-1 border-r border-black text-left">PARTICULARS</th>
+                  <th className="py-1 px-1 border-r border-black text-right w-24">DEBIT</th>
+                  <th className="py-1 px-1 border-r border-black text-right w-24">CREDIT</th>
+                  <th className="py-1 px-1 border-r border-black text-center w-14">DR/CR</th>
+                  <th className="py-1 px-1 text-right w-28">AMOUNT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.rows.map((row: any, idx: number) => (
+                  <tr key={idx} className="border-b border-black last:border-b-0">
+                    <td className="py-1 px-1 border-r border-black text-center">
+                      {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateLedger(row.date)}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-center uppercase font-bold text-slate-900 w-24">
+                      {row.isOpening ? "-" : (row.referenceNumber || "-")}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-left uppercase">
+                      {translateBilingual(row.particulars)}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-right">
+                      {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-right">
+                      {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
+                    </td>
+                    <td className="py-1 px-1 border-r border-black text-center">{row.drCr}</td>
+                    <td className="py-1 px-1 text-right">{formatPrintAmount(row.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderSummaryPageContent = (chunk: any[], chunkIdx: number, totalChunks: number, selectedLedgerObj: any) => {
+    const selectedLedgerName = selectedLedgerObj ? selectedLedgerObj.name : "";
+    const selectedLedgerPhone = selectedLedgerObj ? selectedLedgerObj.phone : "";
+    const selectedLedgerAddress = selectedLedgerObj ? selectedLedgerObj.address : "";
+
+    const singleAccountBalance = selectedLedgerObj ? selectedLedgerObj.balance : 0;
+    const singleAccountStatus = selectedLedgerObj ? selectedLedgerObj.status : "NIL";
+    const singleAccountDebit = selectedLedgerObj ? selectedLedgerObj.totalDebit : 0;
+    const singleAccountCredit = selectedLedgerObj ? selectedLedgerObj.totalCredit : 0;
+
+    return (
+      <div className="summary-print-wrapper p-4 bg-white font-mono text-slate-900">
+        <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
+          <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">
+            ACCOUNTS SUMMARY / खातों का सारांश
+          </span>
+          <span className="font-mono text-xs font-black">
+            DATE: {getTodayDateStr()} | Page {chunkIdx + 1} of {totalChunks}
+          </span>
+        </div>
+        <div className="text-center font-bold text-base uppercase mb-4 estimate-title">
+          ACCOUNTS SUMMARY {smSelectedSiteId ? `( SITE: ${sites?.find((s: any) => s.id === smSelectedSiteId)?.name.toUpperCase() || ""} )` : ""}
+        </div>
+
+        {selectedLedgerObj ? (
+          <div className="space-y-6 text-slate-900 font-mono">
+            <div className="border-b-2 border-black pb-4 space-y-1">
+              <div className="flex">
+                <span className="w-24 text-slate-500 uppercase">Name :</span>
+                <span className="font-black uppercase text-slate-900 supplier-name">
+                  {translateBilingual(selectedLedgerName)}
+                </span>
+              </div>
+              <div className="flex">
+                <span className="w-24 text-slate-500 uppercase">Address :</span>
+                <span className="font-black uppercase text-slate-900 supplier-info">
+                  {translateBilingual(selectedLedgerAddress)}
+                </span>
+              </div>
+              <div className="flex">
+                <span className="w-24 text-slate-500 uppercase">Mobile No :</span>
+                <span className="font-black text-slate-900">
+                  {selectedLedgerPhone || ""}
+                </span>
+              </div>
+            </div>
+
+            <div className="border border-black p-4 rounded space-y-4">
+              <h5 className="font-black text-xs uppercase tracking-wider text-slate-700">Financial Summary</h5>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="border border-black p-3 bg-slate-50">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Debit</div>
+                  <div className="text-sm font-black text-slate-900">
+                    {singleAccountDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="border border-black p-3 bg-slate-50">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Credit</div>
+                  <div className="text-sm font-black text-slate-900">
+                    {singleAccountCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="border border-black p-3 bg-slate-50">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Net Balance</div>
+                  <div className="text-sm font-black text-slate-900">
+                    {singleAccountBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} {singleAccountStatus}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <table className="summary-print-table w-full border-collapse font-mono text-xs text-slate-900">
+              <thead>
+                <tr className="border-t border-b border-black">
+                  <th className="py-1.5 px-2 border-r border-black text-center w-12">S.N.</th>
+                  <th className="py-1.5 px-2 border-r border-black text-left">Account Name</th>
+                  <th className="py-1.5 px-2 border-r border-black text-left">Address</th>
+                  <th className="py-1.5 px-2 border-r border-black text-center w-28">Mobile No.</th>
+                  <th className="py-1.5 px-2 border-r border-black text-center w-16">Dr/Cr</th>
+                  <th className="py-1.5 px-2 text-right w-36">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chunk.map((item: any, idx: number) => {
+                  const serialNo = chunkIdx * 18 + idx + 1;
+                  return (
+                    <tr key={idx} className="border-b border-black last:border-b-0">
+                      <td className="py-1 px-2 border-r border-black text-center">{serialNo}</td>
+                      <td className="py-1 px-2 border-r border-black text-left font-black">
+                        {translateBilingual(item.name)}
+                      </td>
+                      <td className="py-1 px-2 border-r border-black text-left text-[11px]">
+                        {translateBilingual(item.address)}
+                      </td>
+                      <td className="py-1 px-2 border-r border-black text-center text-[11px]">{item.phone || "-"}</td>
+                      <td className="py-1 px-2 border-r border-black text-center font-bold">{item.status}</td>
+                      <td className="py-1 px-2 text-right font-black text-slate-900">
+                        {item.balance === 0 ? "NILL" : item.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {chunkIdx === totalChunks - 1 && (
+              <div className="mt-4 border border-black p-3 bg-slate-50 space-y-2 font-mono text-slate-900">
+                {(() => {
+                  const drSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "DR" ? curr.balance : 0), 0);
+                  const crSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "CR" ? curr.balance : 0), 0);
+                  return (
+                    <div className="flex justify-between font-black text-xs">
+                      <span>TOTAL DEBIT (DR): {drSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span>TOTAL CREDIT (CR): {crSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderDaybookPageContent = (chunk: any[], chunkIdx: number, totalChunks: number) => {
+    return (
+      <div className="daybook-print-wrapper p-4 bg-white text-slate-900">
+        <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
+          <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">
+            DAY BOOK REPORT / दैनिक बही
+          </span>
+          <span className="font-mono text-xs font-black">
+            DATE: {getTodayDateStr()} | Page {chunkIdx + 1} of {totalChunks}
+          </span>
+        </div>
+        <div className="text-center font-bold text-base uppercase mb-2 estimate-title">
+          DAY BOOK {formatTitleDate(printStartDate)} TO {formatTitleDate(printEndDate)}
+        </div>
+        <table className="daybook-print-table w-full border-collapse font-mono text-xs">
+          <thead>
+            <tr className="border-t border-b border-black">
+              <th className="py-1 px-1.5 border-r border-black text-center w-24">DATE</th>
+              <th className="py-1 px-1.5 border-r border-black text-left">PARTICULARS</th>
+              <th className="py-1 px-1.5 border-r border-black text-right w-28">DEBIT</th>
+              <th className="py-1 px-1.5 border-r border-black text-right w-28">CREDIT</th>
+              <th className="py-1 px-1.5 border-r border-black text-center w-14">DR/CR</th>
+              <th className="py-1 px-1.5 text-right w-28">R-TOTALS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {chunk.map((row: any, idx: number) => (
+              <tr key={idx} className="border-b border-black last:border-b-0">
+                <td className="py-1 px-1.5 border-r border-black text-center">
+                  {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateDaybook(row.date)}
+                </td>
+                <td className="py-1 px-1.5 border-r border-black text-left uppercase">
+                  {translateBilingual(row.particulars)}
+                </td>
+                <td className="py-1 px-1.5 border-r border-black text-right">
+                  {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
+                </td>
+                <td className="py-1 px-1.5 border-r border-black text-right">
+                  {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
+                </td>
+                <td className="py-1 px-1.5 border-r border-black text-center">{row.drCr}</td>
+                <td className="py-1 px-1.5 text-right">{row.runningBalance.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderPrintPortalContent = () => {
+    return (
+      <div id="print-portal-root" className="print-only-layout text-slate-900 bg-white">
+        <style>{`
+          #print-portal-root,
+          #print-portal-root td,
+          #print-portal-root th,
+          #print-portal-root span,
+          #print-portal-root div {
+            font-family: var(--font-geist-sans), var(--font-noto-devanagari), 'Nirmala UI', sans-serif !important;
+          }
+          
+          @media print {
+            .print-only-layout { display: block !important; }
+            @page { size: portrait; margin: 8mm; }
+            html, body {
+              display: block !important;
+              height: auto !important;
+              min-height: 0 !important;
+              overflow: visible !important;
+              background: white !important;
+              color: black !important;
+              font-family: var(--font-geist-sans), var(--font-noto-devanagari), 'Nirmala UI', sans-serif !important;
+            }
+            
+            /* Hide everything under body except the print portal root */
+            body > :not(#print-portal-root) {
+              display: none !important;
+            }
+            
+            #print-portal-root {
+              display: block !important;
+              position: static !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              height: auto !important;
+              overflow: visible !important;
+              background: white !important;
+            }
+            .print-page {
+              page-break-after: always !important;
+              break-after: page !important;
+              border: 2px solid #000 !important;
+              padding: 18px !important;
+              border-radius: 4px !important;
+              background: white !important;
+              box-sizing: border-box !important;
+              margin: 0 0 10mm 0 !important;
+              display: block !important;
+              width: 100% !important;
+            }
+            .print-blank-page {
+              page-break-after: always !important;
+              break-after: page !important;
+              border: none !important;
+              background: transparent !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              height: 100% !important;
+              min-height: 150mm !important;
+              visibility: hidden !important;
+            }
+            .print-page:last-child {
+              page-break-after: avoid !important;
+              break-after: avoid !important;
+              margin-bottom: 0 !important;
+            }
+            
+            .estimate-title { font-size: 24px !important; font-weight: 900 !important; }
+            .supplier-name { font-size: 16px !important; font-weight: 900 !important; }
+            .supplier-info { font-size: 13px !important; font-weight: 700 !important; line-height: 1.3 !important; }
+            
+            table { width: 100% !important; border-collapse: collapse !important; margin-top: 8px !important; }
+            th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact !important; font-size: 12px !important; font-weight: 900 !important; }
+            td { font-size: 13px !important; font-weight: 850 !important; }
+            th, td { border: 1.5px solid #000 !important; padding: 6px 8px !important; }
+          }
+        `}</style>
+
+        {printLayoutMode === "ledger" && (() => {
+          const isSingle = lgSelectedLedgerId && lgSelectedLedgerId !== "all";
+          if (isSingle) {
+            const selectedLedgerObj = activeSiteLedgers.find((l: any) => String(l.id) === String(lgSelectedLedgerId)) || 
+                                     (ledgers ? ledgers.find((l: any) => String(l.id) === String(lgSelectedLedgerId)) : null);
+            const items = processedLgData.items;
+            const chunks = chunkArray(items, 15);
+            if (chunks.length === 0) {
+              return (
+                <Fragment>
+                  <div className="print-page">
+                    {renderLedgerSinglePageContent([], 0, 1, selectedLedgerObj)}
+                  </div>
+                  <div className="print-page print-blank-page">
+                    <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                  </div>
+                </Fragment>
+              );
+            }
+            return chunks.map((chunk, idx) => (
+              <Fragment key={idx}>
+                <div className="print-page">
+                  {renderLedgerSinglePageContent(chunk, idx, chunks.length, selectedLedgerObj)}
+                </div>
+                <div className="print-page print-blank-page">
+                  <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                </div>
+              </Fragment>
+            ));
+          } else {
+            const ledgerPrintData = getGroupedLedgersData();
+            const pages: any[] = [];
+            let currentPageGroups: any[] = [];
+            let currentRowCount = 0;
+
+            ledgerPrintData.forEach((group: any) => {
+              const groupRows = group.rows;
+              let startIdx = 0;
+              
+              while (startIdx < groupRows.length) {
+                const remainingCapacity = 15 - currentRowCount;
+                const rowsToTake = Math.min(groupRows.length - startIdx, remainingCapacity);
+                
+                if (rowsToTake <= 0) {
+                  pages.push(currentPageGroups);
+                  currentPageGroups = [];
+                  currentRowCount = 0;
+                  continue;
+                }
+
+                const chunkOfRows = groupRows.slice(startIdx, startIdx + rowsToTake);
+                currentPageGroups.push({
+                  name: group.name,
+                  rows: chunkOfRows,
+                  isFirstPart: startIdx === 0,
+                  isLastPart: startIdx + rowsToTake === groupRows.length
+                });
+                
+                currentRowCount += rowsToTake;
+                startIdx += rowsToTake;
+              }
+            });
+
+            if (currentPageGroups.length > 0) {
+              pages.push(currentPageGroups);
+            }
+
+            if (pages.length === 0) {
+              return (
+                <Fragment>
+                  <div className="print-page">
+                    {renderLedgerGroupPageContent([], 0, 1)}
+                  </div>
+                  <div className="print-page print-blank-page">
+                    <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                  </div>
+                </Fragment>
+              );
+            }
+
+            return pages.map((pageGroups, idx) => (
+              <Fragment key={idx}>
+                <div className="print-page">
+                  {renderLedgerGroupPageContent(pageGroups, idx, pages.length)}
+                </div>
+                <div className="print-page print-blank-page">
+                  <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                </div>
+              </Fragment>
+            ));
+          }
+        })()}
+
+        {printLayoutMode === "summary" && (() => {
+          const selectedLedgerObj = smSelectedLedgerId === "all" || !smSelectedLedgerId
+            ? null
+            : summaryLedgersList.find((l: any) => String(l.id) === String(smSelectedLedgerId));
+
+          if (selectedLedgerObj) {
+            return (
+              <Fragment>
+                <div className="print-page">
+                  {renderSummaryPageContent([], 0, 1, selectedLedgerObj)}
+                </div>
+                <div className="print-page print-blank-page">
+                  <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                </div>
+              </Fragment>
+            );
+          } else {
+            const chunks = chunkArray(summaryLedgersList, 18);
+            if (chunks.length === 0) {
+              return (
+                <Fragment>
+                  <div className="print-page">
+                    {renderSummaryPageContent([], 0, 1, null)}
+                  </div>
+                  <div className="print-page print-blank-page">
+                    <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                  </div>
+                </Fragment>
+              );
+            }
+            return chunks.map((chunk, idx) => (
+              <Fragment key={idx}>
+                <div className="print-page">
+                  {renderSummaryPageContent(chunk, idx, chunks.length, null)}
+                </div>
+                <div className="print-page print-blank-page">
+                  <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                </div>
+              </Fragment>
+            ));
+          }
+        })()}
+
+        {printLayoutMode === "daybook" && (() => {
+          const daybookPrintData = getPrintDaybookItems();
+          const chunks = chunkArray(daybookPrintData.items, 18);
+          if (chunks.length === 0) {
+            return (
+              <Fragment>
+                <div className="print-page">
+                  {renderDaybookPageContent([], 0, 1)}
+                </div>
+                <div className="print-page print-blank-page">
+                  <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                </div>
+              </Fragment>
+            );
+          }
+          return chunks.map((chunk, idx) => (
+            <Fragment key={idx}>
+              <div className="print-page">
+                {renderDaybookPageContent(chunk, idx, chunks.length)}
+              </div>
+              <div className="print-page print-blank-page">
+                <div style={{ height: "100%", minHeight: "150mm" }}></div>
+              </div>
+            </Fragment>
+          ));
+        })()}
+      </div>
+    );
+  };
+
   // Keyboard shortcut listeners (1 for PDF, F3 for Excel, L for Ledger Print, D for Daybook Print)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showCopiesDialog) {
+        if (e.key === "1") {
+          e.preventDefault();
+          triggerFinalPrint(1);
+          return;
+        } else if (e.key === "2") {
+          e.preventDefault();
+          triggerFinalPrint(2);
+          return;
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          setShowCopiesDialog(false);
+          return;
+        }
+      }
+
       const activeEl = document.activeElement;
       if (activeEl) {
         const tagName = activeEl.tagName.toUpperCase();
@@ -1717,8 +3186,10 @@ function ReportsContent() {
         e.preventDefault();
         if (reportType === "daybook") {
           handleOpenPrintModal("daybook");
-        } else {
-          window.print();
+        } else if (reportType === "ledger") {
+          handlePrintLedgerPDF();
+        } else if (reportType === "summary") {
+          handlePrintSummaryPDF();
         }
       } else if (e.key.toUpperCase() === "L") {
         if (reportType === "daybook") {
@@ -1743,7 +3214,7 @@ function ReportsContent() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [reportType, processedDbData, processedLgData, dbSelectedSiteId, lgSelectedSiteId, lgSelectedLedgerId, smSelectedSiteId, smSelectedLedgerId, summaryLedgersList, printStartDate, printEndDate]);
+  }, [reportType, processedDbData, processedLgData, dbSelectedSiteId, lgSelectedSiteId, lgSelectedLedgerId, smSelectedSiteId, smSelectedLedgerId, summaryLedgersList, printStartDate, printEndDate, showCopiesDialog, printTargetReport]);
 
 
   // Auto-select first row (index 0) in Print Ledger table when ledger data changes
@@ -2330,7 +3801,7 @@ function ReportsContent() {
                 <div className="p-3 bg-[#E5ECF4] border-t border-slate-300 flex items-center justify-end gap-3 print-toolbar no-print mt-4">
                   <button
                     type="button"
-                    onClick={handlePrintPDF}
+                    onClick={handlePrintSummaryPDF}
                     className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
                   >
                     <span>[1] PRINT PDF</span>
@@ -2440,6 +3911,11 @@ function ReportsContent() {
             }
           }
         `}</style>
+        {showCopiesDialog && renderCopiesSelectorModal()}
+        {mounted && typeof window !== "undefined" && printLayoutMode && createPortal(
+          renderPrintPortalContent(),
+          document.body
+        )}
       </div>
     );
   }
@@ -2889,7 +4365,7 @@ function ReportsContent() {
               <div className="p-3 bg-[#E5ECF4] border-t border-slate-300 flex items-center justify-end gap-3 print-toolbar no-print mt-4">
                 <button
                   type="button"
-                  onClick={handlePrintPDF}
+                  onClick={handlePrintLedgerPDF}
                   className="px-4 py-2 bg-slate-200 border-2 border-white border-r-slate-400 border-b-slate-400 hover:bg-slate-300 text-slate-900 font-black font-mono text-[11px] shadow-sm active:border-slate-400 active:border-r-white active:border-b-white uppercase tracking-wider flex items-center gap-1.5 select-none"
                 >
                   <span>[1] PRINT PDF</span>
@@ -2998,6 +4474,11 @@ function ReportsContent() {
             }
           }
         `}</style>
+        {showCopiesDialog && renderCopiesSelectorModal()}
+        {mounted && typeof window !== "undefined" && printLayoutMode && createPortal(
+          renderPrintPortalContent(),
+          document.body
+        )}
       </div>
     );
   }
@@ -3250,97 +4731,7 @@ function ReportsContent() {
           </div>
         </div>
 
-        {/* PRINT ONLY SECTION */}
-        {printLayoutMode && (
-          <div className="print-only-container">
-            {printLayoutMode === "ledger" && (
-              <div className="ledger-print-wrapper p-4 bg-white">
-                <div className="text-center font-bold text-base uppercase mb-4">
-                  {printEndDate ? `LEDGER UP TO ( ${formatTitleDate(printEndDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
-                </div>
-                {ledgerPrintData.map((group: any) => (
-                  <div key={group.name} className="ledger-group-block mb-6">
-                    <div className="font-bold text-xs uppercase mb-1">
-                      Name: <span className="underline">{group.name}</span>
-                    </div>                     <table className="ledger-print-table w-full border-collapse font-mono text-xs">
-                      <thead>
-                        <tr className="border-t border-b border-black">
-                          <th className="py-1 px-1 border-r border-black text-center w-20">DATE</th>
-                          <th className="py-1 px-1 border-r border-black text-center w-24">CHALLAN NO</th>
-                          <th className="py-1 px-1 border-r border-black text-left">PARTICULARS</th>
-                          <th className="py-1 px-1 border-r border-black text-right w-24">DEBIT</th>
-                          <th className="py-1 px-1 border-r border-black text-right w-24">CREDIT</th>
-                          <th className="py-1 px-1 border-r border-black text-center w-14">DR/CR</th>
-                          <th className="py-1 px-1 text-right w-28">AMOUNT</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.rows.map((row: any, idx: number) => (
-                          <tr key={idx} className="border-b border-black last:border-b-0">
-                            <td className="py-1 px-1 border-r border-black text-center">
-                              {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateLedger(row.date)}
-                            </td>
-                            <td className="py-1 px-1 border-r border-black text-center uppercase font-bold text-slate-900 w-24">
-                              {row.isOpening ? "-" : (row.referenceNumber || "-")}
-                            </td>
-                            <td className="py-1 px-1 border-r border-black text-left uppercase">{row.particulars}</td>
-                            <td className="py-1 px-1 border-r border-black text-right">
-                              {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
-                            </td>
-                            <td className="py-1 px-1 border-r border-black text-right">
-                              {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
-                            </td>
-                            <td className="py-1 px-1 border-r border-black text-center">{row.drCr}</td>
-                            <td className="py-1 px-1 text-right">{formatPrintAmount(row.amount)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
-              </div>
-            )}
 
-            {printLayoutMode === "daybook" && (
-              <div className="daybook-print-wrapper p-4 bg-white">
-                <div className="text-center font-bold text-base uppercase mb-1">
-                  DAY BOOK {formatTitleDate(printStartDate)} TO {formatTitleDate(printEndDate)}
-                </div>
-                <div className="text-right text-[10px] font-bold mb-2">Page 1 of 1</div>
-                <table className="daybook-print-table w-full border-collapse font-mono text-xs">
-                  <thead>
-                    <tr className="border-t border-b border-black">
-                      <th className="py-1 px-1.5 border-r border-black text-center w-24">DATE</th>
-                      <th className="py-1 px-1.5 border-r border-black text-left">PARTICULARS</th>
-                      <th className="py-1 px-1.5 border-r border-black text-right w-28">DEBIT</th>
-                      <th className="py-1 px-1.5 border-r border-black text-right w-28">CREDIT</th>
-                      <th className="py-1 px-1.5 border-r border-black text-center w-14">DR/CR</th>
-                      <th className="py-1 px-1.5 text-right w-28">R-TOTALS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {daybookPrintData.items.map((row: any, idx: number) => (
-                      <tr key={idx} className="border-b border-black last:border-b-0">
-                        <td className="py-1 px-1.5 border-r border-black text-center">
-                          {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateDaybook(row.date)}
-                        </td>
-                        <td className="py-1 px-1.5 border-r border-black text-left uppercase">{row.particulars}</td>
-                        <td className="py-1 px-1.5 border-r border-black text-right">
-                          {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
-                        </td>
-                        <td className="py-1 px-1.5 border-r border-black text-right">
-                          {row.credit > 0 ? formatPrintAmount(row.credit) : "0.00"}
-                        </td>
-                        <td className="py-1 px-1.5 border-r border-black text-center">{row.drCr}</td>
-                        <td className="py-1 px-1.5 text-right">{row.runningBalance.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* DIALOG MODAL */}
         <Dialog open={showDateRangeModal} onOpenChange={setShowDateRangeModal}>
@@ -3524,6 +4915,11 @@ function ReportsContent() {
             display: none;
           }
         `}</style>
+        {showCopiesDialog && renderCopiesSelectorModal()}
+        {mounted && typeof window !== "undefined" && printLayoutMode && createPortal(
+          renderPrintPortalContent(),
+          document.body
+        )}
       </div>
     );
   }
