@@ -3488,6 +3488,7 @@ export default function ChallanPage() {
                 .print-only-layout { display: block !important; }
                 @page { size: portrait; margin: 8mm; }
                 html, body {
+                  display: block !important;
                   height: auto !important;
                   min-height: 0 !important;
                   overflow: visible !important;
