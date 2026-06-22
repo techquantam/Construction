@@ -3496,50 +3496,19 @@ export default function ChallanPage() {
                   color: black !important;
                 }
                 
-                /* Hide unrelated layout elements */
-                aside, nav, header, .no-print, .print-toolbar {
+                /* Hide all elements that are not ancestors of .print-container */
+                body > *:not(:has(.print-container)),
+                body *:has(.print-container) > *:not(:has(.print-container)):not(.print-container) {
                   display: none !important;
                 }
                 
-                /* Hide the underlying background canvas of the dashboard layout */
-                .max-w-7xl > div:first-child {
-                  display: none !important;
-                }
-
                 /* Completely ignore modal and page wrapper boxes in print to bypass flex, grid, and scroll containers */
-                div[class*="h-screen"],
-                div[class*="min-w-0"],
-                main,
-                .max-w-7xl,
-                div[class*="inset-0"],
-                div[class*="w-[98vw]"],
-                div[class*="bg-slate-100"],
-                div[class*="max-w-[96%]"],
-                div[class*="max-w-[98%]"],
-                div[class*="lg:grid-cols-12"],
-                div[class*="lg:col-span-9"] {
-                  display: block !important;
-                  height: auto !important;
-                  min-height: 0 !important;
-                  max-height: none !important;
-                  overflow: visible !important;
-                  position: static !important;
-                  box-shadow: none !important;
-                  border: none !important;
-                  background: transparent !important;
-                  padding: 0 !important;
-                  margin: 0 !important;
-                  width: auto !important;
-                  max-width: none !important;
+                body *:has(.print-container) {
+                  display: contents !important;
                 }
 
                 /* Ensure print:hidden is respected */
                 .print\\:hidden, [class*="print:hidden"] {
-                  display: none !important;
-                }
-
-                /* Hide the yellow modal header bar completely */
-                .bg-amber-400 {
                   display: none !important;
                 }
 
