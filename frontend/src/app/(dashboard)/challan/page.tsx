@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Printer, Building2, User, Phone, MapPin, Wallet, ArrowDown, FileSpreadsheet, Trash2 } from "lucide-react";
 import api from "@/lib/axios";
 import { toast } from "sonner";
+import { createPortal } from "react-dom";
 
 // Fuzzy search utility matching standard inputs across the app
 function matchesFuzzy(name: string, query: string): boolean {
@@ -471,6 +472,11 @@ const getNextChallanNoForDate = (dateStr: string, daybooks: any[] | null | undef
 };
 
 export default function ChallanPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Query: Fetch all sites
   const { data: sites } = useQuery({
     queryKey: ["sites"],
@@ -3496,36 +3502,19 @@ export default function ChallanPage() {
                   color: black !important;
                 }
                 
-                /* Hide all elements that are not ancestors of .print-container */
-                body > *:not(:has(.print-container)),
-                body *:has(.print-container) > *:not(:has(.print-container)):not(.print-container) {
+                /* Hide everything under body except the print portal root */
+                body > :not(#print-portal-root) {
                   display: none !important;
                 }
                 
-                /* Completely ignore modal and page wrapper boxes in print to bypass flex, grid, and scroll containers */
-                body *:has(.print-container) {
-                  display: contents !important;
-                }
-
-                /* Ensure print:hidden is respected */
-                .print\\:hidden, [class*="print:hidden"] {
-                  display: none !important;
-                }
-
-                .print-container { 
-                  position: relative !important; 
-                  border: none !important; 
-                  padding: 0 !important; 
-                  margin: 0 !important;
-                  box-shadow: none !important; 
-                  background: white !important;
+                #print-portal-root {
                   display: block !important;
-                  z-index: 99999999 !important;
-                  zoom: 1 !important;
+                  position: static !important;
                   width: 100% !important;
                   max-width: 100% !important;
                   height: auto !important;
                   overflow: visible !important;
+                  background: white !important;
                 }
                 .print-page {
                   page-break-after: always !important;
@@ -3784,32 +3773,35 @@ export default function ChallanPage() {
                   </div>
 
                   {/* PRINT-ONLY SECTION */}
-                  <div className="print-only-layout">
-                    {printType === "without_rate" && (
-                      <>
-                        <div className="print-page">
-                          {renderWithoutRateContent("OR")}
-                        </div>
-                        {copiesCount === 2 && (
+                  {mounted && typeof window !== "undefined" && createPortal(
+                    <div id="print-portal-root" className="print-only-layout">
+                      {printType === "without_rate" && (
+                        <>
                           <div className="print-page">
-                            {renderWithoutRateContent("DU")}
+                            {renderWithoutRateContent("OR")}
                           </div>
-                        )}
-                      </>
-                    )}
-                    {printType === "with_rate" && (
-                      <>
-                        <div className="print-page">
-                          {renderWithRateContent("OR")}
-                        </div>
-                        {copiesCount === 2 && (
+                          {copiesCount === 2 && (
+                            <div className="print-page">
+                              {renderWithoutRateContent("DU")}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {printType === "with_rate" && (
+                        <>
                           <div className="print-page">
-                            {renderWithRateContent("DU")}
+                            {renderWithRateContent("OR")}
                           </div>
-                        )}
-                      </>
-                    )}
-                  </div>
+                          {copiesCount === 2 && (
+                            <div className="print-page">
+                              {renderWithRateContent("DU")}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>,
+                    document.body
+                  )}
 
                 </div>
               </div>
