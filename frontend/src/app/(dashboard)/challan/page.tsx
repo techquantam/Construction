@@ -3493,6 +3493,21 @@ export default function ChallanPage() {
                 <style dangerouslySetInnerHTML={{
                   __html: `
               .print-only-layout { display: none !important; }
+              
+              /* Enforce premium Devanagari shaping on both screen and print for challan elements */
+              .print-container, 
+              #print-portal-root,
+              .print-container td, 
+              .print-container th, 
+              .print-container span, 
+              .print-container div,
+              #print-portal-root td,
+              #print-portal-root th,
+              #print-portal-root span,
+              #print-portal-root div {
+                font-family: var(--font-geist-sans), var(--font-noto-devanagari), 'Nirmala UI', sans-serif !important;
+              }
+              
               @media print {
                 .print-only-layout { display: block !important; }
                 @page { size: portrait; margin: 8mm; }
