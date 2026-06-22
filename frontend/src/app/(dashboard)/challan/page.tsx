@@ -3485,30 +3485,45 @@ export default function ChallanPage() {
                   __html: `
               .print-only-layout { display: none !important; }
               @media print {
+                .print-only-layout { display: block !important; }
                 @page { size: portrait; margin: 8mm; }
                 html, body {
                   height: auto !important;
                   min-height: 0 !important;
                   overflow: visible !important;
-                  position: static !important;
+                  background: white !important;
+                  color: black !important;
                 }
-                body { visibility: hidden; background: white !important; color: black !important; }
-                .print-container, .print-container * { visibility: visible !important; }
-                .no-print, .no-print * { display: none !important; visibility: hidden !important; }
-                .print-only-layout { display: block !important; }
                 
-                /* Hide the yellow modal header bar completely */
-                .bg-amber-400 {
+                /* Hide unrelated layout elements */
+                aside, nav, header, .no-print, .print-toolbar {
                   display: none !important;
                 }
-                /* Neutralize all parent wrappers and layout containers of print-container to bypass flex, grid, height and overflow constraints */
-                body *:not(.print-container):not(.print-container *) {
+                
+                /* Hide the underlying background canvas of the dashboard layout */
+                .max-w-7xl > div:first-child {
+                  display: none !important;
+                }
+
+                /* Completely ignore modal and page wrapper boxes in print to bypass flex, grid, and scroll containers */
+                .flex.h-screen, 
+                .flex-1.flex.flex-col.min-w-0.h-full.overflow-hidden,
+                .absolute.inset-0.bg-slate-900\\/40, 
+                .w-\\[98vw\\], 
+                .flex-1.overflow-y-auto.p-6.bg-slate-100,
+                .max-w-7xl,
+                .max-w-\\[96\\%\\],
+                .sm\\:max-w-\\[98\\%\\],
+                .grid,
+                .grid-cols-1,
+                .lg\\:grid-cols-12,
+                .lg\\:col-span-9 {
+                  display: contents !important;
                   height: auto !important;
                   min-height: 0 !important;
                   max-height: none !important;
                   overflow: visible !important;
                   position: static !important;
-                  display: block !important;
                   box-shadow: none !important;
                   border: none !important;
                   background: transparent !important;
@@ -3516,6 +3531,16 @@ export default function ChallanPage() {
                   margin: 0 !important;
                   width: auto !important;
                   max-width: none !important;
+                }
+
+                /* Ensure print:hidden is respected */
+                .print\\:hidden, [class*="print:hidden"] {
+                  display: none !important;
+                }
+
+                /* Hide the yellow modal header bar completely */
+                .bg-amber-400 {
+                  display: none !important;
                 }
 
                 .print-container { 
