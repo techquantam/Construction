@@ -3648,6 +3648,17 @@ export default function ChallanPage() {
                   display: block !important;
                   width: 100% !important;
                 }
+                .print-blank-page {
+                  page-break-after: always !important;
+                  break-after: page !important;
+                  border: none !important;
+                  background: transparent !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  height: 100% !important;
+                  min-height: 150mm !important;
+                  visibility: hidden !important;
+                }
                 .print-page:last-child {
                   page-break-after: avoid !important;
                   break-after: avoid !important;
@@ -3901,9 +3912,14 @@ export default function ChallanPage() {
                             {renderWithoutRateContent("OR")}
                           </div>
                           {copiesCount === 2 && (
-                            <div className="print-page">
-                              {renderWithoutRateContent("DU")}
-                            </div>
+                            <>
+                              <div className="print-page print-blank-page">
+                                <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                              </div>
+                              <div className="print-page">
+                                {renderWithoutRateContent("DU")}
+                              </div>
+                            </>
                           )}
                         </>
                       )}
@@ -3913,9 +3929,14 @@ export default function ChallanPage() {
                             {renderWithRateContent("OR")}
                           </div>
                           {copiesCount === 2 && (
-                            <div className="print-page">
-                              {renderWithRateContent("DU")}
-                            </div>
+                            <>
+                              <div className="print-page print-blank-page">
+                                <div style={{ height: "100%", minHeight: "150mm" }}></div>
+                              </div>
+                              <div className="print-page">
+                                {renderWithRateContent("DU")}
+                              </div>
+                            </>
                           )}
                         </>
                       )}
