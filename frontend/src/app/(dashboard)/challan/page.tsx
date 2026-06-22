@@ -3517,7 +3517,7 @@ export default function ChallanPage() {
                 div[class*="max-w-[98%]"],
                 div[class*="lg:grid-cols-12"],
                 div[class*="lg:col-span-9"] {
-                  display: contents !important;
+                  display: block !important;
                   height: auto !important;
                   min-height: 0 !important;
                   max-height: none !important;
