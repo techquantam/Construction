@@ -417,7 +417,10 @@ function translateToHindi(text: string): string {
 
 function translateBilingual(text: string): string {
   if (!text) return "";
-  return text.toUpperCase();
+  const eng = text.toUpperCase().trim();
+  const hin = translateToHindi(text);
+  if (eng === hin || !hin) return eng;
+  return `${eng} / ${hin}`;
 }
 
 const getTodayDateStr = () => {
@@ -3500,6 +3503,7 @@ export default function ChallanPage() {
                   overflow: visible !important;
                   background: white !important;
                   color: black !important;
+                  font-family: var(--font-geist-sans), var(--font-noto-devanagari), 'Nirmala UI', sans-serif !important;
                 }
                 
                 /* Hide everything under body except the print portal root */
