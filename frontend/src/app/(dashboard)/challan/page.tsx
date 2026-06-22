@@ -114,6 +114,27 @@ function formatRenderDate(dateISO: string) {
 }
 
 const HINDI_DICTIONARY: { [key: string]: string } = {
+  // Specific Material Translations
+  "COVER BLOCK 25 MM": "कवर ब्लॉक 25 मिमी",
+  "DURMUT DEGCHUNE": "दुर्मुट बेधने",
+  "DURMUT DECHUNE": "दुर्मुट बेधने",
+  "GALLANT 10 MM": "गैलेंट 10 मिमी",
+  "GALLANT 8 MM": "गैलेंट 8 मिमी",
+  "GRIT 1/2 BAG": "गिट्टी 1/2 बोरी",
+  "GRIT 1/2\" BAG": "गिट्टी 1/2\" बोरी",
+  "GRIT 3/4\" BLACK": "गिट्टी 3/4\" ब्लैक",
+  "GURRA": "गुर्रा",
+  "HOLD FAST NAIL WALA": "होल्ड फास्ट नेल वाला",
+
+  // Word-level fallbacks
+  "COVER": "कवर",
+  "DURMUT": "दुर्मुट",
+  "DEGCHUNE": "बेधने",
+  "DECHUNE": "बेधने",
+  "GRIT": "गिट्टी",
+  "NAIL": "नेल",
+  "BLACK": "ब्लैक",
+
   // Materials & Brands
   "BALU GANGA": "गंगा बालू",
   "BALU GHAGHRA": "घाघरा बालू",
