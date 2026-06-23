@@ -1617,7 +1617,9 @@ function ReportsContent() {
       return {
         ...item,
         parsedType: typeText,
-        particulars: cleanParticular.toUpperCase(),
+        particulars: parsed.isCompany
+          ? (parsed.material ? parsed.material.toUpperCase() : cleanParticular.toUpperCase())
+          : cleanParticular.toUpperCase(),
         displayParticular,
         qty: parsed.qty,
         unit: parsed.unit,
@@ -2157,13 +2159,10 @@ function ReportsContent() {
         : "";
 
       return (
-        <div className="ledger-print-wrapper p-4 bg-white">
+          <div className="ledger-print-wrapper p-4 bg-white">
           <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
             <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">{copyLabel}</span>
             <span className="font-mono text-xs font-black text-slate-900">DATE: {getTodayDateStr()}</span>
-          </div>
-          <div className="text-center font-bold text-base uppercase mb-4 estimate-title text-slate-900">
-            {lgFilterDate ? `LEDGER FOR DATE ( ${formatTitleDate(lgFilterDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
           </div>
           <div className="mb-4 text-xs font-bold font-mono text-slate-900 space-y-1">
             <div className="flex">
@@ -2214,13 +2213,13 @@ function ReportsContent() {
                       {row.referenceNumber || "-"}
                     </td>
                     <td className="py-1 px-1 border-r border-black text-left uppercase">
-                      {translateBilingual(row.particulars)}
+                      {row.particulars}
                     </td>
                     <td className="py-1 px-1 border-r border-black text-right">
                       {row.isStructured ? row.qty : "-"}
                     </td>
                     <td className="py-1 px-1 border-r border-black text-center">
-                      {row.isStructured ? translateBilingual(row.unit) : "-"}
+                      {row.isStructured ? row.unit : "-"}
                     </td>
                     <td className="py-1 px-1 border-r border-black text-right">
                       {row.isStructured ? row.rate : "-"}
@@ -2406,10 +2405,10 @@ function ReportsContent() {
                   <tr key={idx} className="border-b border-black last:border-b-0">
                     <td className="py-1 px-2 border-r border-black text-center">{idx + 1}</td>
                     <td className="py-1 px-2 border-r border-black text-left font-black">
-                      {translateBilingual(item.name)}
+                      {item.name?.toUpperCase() || "-"}
                     </td>
                     <td className="py-1 px-2 border-r border-black text-left text-[11px]">
-                      {translateBilingual(item.address)}
+                      {item.address?.toUpperCase() || "-"}
                     </td>
                     <td className="py-1 px-2 border-r border-black text-center text-[11px]">{item.phone || "-"}</td>
                     <td className="py-1 px-2 border-r border-black text-center font-bold">{item.status}</td>
@@ -2469,7 +2468,7 @@ function ReportsContent() {
                   {row.isOpening ? formatTitleDate(printStartDate) : formatPrintDateDaybook(row.date)}
                 </td>
                 <td className="py-1 px-1.5 border-r border-black text-left uppercase">
-                  {translateBilingual(row.particulars)}
+                  {row.particulars}
                 </td>
                 <td className="py-1 px-1.5 border-r border-black text-right">
                   {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
@@ -2568,9 +2567,6 @@ function ReportsContent() {
             DATE: {getTodayDateStr()} | Page {chunkIdx + 1} of {totalChunks}
           </span>
         </div>
-        <div className="text-center font-bold text-base uppercase mb-4 estimate-title">
-          {lgFilterDate ? `LEDGER FOR DATE ( ${formatTitleDate(lgFilterDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
-        </div>
         <div className="mb-4 text-xs font-bold font-mono space-y-1">
           <div className="flex">
             <span className="w-24 text-slate-500">Name :</span>
@@ -2620,13 +2616,13 @@ function ReportsContent() {
                     {row.referenceNumber || "-"}
                   </td>
                   <td className="py-1 px-1 border-r border-black text-left uppercase">
-                    {translateBilingual(row.particulars)}
+                    {row.particulars}
                   </td>
                   <td className="py-1 px-1 border-r border-black text-right">
                     {row.isStructured ? row.qty : "-"}
                   </td>
                   <td className="py-1 px-1 border-r border-black text-center">
-                    {row.isStructured ? translateBilingual(row.unit) : "-"}
+                    {row.isStructured ? row.unit : "-"}
                   </td>
                   <td className="py-1 px-1 border-r border-black text-right">
                     {row.isStructured ? row.rate : "-"}
@@ -2678,9 +2674,6 @@ function ReportsContent() {
             DATE: {getTodayDateStr()} | Page {pageIdx + 1} of {totalPages}
           </span>
         </div>
-        <div className="text-center font-bold text-base uppercase mb-4 estimate-title">
-          {printEndDate ? `LEDGER UP TO ( ${formatTitleDate(printEndDate)} )` : "LEDGER ( ALL TRANSACTIONS )"}
-        </div>
         
         {pageGroups.map((group: any, gIdx: number) => (
           <div key={gIdx} className="ledger-group-block mb-6">
@@ -2709,7 +2702,7 @@ function ReportsContent() {
                       {row.isOpening ? "-" : (row.referenceNumber || "-")}
                     </td>
                     <td className="py-1 px-1 border-r border-black text-left uppercase">
-                      {translateBilingual(row.particulars)}
+                      {row.particulars}
                     </td>
                     <td className="py-1 px-1 border-r border-black text-right">
                       {row.debit > 0 ? formatPrintAmount(row.debit) : "0.00"}
@@ -2743,14 +2736,11 @@ function ReportsContent() {
       <div className="summary-print-wrapper p-4 bg-white font-mono text-slate-900">
         <div className="flex justify-between items-center mb-4 border-b border-black pb-2">
           <span className="font-extrabold text-[10px] text-slate-500 uppercase tracking-widest">
-            ACCOUNTS SUMMARY / खातों का सारांश
+            ACCOUNTS SUMMARY
           </span>
           <span className="font-mono text-xs font-black">
             DATE: {getTodayDateStr()} | Page {chunkIdx + 1} of {totalChunks}
           </span>
-        </div>
-        <div className="text-center font-bold text-base uppercase mb-4 estimate-title">
-          ACCOUNTS SUMMARY {smSelectedSiteId ? `( SITE: ${sites?.find((s: any) => s.id === smSelectedSiteId)?.name.toUpperCase() || ""} )` : ""}
         </div>
 
         {selectedLedgerObj ? (
@@ -2759,13 +2749,13 @@ function ReportsContent() {
               <div className="flex">
                 <span className="w-24 text-slate-500 uppercase">Name :</span>
                 <span className="font-black uppercase text-slate-900 supplier-name">
-                  {translateBilingual(selectedLedgerName)}
+                  {selectedLedgerName?.toUpperCase() || ""}
                 </span>
               </div>
               <div className="flex">
                 <span className="w-24 text-slate-500 uppercase">Address :</span>
                 <span className="font-black uppercase text-slate-900 supplier-info">
-                  {translateBilingual(selectedLedgerAddress)}
+                  {selectedLedgerAddress?.toUpperCase() || ""}
                 </span>
               </div>
               <div className="flex">
@@ -2820,10 +2810,10 @@ function ReportsContent() {
                     <tr key={idx} className="border-b border-black last:border-b-0">
                       <td className="py-1 px-2 border-r border-black text-center">{serialNo}</td>
                       <td className="py-1 px-2 border-r border-black text-left font-black">
-                        {translateBilingual(item.name)}
+                        {item.name?.toUpperCase() || "-"}
                       </td>
                       <td className="py-1 px-2 border-r border-black text-left text-[11px]">
-                        {translateBilingual(item.address)}
+                        {item.address?.toUpperCase() || "-"}
                       </td>
                       <td className="py-1 px-2 border-r border-black text-center text-[11px]">{item.phone || "-"}</td>
                       <td className="py-1 px-2 border-r border-black text-center font-bold">{item.status}</td>
@@ -2835,20 +2825,30 @@ function ReportsContent() {
                 })}
               </tbody>
             </table>
-            {chunkIdx === totalChunks - 1 && (
-              <div className="mt-4 border border-black p-3 bg-slate-50 space-y-2 font-mono text-slate-900">
-                {(() => {
-                  const drSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "DR" ? curr.balance : 0), 0);
-                  const crSum = summaryLedgersList.reduce((acc, curr) => acc + (curr.status === "CR" ? curr.balance : 0), 0);
-                  return (
-                    <div className="flex justify-between font-black text-xs">
-                      <span>TOTAL DEBIT (DR): {drSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                      <span>TOTAL CREDIT (CR): {crSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+            {chunkIdx === totalChunks - 1 && (() => {
+              const drSum = summaryLedgersList.reduce((acc: number, curr: any) => acc + (curr.status === "DR" ? curr.balance : 0), 0);
+              const crSum = summaryLedgersList.reduce((acc: number, curr: any) => acc + (curr.status === "CR" ? curr.balance : 0), 0);
+              return (
+                <table className="summary-print-table w-full border-collapse font-mono text-xs">
+                  <tbody>
+                    <tr className="border-t-2 border-black bg-slate-50 font-black">
+                      <td className="py-1.5 px-2 border-r border-black w-12"></td>
+                      <td colSpan={2} className="py-1.5 px-2 border-r border-black text-right font-black uppercase">TOTAL DEBIT:</td>
+                      <td className="py-1.5 px-2 border-r border-black text-center w-28"></td>
+                      <td className="py-1.5 px-2 border-r border-black text-center w-16 font-black" style={{color: "#16a34a"}}>DR</td>
+                      <td className="py-1.5 px-2 text-right font-black w-36">{drSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                    <tr className="border-t border-black bg-slate-50 font-black">
+                      <td className="py-1.5 px-2 border-r border-black w-12"></td>
+                      <td colSpan={2} className="py-1.5 px-2 border-r border-black text-right font-black uppercase">TOTAL CREDIT:</td>
+                      <td className="py-1.5 px-2 border-r border-black text-center w-28"></td>
+                      <td className="py-1.5 px-2 border-r border-black text-center w-16 font-black" style={{color: "#dc2626"}}>CR</td>
+                      <td className="py-1.5 px-2 text-right font-black w-36">{crSum.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              );
+            })()}
           </>
         )}
       </div>

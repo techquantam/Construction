@@ -874,7 +874,7 @@ export default function ChallanPage() {
       return next;
     });
   };
-  
+
   const validateRowInline = (idx: number): boolean => {
     const item = directItems[idx];
     if (!item) return true;
@@ -1407,7 +1407,7 @@ export default function ChallanPage() {
     }
 
     // 1. Filter out completely empty items
-    const nonBlankItems = directItems.filter(item => 
+    const nonBlankItems = directItems.filter(item =>
       item.material.trim() !== "" || item.qty.trim() !== "" || item.rate.trim() !== ""
     );
 
@@ -2610,7 +2610,7 @@ export default function ChallanPage() {
     }
 
     const cleanCustomerName = selectedLedgerObj.name.toUpperCase();
-    
+
     let nextSequence = 0;
     if (challanData && challanData.items) {
       challanData.items.forEach((item: any) => {
@@ -3144,19 +3144,19 @@ export default function ChallanPage() {
       <div className="space-y-4">
         <div className="text-center border-b-2 border-slate-800 pb-2 flex justify-between items-center">
           <div className="w-1/3"></div>
-          <h1 className="text-xl font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h1>
+          <h3 className="text-[6px] font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h3>
           <div className="w-1/3"></div>
         </div>
 
         <div className="border border-slate-850 p-3 bg-slate-50/50">
           <div className="grid grid-cols-4 gap-3 text-xs font-bold font-mono">
             <div className="col-span-2 space-y-1">
-              <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
-              <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
+              <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{selectedLedgerObj?.name || directChallan?.customerName || ""}</span>
+              <div className="text-[13px] text-slate-700 uppercase leading-tight supplier-info font-black">
                 <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
-                {translateBilingual(supplierAddress)}
+                {supplierAddress}
               </div>
-              <div className="text-[11px] text-slate-700 leading-none supplier-info">
+              <div className="text-[13px] text-slate-700 leading-none supplier-info font-black">
                 <span className="text-slate-400 text-[9px] font-black mr-1">PHONE:</span>
                 {supplierPhone}
               </div>
@@ -3177,32 +3177,28 @@ export default function ChallanPage() {
             <table className="w-full text-left border-collapse text-xs font-mono">
               <thead>
                 <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
-                  <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
-                  <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
-                  <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
-                  <th className="py-1.5 px-3 text-center w-20">Unit</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 w-8 text-center">S.No</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 w-20">Date</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 w-24">Challan No</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800">Particulars</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 text-right w-16">Qty</th>
+                  <th className="py-1.5 px-2 text-center w-16">Unit</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-300 font-black text-[12px]">
                 {challanData.items.filter((item: any) => item.qty > 0).length > 0 ? (
                   challanData.items.filter((item: any) => item.qty > 0).map((item: any, idx: number) => (
                     <tr key={item.id} className="uppercase text-slate-900">
-                      <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 w-12 shrink-0">
-                        {idx + 1}
-                      </td>
-                      <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">
-                        {translateBilingual(item.material)}
-                      </td>
-                      <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-24">
-                        {item.qty}
-                      </td>
-                      <td className="py-1 px-2 text-center font-bold text-slate-500 w-20">
-                        {item.unit}
-                      </td>
+                      <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 w-8">{idx + 1}</td>
+                      <td className="py-1 px-2 border-r border-slate-300 text-slate-700 w-20">{formatRenderDate(item.date)}</td>
+                      <td className="py-1 px-2 border-r border-slate-300 text-slate-700 w-24">{item.reference || challanSerial}</td>
+                      <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">{item.material}</td>
+                      <td className="py-1 px-2 border-r border-slate-300 text-right font-mono text-slate-955 w-16">{item.qty}</td>
+                      <td className="py-1 px-2 text-center font-bold text-slate-500 w-16">{item.unit}</td>
                     </tr>
                   ))
                 ) : (
-                  <tr><td colSpan={4} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
+                  <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
                 )}
               </tbody>
             </table>
@@ -3256,24 +3252,25 @@ export default function ChallanPage() {
   const renderWithRateContent = (designation: "OR" | "DU") => {
     const debitItems = challanData.items.filter((item: any) => item.type === "TO");
     const creditItems = challanData.items.filter((item: any) => item.type === "BY");
+    let runningBalance = 0;
 
     return (
       <div className="space-y-4">
         <div className="text-center border-b-2 border-slate-800 pb-2 flex justify-between items-center">
           <div className="w-1/3"></div>
-          <h1 className="text-xl font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h1>
+          <h3 className="text-[6px] font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h3>
           <div className="w-1/3"></div>
         </div>
 
         <div className="border border-slate-850 p-3 bg-slate-50/50">
           <div className="grid grid-cols-4 gap-3 text-xs font-bold font-mono">
             <div className="col-span-2 space-y-1">
-              <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{translateBilingual(selectedLedgerObj?.name || directChallan?.customerName || "")}</span>
-              <div className="text-[11px] text-slate-700 uppercase leading-tight supplier-info">
+              <span className="text-slate-955 font-black uppercase text-xs block supplier-name">{selectedLedgerObj?.name || directChallan?.customerName || ""}</span>
+              <div className="text-[13px] text-slate-700 uppercase leading-tight supplier-info font-black">
                 <span className="text-slate-400 text-[9px] font-black mr-1">ADDRESS:</span>
-                {translateBilingual(supplierAddress)}
+                {supplierAddress}
               </div>
-              <div className="text-[11px] text-slate-700 leading-none supplier-info">
+              <div className="text-[13px] text-slate-700 leading-none supplier-info font-black">
                 <span className="text-slate-400 text-[9px] font-black mr-1">PHONE:</span>
                 {supplierPhone}
               </div>
@@ -3294,40 +3291,62 @@ export default function ChallanPage() {
             <table className="w-full text-left border-collapse text-xs font-mono">
               <thead>
                 <tr className="bg-slate-100 border-b border-slate-800 uppercase font-black text-slate-800 text-[11px]">
-                  <th className="py-1.5 px-3 border-r border-slate-800 w-12 text-center">S.No</th>
-                  <th className="py-1.5 px-3 border-r border-slate-800">Material Name</th>
-                  <th className="py-1.5 px-3 border-r border-slate-800 text-right w-24">Qty</th>
-                  <th className="py-1.5 px-3 border-r border-slate-800 text-center w-20">Unit</th>
-                  <th className="py-1.5 px-3 border-r border-slate-800 text-right w-20">Rate</th>
-                  <th className="py-1.5 px-3 text-right w-36">Amount</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 w-8 text-center">S.No</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 w-20">Date</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 w-24">Challan No</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800">Particulars</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 text-right w-14">Qty</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 text-center w-14">Unit</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 text-right w-16">Rate</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 text-right w-20">Debit</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 text-right w-20">Credit</th>
+                  <th className="py-1.5 px-2 border-r border-slate-800 text-center w-12">DR/CR</th>
+                  <th className="py-1.5 px-2 text-right w-24">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-300 font-black text-[12px]">
                 {challanData.items.length > 0 ? (
-                  <>
-                    {debitItems.map((item: any, idx: number) => renderPrintWithRateItemRow(item, idx + 1))}
-
-                    <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
-                      <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
-                      <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
-                      <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">{challanData.totalDebit.toFixed(2)} DR</td>
-                    </tr>
-
-                    {creditItems.map((item: any, idx: number) => renderPrintWithRateItemRow(item, debitItems.length + idx + 1))}
-                  </>
+                  challanData.items.map((item: any, idx: number) => {
+                    const isCredit = item.type === "BY";
+                    if (isCredit) {
+                      runningBalance -= item.amount;
+                    } else {
+                      runningBalance += item.amount;
+                    }
+                    const balLabel = runningBalance < 0 ? "CR" : "DR";
+                    const balAbs = Math.abs(runningBalance);
+                    return (
+                      <tr key={item.id} className={`uppercase ${isCredit ? "bg-slate-50 border-t-2 border-slate-400" : "text-slate-900"}`}>
+                        <td className="py-1 px-2 border-r border-slate-300 text-center text-slate-700 w-8">{idx + 1}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-slate-700 w-20">{formatRenderDate(item.date)}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-slate-700 w-24">{item.reference || challanSerial}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-slate-955 font-extrabold">{item.material}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-right font-mono w-14">{item.qty > 0 ? item.qty : "-"}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-center font-bold text-slate-500 w-14">{item.qty > 0 ? item.unit : "-"}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-right font-mono w-16">{item.rate > 0 ? item.rate.toFixed(2) : "-"}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-right font-mono w-20">{!isCredit ? item.amount.toFixed(2) : "0.00"}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-right font-mono w-20">{isCredit ? item.amount.toFixed(2) : "0.00"}</td>
+                        <td className="py-1 px-2 border-r border-slate-300 text-center font-bold w-12">{isCredit ? "CR" : "DR"}</td>
+                        <td className="py-1 px-2 text-right font-mono w-24 font-black">
+                          <span className={balLabel === "CR" ? "text-emerald-700" : "text-red-700"}>{balLabel} {balAbs.toFixed(2)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
-                  <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
+                  <tr><td colSpan={11} className="py-8 text-center text-slate-400 font-bold uppercase tracking-widest">NO MATERIALS FOUND</td></tr>
                 )}
               </tbody>
               {challanData.items.length > 0 && (
                 <tfoot>
                   <tr className="bg-slate-100 border-t-2 border-b-2 border-slate-800 font-black text-slate-955 text-[11px]">
-                    <td colSpan={4} className="py-1.5 px-3 border-r border-slate-800"></td>
-                    <td className="py-1.5 px-3 border-r border-slate-800 text-right total-label text-amber-900">BALANCE:</td>
-                    <td className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">
+                    <td colSpan={7} className="py-1.5 px-3 border-r border-slate-800 text-right total-label">TOTAL:</td>
+                    <td className="py-1.5 px-3 border-r border-slate-800 text-right font-mono total-value text-red-800">{challanData.totalDebit.toFixed(2)}</td>
+                    <td className="py-1.5 px-3 border-r border-slate-800 text-right font-mono total-value text-emerald-800">{challanData.totalPaid.toFixed(2)}</td>
+                    <td colSpan={2} className="py-1.5 px-3 text-right text-amber-900 font-black font-mono total-value">
                       {challanData.totalAmount < 0
-                        ? `${Math.abs(challanData.totalAmount).toFixed(2)} CR`
-                        : `${challanData.totalAmount.toFixed(2)} DR`
+                        ? `CR ${Math.abs(challanData.totalAmount).toFixed(2)}`
+                        : `DR ${challanData.totalAmount.toFixed(2)}`
                       }
                     </td>
                   </tr>
@@ -3339,6 +3358,7 @@ export default function ChallanPage() {
       </div>
     );
   };
+
 
   return (
     <div className="font-mono text-slate-800 max-w-[96%] sm:max-w-[98%] mx-auto space-y-4">
@@ -3666,9 +3686,9 @@ export default function ChallanPage() {
                 }
                 
                 /* Large typography for A5 half-page readability */
-                .estimate-title { font-size: 26px !important; font-weight: 900 !important; }
+                .estimate-title { font-size: 8px !important; font-weight: 900 !important; }
                 .supplier-name { font-size: 16px !important; font-weight: 900 !important; }
-                .supplier-info { font-size: 13px !important; font-weight: 700 !important; line-height: 1.3 !important; }
+                .supplier-info { font-size: 15px !important; font-weight: 900 !important; line-height: 1.4 !important; }
                 .meta-title { font-size: 11px !important; font-weight: 900 !important; }
                 .meta-value { font-size: 16px !important; font-weight: 900 !important; }
                 
