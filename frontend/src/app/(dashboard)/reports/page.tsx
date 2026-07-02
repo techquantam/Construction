@@ -1272,7 +1272,6 @@ function ReportsContent() {
         if (ledger) {
           setLgSelectedLedgerId(ledger.id);
           setLgLedgerSearchVal(ledger.name.toUpperCase());
-          setLgTypedSearchVal(ledger.name.toUpperCase());
         }
 
         return index;
@@ -1292,7 +1291,6 @@ function ReportsContent() {
         if (ledger) {
           setLgSelectedLedgerId(ledger.id);
           setLgLedgerSearchVal(ledger.name.toUpperCase());
-          setLgTypedSearchVal(ledger.name.toUpperCase());
         }
 
         return index;
@@ -4100,7 +4098,19 @@ function ReportsContent() {
                         setHighlightedLgLedgerIndex(-1);
                       }}
                       onBlur={() => {
-                        setTimeout(() => setIsLgLedgerFocused(false), 200);
+                        setTimeout(() => {
+                          setIsLgLedgerFocused(false);
+                          // Sync search queries with the actually selected ledger on blur
+                          const activeLedger = activeSiteLedgers.find((l) => String(l.id) === String(lgSelectedLedgerId));
+                          if (activeLedger) {
+                            const nameUpper = activeLedger.name.toUpperCase();
+                            setLgLedgerSearchVal(nameUpper);
+                            setLgTypedSearchVal(nameUpper);
+                          } else {
+                            setLgLedgerSearchVal("");
+                            setLgTypedSearchVal("");
+                          }
+                        }, 200);
                       }}
                       onKeyDown={handleLgLedgerKeyDown}
                       className={`w-full px-2.5 py-1.5 text-xs font-black focus:outline-none placeholder:text-slate-455 uppercase font-mono tracking-wide transition-colors disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed ${

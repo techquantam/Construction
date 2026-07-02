@@ -3,11 +3,15 @@ import { prisma } from '../server';
 import fs from 'fs';
 import path from 'path';
 
-const BACKUP_DIR = path.join(__dirname, '../../backups');
+const BACKUP_DIR = process.env.APPDATA_BACKUPS_DIR || path.join(__dirname, '../../backups');
 
 // Ensure backups directory exists
-if (!fs.existsSync(BACKUP_DIR)) {
-  fs.mkdirSync(BACKUP_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.error("Failed to create backups directory at " + BACKUP_DIR + ":", e);
 }
 
 export const runBackup = async (req: Request, res: Response): Promise<void> => {
