@@ -963,6 +963,17 @@ function DayBookContent() {
   const handleInlineKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      const target = e.currentTarget as HTMLInputElement;
+      if (target.placeholder === "Date" || (target.type === "text" && target.value.includes(".") && target.value.split(".").length === 3)) {
+        const start = target.selectionStart ?? 0;
+        if (start <= 2) {
+          target.setSelectionRange(3, 5);
+          return;
+        } else if (start <= 5) {
+          target.setSelectionRange(6, 8);
+          return;
+        }
+      }
       submitInlineEdit();
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -1905,7 +1916,14 @@ function DayBookContent() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            entryTypeRef.current?.focus();
+                            const start = e.currentTarget.selectionStart ?? 0;
+                            if (start <= 2) {
+                              e.currentTarget.setSelectionRange(3, 5);
+                            } else if (start <= 5) {
+                              e.currentTarget.setSelectionRange(6, 8);
+                            } else {
+                              entryTypeRef.current?.focus();
+                            }
                           } else if (e.key === "Escape") {
                             e.preventDefault();
                             e.stopPropagation();

@@ -1724,7 +1724,20 @@ function LedgerContent() {
     const elements = Array.from(editingTransactionRowRef.current.querySelectorAll(selectors)) as HTMLElement[];
     const currentIndex = elements.indexOf(currentElement);
     if (currentIndex !== -1 && currentIndex < elements.length - 1) {
-      const nextEl = elements[currentIndex + 1];
+      let nextEl = elements[currentIndex + 1] as HTMLElement;
+
+      // Smart skip for Debit / Credit fields in inline correction row
+      if (nextEl.id === "edit-inline-debit" && editType === "BY") {
+        if (currentIndex + 2 < elements.length) {
+          nextEl = elements[currentIndex + 2] as HTMLElement;
+        }
+      }
+
+      if (currentElement.id === "edit-inline-debit" && editType === "TO") {
+        submitTransactionInlineEdit();
+        return;
+      }
+
       nextEl.focus();
       if (nextEl instanceof HTMLInputElement) {
         nextEl.select();
@@ -1950,6 +1963,98 @@ function LedgerContent() {
     }
   }, [statementData?.transactions?.length, selectedLedgerId, ledgerTypeTab, selectedSiteId]);
 
+  // Auto-scroll selected row into view on arrow key navigation
+  useEffect(() => {
+    if (focusedRowIndex >= 0 && statementData && statementData.transactions) {
+      const tx = statementData.transactions[focusedRowIndex];
+      if (tx) {
+        const el = document.getElementById(`tx-row-${tx.id}`);
+        if (el) {
+          el.scrollIntoView({ block: "nearest" });
+        }
+      }
+    }
+  }, [focusedRowIndex, statementData]);
+
+  // Keyboard navigation for Ledger table rows
+  useEffect(() => {
+    if (action !== "correction" && action !== "delete") return;
+    if (!selectedSiteId || selectedSiteId === "all") return;
+    if (editingTransactionId !== null) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT")) {
+        return;
+      }
+
+      if (!statementData || !statementData.transactions || statementData.transactions.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedRowIndex((prev) => {
+          const next = prev + 1;
+          const index = next >= statementData.transactions.length ? statementData.transactions.length - 1 : next;
+          const tx = statementData.transactions[index];
+          if (tx) {
+            setTimeout(() => {
+              const el = document.getElementById(`tx-row-${tx.id}`);
+              el?.focus();
+            }, 10);
+          }
+          return index;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedRowIndex((prev) => {
+          const next = prev - 1;
+          if (next < 0) {
+            setTimeout(() => {
+              accountInputRef.current?.focus();
+              accountInputRef.current?.select();
+            }, 10);
+            return -1;
+          }
+          const tx = statementData.transactions[next];
+          if (tx) {
+            setTimeout(() => {
+              const el = document.getElementById(`tx-row-${tx.id}`);
+              el?.focus();
+            }, 10);
+          }
+          return next;
+        });
+      } else if (e.key === "ArrowLeft" || e.key === "Escape") {
+        e.preventDefault();
+        setFocusedRowIndex(-1);
+        setTimeout(() => {
+          accountInputRef.current?.focus();
+          accountInputRef.current?.select();
+        }, 10);
+      } else if (e.key === "Enter") {
+        if (focusedRowIndex >= 0 && focusedRowIndex < statementData.transactions.length) {
+          e.preventDefault();
+          const tx = statementData.transactions[focusedRowIndex];
+          if (action === "correction") {
+            handleEditClick(tx);
+            setTimeout(() => {
+              document.getElementById("edit-inline-date")?.focus();
+            }, 100);
+          } else if (action === "delete") {
+            if (window.confirm("Are you sure you want to delete this entry?")) {
+              deleteTransactionMutation.mutate(tx.id);
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [action, selectedSiteId, editingTransactionId, focusedRowIndex, statementData]);
+
   const getTodayFormatted = () => {
     const d = new Date();
     const day = String(d.getDate()).padStart(2, "0");
@@ -2045,49 +2150,23 @@ function LedgerContent() {
   };
 
   const handleRowKeyDown = (e: React.KeyboardEvent, tx: any, index: number) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (statementData && index < statementData.transactions.length - 1) {
-        const nextIdx = index + 1;
-        setFocusedRowIndex(nextIdx);
-        const nextId = statementData.transactions[nextIdx].id;
-        document.getElementById(`tx-row-${nextId}`)?.focus();
-      }
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (index > 0 && statementData) {
-        const prevIdx = index - 1;
-        setFocusedRowIndex(prevIdx);
-        const prevId = statementData.transactions[prevIdx].id;
-        document.getElementById(`tx-row-${prevId}`)?.focus();
-      } else {
-        setFocusedRowIndex(-1);
-        accountInputRef.current?.focus();
-        accountInputRef.current?.select();
-      }
-    } else if (e.key === "ArrowLeft" || e.key === "Escape") {
-      e.preventDefault();
-      setFocusedRowIndex(-1);
-      accountInputRef.current?.focus();
-      accountInputRef.current?.select();
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (action === "correction") {
-        handleEditClick(tx);
-        setTimeout(() => {
-          document.getElementById("edit-inline-date")?.focus();
-        }, 100);
-      } else if (action === "delete") {
-        if (window.confirm("Are you sure you want to delete this entry?")) {
-          deleteTransactionMutation.mutate(tx.id);
-        }
-      }
-    }
+    // Handled by global keydown listener
   };
 
   const handleInlineFieldKeyDown = (e: React.KeyboardEvent, field: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      if (field === "date") {
+        const input = e.currentTarget as HTMLInputElement;
+        const start = input.selectionStart ?? 0;
+        if (start <= 2) {
+          input.setSelectionRange(3, 5);
+          return;
+        } else if (start <= 5) {
+          input.setSelectionRange(6, 8);
+          return;
+        }
+      }
       focusNextInlineElement(e.currentTarget as HTMLElement);
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -3706,6 +3785,7 @@ function LedgerContent() {
                               type="text"
                               value={editDate}
                               onChange={(e) => setEditDate(e.target.value)}
+                              onFocus={(e) => e.target.setSelectionRange(0, 2)}
                               onKeyDown={(e) => handleInlineFieldKeyDown(e, "date")}
                               placeholder="Date"
                               required
@@ -4378,12 +4458,19 @@ function LedgerContent() {
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
-                                if (isParticularLedgerOpen) {
-                                  setCompActiveStep("MATERIAL");
-                                  setTimeout(() => compMaterialInputRef.current?.focus(), 50);
+                                const start = e.currentTarget.selectionStart ?? 0;
+                                if (start <= 2) {
+                                  e.currentTarget.setSelectionRange(3, 5);
+                                } else if (start <= 5) {
+                                  e.currentTarget.setSelectionRange(6, 8);
                                 } else {
-                                  setCompActiveStep("NAME");
-                                  setTimeout(() => compNameInputRef.current?.focus(), 50);
+                                  if (isParticularLedgerOpen) {
+                                    setCompActiveStep("MATERIAL");
+                                    setTimeout(() => compMaterialInputRef.current?.focus(), 50);
+                                  } else {
+                                    setCompActiveStep("NAME");
+                                    setTimeout(() => compNameInputRef.current?.focus(), 50);
+                                  }
                                 }
                               } else if (e.key === "Escape") {
                                 e.preventDefault();
@@ -5207,18 +5294,25 @@ function LedgerContent() {
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
-                                if (selectedLedgerId === "all") {
-                                  setPlotActiveStep("NAME");
-                                  setTimeout(() => {
-                                    const inputName = document.getElementById("entry-inline-account");
-                                    if (inputName) {
-                                      (inputName as HTMLInputElement).focus();
-                                      (inputName as HTMLInputElement).select();
-                                    }
-                                  }, 50);
+                                const start = e.currentTarget.selectionStart ?? 0;
+                                if (start <= 2) {
+                                  e.currentTarget.setSelectionRange(3, 5);
+                                } else if (start <= 5) {
+                                  e.currentTarget.setSelectionRange(6, 8);
                                 } else {
-                                  particularInputRef.current?.focus();
-                                  particularInputRef.current?.select();
+                                  if (selectedLedgerId === "all") {
+                                    setPlotActiveStep("NAME");
+                                    setTimeout(() => {
+                                      const inputName = document.getElementById("entry-inline-account");
+                                      if (inputName) {
+                                        (inputName as HTMLInputElement).focus();
+                                        (inputName as HTMLInputElement).select();
+                                      }
+                                    }, 50);
+                                  } else {
+                                    particularInputRef.current?.focus();
+                                    particularInputRef.current?.select();
+                                  }
                                 }
                               } else if (e.key === "Escape") {
                                 e.preventDefault();

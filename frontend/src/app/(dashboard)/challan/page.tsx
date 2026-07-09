@@ -4155,11 +4155,19 @@ export default function ChallanPage() {
                       required
                       value={directDate}
                       onChange={(e) => setDirectDate(e.target.value)}
+                      onFocus={(e) => e.target.setSelectionRange(0, 2)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          modalCustomerInputRef.current?.focus();
-                          modalCustomerInputRef.current?.select();
+                          const start = e.currentTarget.selectionStart ?? 0;
+                          if (start <= 2) {
+                            e.currentTarget.setSelectionRange(3, 5);
+                          } else if (start <= 5) {
+                            e.currentTarget.setSelectionRange(6, 8);
+                          } else {
+                            modalCustomerInputRef.current?.focus();
+                            modalCustomerInputRef.current?.select();
+                          }
                         }
                       }}
                       placeholder="DD.MM.YY"
@@ -4627,11 +4635,19 @@ export default function ChallanPage() {
                     required
                     value={creditDate}
                     onChange={(e) => setCreditDate(e.target.value)}
+                    onFocus={(e) => e.target.setSelectionRange(0, 2)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        const nextEl = document.getElementById("credit-particulars-input") as HTMLInputElement | null;
-                        if (nextEl) { nextEl.focus(); nextEl.select(); }
+                        const start = e.currentTarget.selectionStart ?? 0;
+                        if (start <= 2) {
+                          e.currentTarget.setSelectionRange(3, 5);
+                        } else if (start <= 5) {
+                          e.currentTarget.setSelectionRange(6, 8);
+                        } else {
+                          const nextEl = document.getElementById("credit-particulars-input") as HTMLInputElement | null;
+                          if (nextEl) { nextEl.focus(); nextEl.select(); }
+                        }
                       } else if (e.key === "Escape") {
                         e.preventDefault();
                         setShowCreditPopup(false);
