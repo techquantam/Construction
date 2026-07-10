@@ -1190,11 +1190,21 @@ function LedgerContent() {
     mutationFn: async (data: { id: string; payload: any }) => {
       return await api.put(`/daybooks/${data.id}`, data.payload);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["daybooks"] });
+    onSuccess: (data, variables) => {
+      const editedId = variables.id;
+      cancelTransactionInlineEdit();
+
+      queryClient.invalidateQueries({ queryKey: ["daybooks"] }).then(() => {
+        setTimeout(() => {
+          const row = document.getElementById(`tx-row-${editedId}`);
+          if (row) {
+            row.focus();
+            row.scrollIntoView({ block: "nearest" });
+          }
+        }, 150);
+      });
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
       toast.success("Transaction corrected successfully");
-      cancelTransactionInlineEdit();
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to update transaction");
@@ -1824,7 +1834,7 @@ function LedgerContent() {
   };
 
   // Parse and calculate transactions statement for selected ledger in active site
-  const statementData = (() => {
+  const statementData = useMemo(() => {
     if (!selectedSiteId || selectedSiteId === "all") {
       return { transactions: [], finalBalance: 0, balanceSign: "Nil" };
     }
@@ -1950,7 +1960,7 @@ function LedgerContent() {
       finalBalance: currentBalance,
       balanceSign: finalSign,
     };
-  })();
+  }, [selectedSiteId, selectedLedgerId, filteredLedgers, ledgers, dayBooks, ledgerTypeTab, appliedFilterDate]);
 
   // Auto scroll table container to bottom when transactions load or change
   useEffect(() => {
