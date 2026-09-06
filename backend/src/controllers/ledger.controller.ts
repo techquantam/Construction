@@ -213,7 +213,7 @@ export const deleteLedger = async (req: Request, res: Response) => {
     if (!ledger) {
       // Maybe the id is actually the name (for virtual accounts)
       ledger = await prisma.ledger.findFirst({
-        where: { name: { equals: id, mode: 'insensitive' } }
+        where: { name: { equals: id } }
       });
     }
 
@@ -230,8 +230,8 @@ export const deleteLedger = async (req: Request, res: Response) => {
       await tx.dayBook.deleteMany({
         where: {
           OR: [
-            { expenseType: { startsWith: `To ${name}`, mode: 'insensitive' } },
-            { expenseType: { startsWith: `By ${name}`, mode: 'insensitive' } }
+            { expenseType: { startsWith: `To ${name}` } },
+            { expenseType: { startsWith: `By ${name}` } }
           ]
         }
       });
@@ -265,7 +265,7 @@ export const deleteLedgerData = async (req: Request, res: Response) => {
 
     if (!ledger) {
       ledger = await prisma.ledger.findFirst({
-        where: { name: { equals: id, mode: 'insensitive' } }
+        where: { name: { equals: id } }
       });
     }
 
@@ -274,8 +274,8 @@ export const deleteLedgerData = async (req: Request, res: Response) => {
     await prisma.$transaction(async (tx) => {
       let dayBookWhereClause: any = {
         OR: [
-          { expenseType: { startsWith: `To ${name}`, mode: 'insensitive' } },
-          { expenseType: { startsWith: `By ${name}`, mode: 'insensitive' } }
+          { expenseType: { startsWith: `To ${name}` } },
+          { expenseType: { startsWith: `By ${name}` } }
         ]
       };
       if (siteId) {

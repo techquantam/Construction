@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { User, Trash2, Search, ArrowDown, Plus, X } from "lucide-react";
+import { User, Trash2, Search, ArrowDown, Plus, X, Edit } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
 import { useApp } from "@/context/AppContext";
@@ -41,12 +41,19 @@ export default function CompanyAccountsPage() {
   const [isPopupSiteSuggestionsOpen, setIsPopupSiteSuggestionsOpen] = useState(false);
   const [highlightedPopupSiteIndex, setHighlightedPopupSiteIndex] = useState(-1);
   const [popupSiteId, setPopupSiteId] = useState("");
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
     address: "",
     mobile: "",
   });
+
+  const closePopup = () => {
+    setShowPopup(false);
+    setEditingAccountId(null);
+    setFormData({ name: "", address: "", mobile: "" });
+  };
 
   // Page level states
   const [pageSiteSearchVal, setPageSiteSearchVal] = useState("");
@@ -114,17 +121,26 @@ export default function CompanyAccountsPage() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["ledgers", selectedSiteId] });
       toast.success(`Created account: "${res.data.data.name}"`);
-      // Reset popup form
-      setFormData({ name: "", address: "", mobile: "" });
-      setShowPopup(false);
-      
-      // Focus page level search query
-      setTimeout(() => {
-        pageSearchInputRef.current?.focus();
-      }, 100);
+      closePopup();
+      setTimeout(() => pageSearchInputRef.current?.focus(), 100);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to create account");
+    },
+  });
+
+  const updateCompanyMutation = useMutation({
+    mutationFn: async (payload: { id: string; data: any }) => {
+      return await api.put(`/ledgers/${payload.id}`, payload.data);
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["ledgers", selectedSiteId] });
+      toast.success(`Updated account: "${res.data.data.name}"`);
+      closePopup();
+      setTimeout(() => pageSearchInputRef.current?.focus(), 100);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to update account");
     },
   });
 
@@ -257,6 +273,15 @@ export default function CompanyAccountsPage() {
             handleDeleteCompany(target.id, target.name);
           }
         }
+      } else if (e.key === "e" || e.key === "E") {
+        if (focusedRowIndex >= 0 && focusedRowIndex < companyAccounts.length) {
+          e.preventDefault();
+          e.stopPropagation();
+          const target = companyAccounts[focusedRowIndex];
+          if (target) {
+            handleEditCompany(target);
+          }
+        }
       }
     };
 
@@ -293,7 +318,7 @@ export default function CompanyAccountsPage() {
         setHighlightedPopupSiteIndex(-1);
       } else {
         // Dismiss popup instantly on Escape key
-        setShowPopup(false);
+        closePopup();
       }
     }
   };
@@ -386,7 +411,7 @@ export default function CompanyAccountsPage() {
     // Set globally selected site to the registered site
     setSelectedSiteId(activeSiteId);
 
-    createCompanyMutation.mutate({
+    const payload = {
       type: "Company",
       name: formData.name.trim().toUpperCase(),
       contactPerson: JSON.stringify({
@@ -399,7 +424,24 @@ export default function CompanyAccountsPage() {
       phone: formData.mobile.trim() || "N/A",
       openingBalance: 0,
       siteId: activeSiteId,
+    };
+
+    if (editingAccountId) {
+      updateCompanyMutation.mutate({ id: editingAccountId, data: payload });
+    } else {
+      createCompanyMutation.mutate(payload);
+    }
+  };
+
+  const handleEditCompany = (account: any) => {
+    const info = getContactInfo(account.contactPerson);
+    setFormData({
+      name: account.name,
+      address: info.address === "N/A" ? "" : info.address,
+      mobile: info.mobile === "N/A" ? "" : info.mobile,
     });
+    setEditingAccountId(account.id);
+    setShowPopup(true);
   };
 
   const handleDeleteCompany = (id: string, name: string) => {
@@ -541,6 +583,8 @@ export default function CompanyAccountsPage() {
                 setPopupSiteId(active.id);
               }
             }
+            setEditingAccountId(null);
+            setFormData({ name: "", address: "", mobile: "" });
             setShowPopup(true);
           }}
           className="w-full sm:w-auto px-4 py-1.5 bg-[#FFE600] text-slate-955 border-2 border-slate-900 font-black text-xs uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-[#E5C300] active:translate-y-0.5 active:shadow-none transition-all flex items-center justify-center gap-1.5"
@@ -598,13 +642,22 @@ export default function CompanyAccountsPage() {
                     <TableCell className="border-r border-slate-350 py-2.5">{info.address}</TableCell>
                     <TableCell className="border-r border-slate-350 py-2.5">{info.mobile}</TableCell>
                     <TableCell className="py-2 text-center" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => handleDeleteCompany(account.id, account.name)}
-                        className={`p-1 rounded transition-colors ${isFocused ? "text-slate-950 hover:bg-slate-950/10" : "text-red-650 hover:bg-red-50"}`}
-                        title="Delete Account"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleEditCompany(account)}
+                          className={`p-1 rounded transition-colors ${isFocused ? "text-slate-950 hover:bg-slate-950/10" : "text-blue-600 hover:bg-blue-50"}`}
+                          title="Edit Account"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCompany(account.id, account.name)}
+                          className={`p-1 rounded transition-colors ${isFocused ? "text-slate-950 hover:bg-slate-950/10" : "text-red-650 hover:bg-red-50"}`}
+                          title="Delete Account"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -619,14 +672,14 @@ export default function CompanyAccountsPage() {
         <DialogContent aria-describedby={undefined} className="max-w-md bg-white border-2 border-slate-990 font-mono text-slate-900 rounded p-0 shadow-2xl no-print">
           
           <DialogHeader className="sr-only">
-            <DialogTitle>Register New Account</DialogTitle>
+            <DialogTitle>{editingAccountId ? "Edit Account" : "Register New Account"}</DialogTitle>
           </DialogHeader>
 
           {/* Dialog Header Title */}
           <div className="flex items-center justify-between bg-[#2B547E] text-white px-3 py-2 text-xs font-black shadow-inner select-none border-b-2 border-slate-950">
-            <span className="uppercase tracking-wider">ADD ACCOUNT / नया खाता</span>
+            <span className="uppercase tracking-wider">{editingAccountId ? "EDIT ACCOUNT / खाता संपादित करें" : "ADD ACCOUNT / नया खाता"}</span>
             <button
-              onClick={() => setShowPopup(false)}
+              onClick={closePopup}
               className="w-5 h-5 bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs border border-slate-400 shadow-sm hover:bg-red-650 hover:text-white transition-colors focus:outline-none"
             >
               <X className="h-3 w-3" />
@@ -762,7 +815,7 @@ export default function CompanyAccountsPage() {
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setShowPopup(false)}
+                onClick={closePopup}
                 className="px-4 py-2 bg-slate-100 border-2 border-slate-900 text-slate-900 font-black text-xs uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-slate-200 active:translate-y-0.5 active:shadow-none transition-all"
               >
                 Cancel
@@ -773,7 +826,7 @@ export default function CompanyAccountsPage() {
                 onKeyDown={(e) => handlePopupKeyDown(e, "submit")}
                 className="px-5 py-2 bg-[#FFE600] border-2 border-slate-900 text-black font-black text-xs uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-[#E5C300] active:translate-y-0.5 active:shadow-none transition-all"
               >
-                Register
+                {editingAccountId ? "Update" : "Register"}
               </button>
             </div>
 

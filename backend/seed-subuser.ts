@@ -20,8 +20,7 @@ async function main() {
     let site = await prisma.site.findFirst({
       where: {
         name: {
-          equals: 'TESTING',
-          mode: 'insensitive'
+          equals: 'TESTING'
         }
       }
     });
@@ -38,8 +37,7 @@ async function main() {
     let ledger = await prisma.ledger.findFirst({
       where: {
         name: {
-          equals: 'TESTING',
-          mode: 'insensitive'
+          equals: 'TESTING'
         }
       }
     });
