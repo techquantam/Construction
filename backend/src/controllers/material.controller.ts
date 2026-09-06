@@ -9,7 +9,13 @@ const parseRate = (val: any) => {
 
 export const getMaterials = async (req: Request, res: Response) => {
   try {
+    const { siteId } = req.query;
+    let whereClause: any = {};
+    if (siteId) {
+      whereClause.siteId = String(siteId);
+    }
     const materials = await prisma.material.findMany({
+      where: whereClause,
       orderBy: { name: 'asc' }
     });
     res.json({ success: true, data: materials });
@@ -43,7 +49,7 @@ export const getMaterialById = async (req: Request, res: Response) => {
 
 export const createMaterial = async (req: Request, res: Response) => {
   try {
-    const { name, unit, openingStock, lowStockAlert, rate, purchaseRate } = req.body;
+    const { name, unit, openingStock, lowStockAlert, rate, purchaseRate, siteId } = req.body;
     const material = await prisma.material.create({
       data: {
         name: name?.trim().toUpperCase(),
@@ -51,7 +57,8 @@ export const createMaterial = async (req: Request, res: Response) => {
         currentStock: parseFloat(openingStock) || 0,
         lowStockAlert: parseFloat(lowStockAlert) || 10,
         rate: parseRate(rate),
-        purchaseRate: parseRate(purchaseRate)
+        purchaseRate: parseRate(purchaseRate),
+        siteId: siteId || null
       }
     });
 

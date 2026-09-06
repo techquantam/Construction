@@ -590,15 +590,6 @@ export default function ChallanPage() {
     },
   });
 
-  // Query: Fetch all materials
-  const { data: existingMaterials = [] } = useQuery({
-    queryKey: ["materials"],
-    queryFn: async () => {
-      const response = await api.get("/materials");
-      return response.data.data || [];
-    },
-  });
-
   // States for Site Autocomplete Selection
   const [siteSearchVal, setSiteSearchVal] = useState("");
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
@@ -606,6 +597,19 @@ export default function ChallanPage() {
   const [highlightedSiteIndex, setHighlightedSiteIndex] = useState<number>(-1);
   const siteSelectorRef = useRef<HTMLDivElement>(null);
   const siteInputRef = useRef<HTMLInputElement>(null);
+
+  // Query: Fetch materials for selected site
+  const { data: existingMaterials = [] } = useQuery({
+    queryKey: ["materials", selectedSiteId],
+    queryFn: async () => {
+      if (!selectedSiteId) return [];
+      const response = await api.get(`/materials?siteId=${selectedSiteId}`);
+      return response.data.data || [];
+    },
+    enabled: !!selectedSiteId,
+  });
+
+
 
   // Query: Fetch all ledgers
   const { data: ledgers } = useQuery({

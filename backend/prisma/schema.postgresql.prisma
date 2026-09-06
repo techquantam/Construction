@@ -34,6 +34,7 @@ model Site {
   dayBooks            DayBook[]
   materialTransactions MaterialTransaction[]
   ledgers             Ledger[]
+  materials           Material[]
 }
 
 model DayBook {
@@ -89,7 +90,9 @@ model Material {
   lowStockAlert Float   @default(10)
   rate         Float?   @default(0)
   purchaseRate Float?   @default(0)
+  siteId       String?
   
+  site         Site?    @relation(fields: [siteId], references: [id])
   transactions MaterialTransaction[]
   
   createdAt    DateTime @default(now())

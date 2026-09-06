@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Package, Trash2, Edit3, Save, X, Search } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/axios";
+import { useApp } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -22,14 +23,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function MaterialsPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  
+  const { selectedSiteId, setSelectedSiteId, sites } = useApp();
 
   // Create Form State (Rate defaults to empty string)
   const [formData, setFormData] = useState({
+    siteId: "",
     name: "",
     unit: "CFT",
     rate: "",
     purchaseRate: "",
   });
+  
+  useEffect(() => {
+    if (selectedSiteId) {
+      setFormData(prev => ({ ...prev, siteId: selectedSiteId }));
+    }
+  }, [selectedSiteId]);
 
   // Search filter query
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,11 +74,13 @@ export default function MaterialsPage() {
 
   // Fetch materials
   const { data: materials = [], isLoading } = useQuery({
-    queryKey: ["materials"],
+    queryKey: ["materials", selectedSiteId],
     queryFn: async () => {
-      const response = await api.get("/materials");
+      if (!selectedSiteId) return [];
+      const response = await api.get(`/materials?siteId=${selectedSiteId}`);
       return response.data.data || [];
     },
+    enabled: !!selectedSiteId,
   });
 
   // Create Material Mutation
@@ -77,14 +89,15 @@ export default function MaterialsPage() {
       return await api.post("/materials", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["materials"] });
+      queryClient.invalidateQueries({ queryKey: ["materials", formData.siteId] });
       toast.success("Material registered successfully");
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         name: "",
         unit: "CFT",
         rate: "",
         purchaseRate: "",
-      });
+      }));
       nameInputRef.current?.focus();
     },
     onError: (error: any) => {
@@ -98,7 +111,7 @@ export default function MaterialsPage() {
       return await api.put(`/materials/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["materials"] });
+      queryClient.invalidateQueries({ queryKey: ["materials", selectedSiteId] });
       toast.success("Material updated successfully");
       setEditingId(null);
     },
@@ -113,7 +126,7 @@ export default function MaterialsPage() {
       return await api.delete(`/materials/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["materials"] });
+      queryClient.invalidateQueries({ queryKey: ["materials", selectedSiteId] });
       toast.success("Material deleted successfully");
     },
     onError: (error: any) => {
@@ -123,11 +136,21 @@ export default function MaterialsPage() {
 
   const handleCreateMaterial = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.siteId) {
+      toast.error("Please select a site to add this material to");
+      return;
+    }
     if (!formData.name.trim()) {
       toast.error("Material Name is required");
       return;
     }
+
+    if (selectedSiteId !== formData.siteId) {
+      setSelectedSiteId(formData.siteId);
+    }
+
     createMaterialMutation.mutate({
+      siteId: formData.siteId,
       name: formData.name.trim().toUpperCase(),
       unit: formData.unit.trim().toUpperCase(),
       rate: formData.rate === "" ? null : parseFloat(formData.rate) || 0,
@@ -338,6 +361,25 @@ export default function MaterialsPage() {
           </div>
 
           <form onSubmit={handleCreateMaterial} className="space-y-4">
+            {/* Site Select */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-black uppercase text-slate-655">Select Site / साइट चुनें:</Label>
+              <select
+                value={formData.siteId}
+                onChange={(e) => {
+                  setFormData({ ...formData, siteId: e.target.value });
+                  setSelectedSiteId(e.target.value);
+                }}
+                className="w-full bg-white border-2 border-slate-800 rounded px-2.5 py-1.5 font-bold text-xs uppercase focus:outline-none focus:border-[#2B547E] cursor-pointer font-mono text-slate-800"
+                required
+              >
+                <option value="" disabled>-- SELECT SITE --</option>
+                {sites.map(site => (
+                  <option key={site.id} value={site.id}>{site.name.toUpperCase()}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Name Input */}
             <div className="space-y-1.5">
               <Label className="text-xs font-black uppercase text-slate-655">Material Name / सामग्री का नाम:</Label>
@@ -470,7 +512,11 @@ export default function MaterialsPage() {
             />
           </div>
 
-          {isLoading ? (
+          {!selectedSiteId ? (
+            <div className="p-20 text-center text-slate-400 italic font-black uppercase tracking-widest bg-slate-50 border-2 border-slate-800">
+              PLEASE SELECT A SITE IN THE FORM OR GLOBALLY TO VIEW MATERIALS
+            </div>
+          ) : isLoading ? (
             <div className="space-y-2.5">
               <Skeleton className="h-8 w-full border border-slate-300" />
               <Skeleton className="h-8 w-full border border-slate-300" />

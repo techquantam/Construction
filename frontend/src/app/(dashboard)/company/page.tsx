@@ -408,6 +408,10 @@ export default function CompanyAccountsPage() {
       return;
     }
 
+    if (!window.confirm(editingAccountId ? "ARE YOU SURE YOU WANT TO UPDATE THIS ACCOUNT?" : "ARE YOU SURE YOU WANT TO REGISTER THIS ACCOUNT?")) {
+      return;
+    }
+
     // Set globally selected site to the registered site
     setSelectedSiteId(activeSiteId);
 

@@ -555,11 +555,13 @@ function LedgerContent() {
 
   // Query: Fetch materials for selector
   const { data: materialsData } = useQuery({
-    queryKey: ["materials"],
+    queryKey: ["materials", selectedSiteId],
     queryFn: async () => {
-      const response = await api.get("/materials");
+      if (!selectedSiteId || selectedSiteId === "all") return [];
+      const response = await api.get(`/materials?siteId=${selectedSiteId}`);
       return response.data.data;
     },
+    enabled: !!selectedSiteId && selectedSiteId !== "all",
   });
   const existingMaterials: any[] = materialsData || [];
 
