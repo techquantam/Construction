@@ -12,7 +12,12 @@ export const getMaterials = async (req: Request, res: Response) => {
     const { siteId } = req.query;
     let whereClause: any = {};
     if (siteId) {
-      whereClause.siteId = String(siteId);
+      whereClause = {
+        OR: [
+          { siteId: String(siteId) },
+          { siteId: null }
+        ]
+      };
     }
     const materials = await prisma.material.findMany({
       where: whereClause,
