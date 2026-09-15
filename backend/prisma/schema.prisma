@@ -85,6 +85,7 @@ model LedgerTransaction {
 model Material {
   id           String   @id @default(uuid())
   name         String   // Cement, Bricks, Sand, Steel, Paint, Pipes
+  hindiName    String?
   unit         String   // bags, pieces, tons, liters, etc.
   currentStock Float    @default(0)
   lowStockAlert Float   @default(10)

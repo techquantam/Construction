@@ -54,10 +54,11 @@ export const getMaterialById = async (req: Request, res: Response) => {
 
 export const createMaterial = async (req: Request, res: Response) => {
   try {
-    const { name, unit, openingStock, lowStockAlert, rate, purchaseRate, siteId } = req.body;
+    const { name, hindiName, unit, openingStock, lowStockAlert, rate, purchaseRate, siteId } = req.body;
     const material = await prisma.material.create({
       data: {
         name: name?.trim().toUpperCase(),
+        hindiName: hindiName?.trim() || null,
         unit: unit?.trim().toUpperCase(),
         currentStock: parseFloat(openingStock) || 0,
         lowStockAlert: parseFloat(lowStockAlert) || 10,
@@ -139,11 +140,12 @@ export const deleteMaterial = async (req: Request, res: Response) => {
 export const updateMaterial = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { name, unit, rate, purchaseRate } = req.body;
+    const { name, hindiName, unit, rate, purchaseRate } = req.body;
     const material = await prisma.material.update({
       where: { id },
       data: {
         name: name?.trim().toUpperCase(),
+        hindiName: hindiName?.trim() || null,
         unit: unit?.trim().toUpperCase(),
         rate: rate !== undefined ? parseRate(rate) : undefined,
         purchaseRate: purchaseRate !== undefined ? parseRate(purchaseRate) : undefined

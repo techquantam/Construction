@@ -229,6 +229,8 @@ const HINDI_DICTIONARY: { [key: string]: string } = {
   "TATA 16 MM": "टाटा 16 मिमी",
 
   // Word-level fallbacks & Additional items
+  "METARIAL": "मटीरियल",
+  "MATERIAL": "मटीरियल",
   "BALU GANGA": "गंगा बालू",
   "BALU GHAGHRA": "घाघरा बालू",
   "GANGA": "गंगा",
@@ -495,12 +497,63 @@ function phoneticTransliterateWord(word: string): string {
   return result;
 }
 
+const TRANSLATION_CACHE: Record<string, string> = {};
+let translationUpdateCallback: (() => void) | null = null;
+
+function registerTranslationCallback(cb: () => void) {
+  translationUpdateCallback = cb;
+}
+
+function requestTranslation(text: string) {
+  const upperText = text.toUpperCase().trim();
+  if (!upperText || HINDI_DICTIONARY[upperText] || TRANSLATION_CACHE[upperText]) return;
+  if (/[\u0900-\u097F]/.test(upperText)) return;
+
+  TRANSLATION_CACHE[upperText] = "FETCHING";
+  
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_TRANSLATION_API_KEY;
+  if (!apiKey) {
+    console.error("Missing Google Translation API Key");
+    TRANSLATION_CACHE[upperText] = "FAILED";
+    return;
+  }
+
+  fetch(`https://translation.googleapis.com/language/translate/v2?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      q: text,
+      source: "en",
+      target: "hi",
+      format: "text"
+    })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data?.data?.translations?.[0]?.translatedText) {
+        TRANSLATION_CACHE[upperText] = data.data.translations[0].translatedText;
+        if (translationUpdateCallback) translationUpdateCallback();
+      } else {
+        TRANSLATION_CACHE[upperText] = "FAILED";
+      }
+    })
+    .catch(() => {
+      TRANSLATION_CACHE[upperText] = "FAILED";
+    });
+}
+
 function translateToHindi(text: string): string {
   if (!text) return "";
   const upperText = text.toUpperCase().trim();
 
   if (HINDI_DICTIONARY[upperText]) {
     return HINDI_DICTIONARY[upperText];
+  }
+
+  if (!TRANSLATION_CACHE[upperText]) {
+    requestTranslation(text);
+  } else if (TRANSLATION_CACHE[upperText] !== "FETCHING" && TRANSLATION_CACHE[upperText] !== "FAILED") {
+    return TRANSLATION_CACHE[upperText];
   }
 
   const words = text.split(/\s+/);
@@ -510,6 +563,14 @@ function translateToHindi(text: string): string {
     if (HINDI_DICTIONARY[cleanWord]) {
       return HINDI_DICTIONARY[cleanWord];
     }
+    
+    const upperWord = word.toUpperCase().trim();
+    if (!TRANSLATION_CACHE[upperWord]) {
+       requestTranslation(word);
+    } else if (TRANSLATION_CACHE[upperWord] !== "FETCHING" && TRANSLATION_CACHE[upperWord] !== "FAILED") {
+       return TRANSLATION_CACHE[upperWord];
+    }
+    
     return phoneticTransliterateWord(word);
   });
 
@@ -576,9 +637,12 @@ const getNextChallanNoForDate = (dateStr: string, daybooks: any[] | null | undef
 };
 
 export default function ChallanPage() {
+  const [, setTranslationTick] = useState(0);
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    registerTranslationCallback(() => setTranslationTick(t => t + 1));
+    return () => registerTranslationCallback(() => {});
   }, []);
 
   // Query: Fetch all sites
