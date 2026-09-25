@@ -31,6 +31,7 @@ export default function MaterialsPage() {
   const [formData, setFormData] = useState({
     siteId: "",
     name: "",
+    hindiName: "",
     unit: "CFT",
     rate: "",
     purchaseRate: "",
@@ -52,6 +53,7 @@ export default function MaterialsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState({
     name: "",
+    hindiName: "",
     unit: "",
     rate: "",
     purchaseRate: "",
@@ -59,6 +61,7 @@ export default function MaterialsPage() {
 
   // Refs for keyboard transitions in Create Form
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const hindiNameInputRef = useRef<HTMLInputElement>(null);
   const unitSelectRef = useRef<HTMLSelectElement>(null);
   const purchaseRateInputRef = useRef<HTMLInputElement>(null);
   const rateInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +98,7 @@ export default function MaterialsPage() {
       setFormData(prev => ({
         ...prev,
         name: "",
+        hindiName: "",
         unit: "CFT",
         rate: "",
         purchaseRate: "",
@@ -165,6 +169,7 @@ export default function MaterialsPage() {
     setEditingId(material.id);
     setEditFormData({
       name: material.name,
+      hindiName: material.hindiName || "",
       unit: material.unit || "CFT",
       rate: material.rate !== null && material.rate !== undefined && material.rate !== 0 ? String(material.rate) : "",
       purchaseRate: material.purchaseRate !== null && material.purchaseRate !== undefined && material.purchaseRate !== 0 ? String(material.purchaseRate) : "",

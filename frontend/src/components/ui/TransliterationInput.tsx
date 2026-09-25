@@ -5,7 +5,8 @@ interface TransliterationInputProps extends React.InputHTMLAttributes<HTMLInputE
   onTransliterate: (hindiText: string) => void;
 }
 
-export function TransliterationInput({ onTransliterate, value, onChange, onKeyDown, ...props }: TransliterationInputProps) {
+export const TransliterationInput = React.forwardRef<HTMLInputElement, TransliterationInputProps>(
+  ({ onTransliterate, value, onChange, onKeyDown, ...props }, ref) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
@@ -110,6 +111,7 @@ export function TransliterationInput({ onTransliterate, value, onChange, onKeyDo
     <div className="relative w-full" ref={wrapperRef}>
       <Input 
         {...props} 
+        ref={ref}
         value={value} 
         onChange={handleInputChange} 
         onKeyDown={handleKeyDownLocal}
@@ -134,4 +136,4 @@ export function TransliterationInput({ onTransliterate, value, onChange, onKeyDo
       )}
     </div>
   );
-}
+});
