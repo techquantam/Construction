@@ -673,6 +673,16 @@ export default function ChallanPage() {
     enabled: !!selectedSiteId,
   });
 
+  useMemo(() => {
+    if (existingMaterials && existingMaterials.length > 0) {
+      existingMaterials.forEach((m: any) => {
+        if (m.hindiName) {
+          HINDI_DICTIONARY[m.name.toUpperCase().trim()] = m.hindiName;
+        }
+      });
+    }
+  }, [existingMaterials]);
+
 
 
   // Query: Fetch all ledgers

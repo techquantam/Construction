@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TransliterationInput } from "@/components/ui/TransliterationInput";
 
 export default function MaterialsPage() {
   const queryClient = useQueryClient();
@@ -391,11 +392,33 @@ export default function MaterialsPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    unitSelectRef.current?.focus();
+                    hindiNameInputRef.current?.focus();
                   }
                 }}
                 placeholder="e.g. BALU GANGA / BRICKS"
                 className="bg-white border-2 border-slate-800 rounded font-bold text-xs uppercase focus:border-[#2B547E]"
+              />
+            </div>
+
+            {/* Hindi Name Input */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-black uppercase text-slate-655">Hindi Name (Optional):</Label>
+              <TransliterationInput
+                ref={hindiNameInputRef}
+                value={formData.hindiName}
+                onChange={(e) => setFormData({ ...formData, hindiName: e.target.value })}
+                onTransliterate={(val) => setFormData({ ...formData, hindiName: val })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    unitSelectRef.current?.focus();
+                  } else if (e.key === "Escape") {
+                    nameInputRef.current?.focus();
+                    nameInputRef.current?.select();
+                  }
+                }}
+                placeholder="Type in English (e.g. balu)"
+                className="bg-white border-2 border-slate-800 rounded font-bold text-xs focus:border-[#2B547E]"
               />
             </div>
 
@@ -413,8 +436,8 @@ export default function MaterialsPage() {
                     purchaseRateInputRef.current?.select();
                   } else if (e.key === "Escape") {
                     e.preventDefault();
-                    nameInputRef.current?.focus();
-                    nameInputRef.current?.select();
+                    hindiNameInputRef.current?.focus();
+                    hindiNameInputRef.current?.select();
                   }
                 }}
                 className="w-full bg-white border-2 border-slate-800 rounded px-2.5 py-1.5 font-bold text-xs uppercase focus:outline-none focus:border-[#2B547E] cursor-pointer font-mono text-slate-800"
@@ -565,17 +588,32 @@ export default function MaterialsPage() {
                           {/* Material Name */}
                           <td className={`border-r border-slate-300 py-1.5 px-3 uppercase font-black ${isFocused ? "text-slate-950" : "text-slate-900"}`}>
                             {isEditing ? (
-                              <input
-                                value={editFormData.name}
-                                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value.toUpperCase() })}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleSaveEdit(material.id);
-                                  if (e.key === "Escape") setEditingId(null);
-                                }}
-                                className="w-full h-7 py-0.5 px-2 text-xs font-bold border-2 border-slate-800 rounded uppercase bg-amber-50 focus:outline-none focus:border-[#2B547E]"
-                              />
+                              <div className="space-y-1">
+                                <input
+                                  value={editFormData.name}
+                                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value.toUpperCase() })}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSaveEdit(material.id);
+                                    if (e.key === "Escape") setEditingId(null);
+                                  }}
+                                  className="w-full h-7 py-0.5 px-2 text-xs font-bold border-2 border-slate-800 rounded uppercase bg-amber-50 focus:outline-none focus:border-[#2B547E]"
+                                  placeholder="MATERIAL NAME"
+                                />
+                                <TransliterationInput
+                                  value={editFormData.hindiName}
+                                  onChange={(e) => setEditFormData({ ...editFormData, hindiName: e.target.value })}
+                                  onTransliterate={(val) => setEditFormData({ ...editFormData, hindiName: val })}
+                                  className="w-full h-7 py-0.5 px-2 text-xs font-bold border-2 border-slate-800 rounded bg-amber-50 focus:outline-none focus:border-[#2B547E]"
+                                  placeholder="Hindi Name"
+                                />
+                              </div>
                             ) : (
-                              <span>{material.name}</span>
+                              <div>
+                                <span>{material.name}</span>
+                                {material.hindiName && (
+                                  <span className="block text-[10px] text-slate-500 font-normal">{material.hindiName}</span>
+                                )}
+                              </div>
                             )}
                           </td>
 

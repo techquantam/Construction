@@ -496,12 +496,63 @@ function phoneticTransliterateWord(word: string): string {
   return result;
 }
 
+const TRANSLATION_CACHE: Record<string, string> = {};
+let translationUpdateCallback: (() => void) | null = null;
+
+function registerTranslationCallback(cb: () => void) {
+  translationUpdateCallback = cb;
+}
+
+function requestTranslation(text: string) {
+  const upperText = text.toUpperCase().trim();
+  if (!upperText || HINDI_DICTIONARY[upperText] || TRANSLATION_CACHE[upperText]) return;
+  if (/[\u0900-\u097F]/.test(upperText)) return;
+
+  TRANSLATION_CACHE[upperText] = "FETCHING";
+  
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_TRANSLATION_API_KEY;
+  if (!apiKey) {
+    console.error("Missing Google Translation API Key");
+    TRANSLATION_CACHE[upperText] = "FAILED";
+    return;
+  }
+
+  fetch(`https://translation.googleapis.com/language/translate/v2?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      q: text,
+      source: "en",
+      target: "hi",
+      format: "text"
+    })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data?.data?.translations?.[0]?.translatedText) {
+        TRANSLATION_CACHE[upperText] = data.data.translations[0].translatedText;
+        if (translationUpdateCallback) translationUpdateCallback();
+      } else {
+        TRANSLATION_CACHE[upperText] = "FAILED";
+      }
+    })
+    .catch(() => {
+      TRANSLATION_CACHE[upperText] = "FAILED";
+    });
+}
+
 function translateToHindi(text: string): string {
   if (!text) return "";
   const upperText = text.toUpperCase().trim();
 
   if (HINDI_DICTIONARY[upperText]) {
     return HINDI_DICTIONARY[upperText];
+  }
+
+  if (!TRANSLATION_CACHE[upperText]) {
+    requestTranslation(text);
+  } else if (TRANSLATION_CACHE[upperText] !== "FETCHING" && TRANSLATION_CACHE[upperText] !== "FAILED") {
+    return TRANSLATION_CACHE[upperText];
   }
 
   const words = text.split(/\s+/);
@@ -511,6 +562,14 @@ function translateToHindi(text: string): string {
     if (HINDI_DICTIONARY[cleanWord]) {
       return HINDI_DICTIONARY[cleanWord];
     }
+    
+    const upperWord = word.toUpperCase().trim();
+    if (!TRANSLATION_CACHE[upperWord]) {
+       requestTranslation(word);
+    } else if (TRANSLATION_CACHE[upperWord] !== "FETCHING" && TRANSLATION_CACHE[upperWord] !== "FAILED") {
+       return TRANSLATION_CACHE[upperWord];
+    }
+    
     return phoneticTransliterateWord(word);
   });
 
@@ -530,10 +589,13 @@ function ReportsContent() {
   const reportType = searchParams.get("type");
   const [userRole, setUserRole] = useState<string | null>(null);
   const [allowedLedgerId, setAllowedLedgerId] = useState<string | null>(null);
+  const [, setTranslationTick] = useState(0);
 
   useEffect(() => {
     setUserRole(localStorage.getItem("userRole"));
     setAllowedLedgerId(localStorage.getItem("allowedLedgerId"));
+    registerTranslationCallback(() => setTranslationTick(t => t + 1));
+    return () => registerTranslationCallback(() => {});
   }, []);
 
   // Site query
@@ -4219,13 +4281,13 @@ function ReportsContent() {
                     <div className="flex">
                       <span className="w-24 text-slate-500">Name :</span>
                       <span className="font-black uppercase text-slate-900">
-                        {lgSelectedLedgerId === "all" ? "ALL ACCOUNTS" : selectedLedgerName.toUpperCase()}
+                        {lgSelectedLedgerId === "all" ? "ALL ACCOUNTS" : translateBilingual(selectedLedgerName)}
                       </span>
                     </div>
                     <div className="flex">
                       <span className="w-24 text-slate-500">Address :</span>
                       <span className="font-black uppercase text-slate-900">
-                        {lgSelectedLedgerId === "all" ? "" : (selectedLedgerAddress ? selectedLedgerAddress.toUpperCase() : "")}
+                        {lgSelectedLedgerId === "all" ? "" : (selectedLedgerAddress ? translateBilingual(selectedLedgerAddress) : "")}
                       </span>
                     </div>
                     <div className="flex">
