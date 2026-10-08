@@ -590,6 +590,7 @@ function ReportsContent() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [allowedLedgerId, setAllowedLedgerId] = useState<string | null>(null);
   const [, setTranslationTick] = useState(0);
+  const [printerMode, setPrinterMode] = useState<'epson' | 'hp'>('epson');
 
   useEffect(() => {
     setUserRole(localStorage.getItem("userRole"));
@@ -2979,7 +2980,33 @@ function ReportsContent() {
           
           @media print {
             .print-only-layout { display: block !important; }
-            @page { size: portrait; margin: 8mm; }
+            @page { size: ${printerMode === 'hp' ? '148.5mm 210mm' : 'portrait'}; margin: 8mm; }
+            ${printerMode === 'hp' ? `
+              .print-page {
+                position: relative !important;
+                width: 132.5mm !important;
+                height: 194mm !important;
+                overflow: hidden !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                background: transparent !important;
+              }
+              .print-page:not(.print-blank-page) > * {
+                position: absolute !important;
+                width: 194mm !important;
+                height: 132.5mm !important;
+                top: 194mm !important;
+                left: 0 !important;
+                transform-origin: top left !important;
+                transform: rotate(-90deg) !important;
+                border: 2px solid #000 !important;
+                padding: 18px !important;
+                border-radius: 4px !important;
+                background: white !important;
+                box-sizing: border-box !important;
+              }
+            ` : ''}
             html, body {
               display: block !important;
               height: auto !important;
@@ -3859,6 +3886,14 @@ function ReportsContent() {
               {/* RETRO ACTION BUTTONS BAR */}
               {smSelectedSiteId && (
                 <div className="p-3 bg-[#E5ECF4] border-t border-slate-300 flex items-center justify-end gap-3 print-toolbar no-print mt-4">
+                  <select
+                    value={printerMode}
+                    onChange={(e) => setPrinterMode(e.target.value as 'epson' | 'hp')}
+                    className="bg-white border-2 border-slate-300 px-2 py-1.5 text-[11px] font-black text-slate-700 rounded outline-none cursor-pointer uppercase tracking-wider"
+                  >
+                    <option value="epson">Printer: Epson (A4)</option>
+                    <option value="hp">Printer: HP (Half-A4)</option>
+                  </select>
                   <button
                     type="button"
                     onClick={handlePrintSummaryPDF}
@@ -4435,6 +4470,14 @@ function ReportsContent() {
 
               {/* RETRO ACTION BUTTONS BAR */}
               <div className="p-3 bg-[#E5ECF4] border-t border-slate-300 flex items-center justify-end gap-3 print-toolbar no-print mt-4">
+                <select
+                  value={printerMode}
+                  onChange={(e) => setPrinterMode(e.target.value as 'epson' | 'hp')}
+                  className="bg-white border-2 border-slate-300 px-2 py-1.5 text-[11px] font-black text-slate-700 rounded outline-none cursor-pointer uppercase tracking-wider"
+                >
+                  <option value="epson">Printer: Epson (A4)</option>
+                  <option value="hp">Printer: HP (Half-A4)</option>
+                </select>
                 <button
                   type="button"
                   onClick={handlePrintLedgerPDF}
@@ -4777,6 +4820,14 @@ function ReportsContent() {
 
             {/* RETRO ACTION BUTTONS BAR */}
             <div className="p-3 bg-[#E5ECF4] border-t border-slate-300 flex items-center justify-end gap-3 print-toolbar no-print">
+              <select
+                value={printerMode}
+                onChange={(e) => setPrinterMode(e.target.value as 'epson' | 'hp')}
+                className="bg-white border-2 border-slate-300 px-2 py-1.5 text-[11px] font-black text-slate-700 rounded outline-none cursor-pointer uppercase tracking-wider"
+              >
+                <option value="epson">Printer: Epson (A4)</option>
+                <option value="hp">Printer: HP (Half-A4)</option>
+              </select>
               <button
                 type="button"
                 onClick={() => handleOpenPrintModal("ledger")}

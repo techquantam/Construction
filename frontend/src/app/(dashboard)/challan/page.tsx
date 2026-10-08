@@ -639,6 +639,7 @@ const getNextChallanNoForDate = (dateStr: string, daybooks: any[] | null | undef
 export default function ChallanPage() {
   const [, setTranslationTick] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [printerMode, setPrinterMode] = useState<'epson' | 'hp'>('epson');
   useEffect(() => {
     setMounted(true);
     registerTranslationCallback(() => setTranslationTick(t => t + 1));
@@ -3682,7 +3683,10 @@ export default function ChallanPage() {
               
               @media print {
                 .print-only-layout { display: block !important; }
-                @page { size: portrait; margin: 8mm; }
+                
+                /* Use margin: 0 so Chrome starts exactly at the edge. The printer's hardware margin will naturally shift it down just a tiny bit. */
+                @page { size: ${printerMode === 'hp' ? '5in 6.5in' : 'portrait'}; margin: ${printerMode === 'hp' ? '0' : '8mm'}; }
+                
                 html, body {
                   display: block !important;
                   height: auto !important;
@@ -3693,7 +3697,6 @@ export default function ChallanPage() {
                   font-family: var(--font-geist-sans), var(--font-noto-devanagari), 'Nirmala UI', sans-serif !important;
                 }
                 
-                /* Hide everything under body except the print portal root */
                 body > :not(#print-portal-root) {
                   display: none !important;
                 }
@@ -3707,18 +3710,55 @@ export default function ChallanPage() {
                   overflow: visible !important;
                   background: white !important;
                 }
+                
                 .print-page {
                   page-break-after: always !important;
                   break-after: page !important;
+                  box-sizing: border-box !important;
+                  display: block !important;
+                  width: 100% !important;
+                  ${printerMode === 'hp' ? `
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  border: none !important;
+                  background: transparent !important;
+                  ` : `
                   border: 2px solid #000 !important;
                   padding: 18px !important;
                   border-radius: 4px !important;
                   background: white !important;
-                  box-sizing: border-box !important;
                   margin: 0 0 10mm 0 !important;
-                  display: block !important;
-                  width: 100% !important;
+                  `}
                 }
+                
+                ${printerMode === 'hp' ? `
+                .print-page:not(.print-blank-page) > * {
+                  border: 2px solid #000 !important;
+                  border-radius: 4px !important;
+                  padding: 6px !important; /* Extremely tight outer padding */
+                  box-sizing: border-box !important;
+                  background: white !important;
+                  display: block !important;
+                }
+
+                /* --- DRASTICALLY REDUCE VERTICAL GAPS FOR HP 5x6.5 --- */
+                
+                /* Override the 16px Tailwind space-y-4 gap between header, customer info, and table */
+                .print-only-layout .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+                  margin-top: 4px !important; 
+                }
+                
+                /* Tighten the header and customer info padding */
+                .print-only-layout .p-3 { padding: 4px 6px !important; }
+                .print-only-layout .pb-2 { padding-bottom: 2px !important; border-width: 1.5px !important; }
+                
+                /* Ensure table header and cell paddings take minimum vertical space */
+                .print-only-layout .py-1\\.5, .print-only-layout .py-1 { 
+                  padding-top: 3px !important; 
+                  padding-bottom: 3px !important; 
+                }
+                ` : ''}
+
                 .print-blank-page {
                   page-break-after: always !important;
                   break-after: page !important;
@@ -3736,19 +3776,24 @@ export default function ChallanPage() {
                   margin-bottom: 0 !important;
                 }
                 
-                /* Large typography for A5 half-page readability */
-                .estimate-title { font-size: 8px !important; font-weight: 900 !important; }
-                .supplier-name { font-size: 16px !important; font-weight: 900 !important; }
-                .supplier-info { font-size: 15px !important; font-weight: 900 !important; line-height: 1.4 !important; }
-                .meta-title { font-size: 11px !important; font-weight: 900 !important; }
-                .meta-value { font-size: 16px !important; font-weight: 900 !important; }
+                tr {
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                }
                 
-                table { width: 100% !important; border-collapse: collapse !important; margin-top: 8px !important; }
-                th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact !important; font-size: 13px !important; font-weight: 900 !important; }
-                td { font-size: 14px !important; font-weight: 800 !important; }
-                th, td { border: 1.5px solid #000 !important; padding: 7px 9px !important; }
-                .total-label { font-size: 14px !important; font-weight: 900 !important; }
-                .total-value { font-size: 14px !important; font-weight: 900 !important; }
+                /* Typography & Layout */
+                .estimate-title { font-size: 8px !important; font-weight: 900 !important; }
+                .supplier-name { font-size: ${printerMode === 'hp' ? '14px' : '16px'} !important; font-weight: 900 !important; }
+                .supplier-info { font-size: ${printerMode === 'hp' ? '12px' : '15px'} !important; font-weight: 900 !important; line-height: ${printerMode === 'hp' ? '1.1' : '1.4'} !important; }
+                .meta-title { font-size: ${printerMode === 'hp' ? '9px' : '11px'} !important; font-weight: 900 !important; }
+                .meta-value { font-size: ${printerMode === 'hp' ? '12px' : '16px'} !important; font-weight: 900 !important; }
+                
+                table { width: 100% !important; border-collapse: collapse !important; margin-top: ${printerMode === 'hp' ? '2px' : '8px'} !important; }
+                th { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact !important; font-size: ${printerMode === 'hp' ? '11px' : '13px'} !important; font-weight: 900 !important; padding: ${printerMode === 'hp' ? '3px 4px' : '7px 9px'} !important;}
+                td { font-size: ${printerMode === 'hp' ? '12px' : '14px'} !important; font-weight: 800 !important; padding: ${printerMode === 'hp' ? '3px 4px' : '7px 9px'} !important;}
+                th, td { border: 1.5px solid #000 !important; }
+                .total-label { font-size: ${printerMode === 'hp' ? '12px' : '14px'} !important; font-weight: 900 !important; }
+                .total-value { font-size: ${printerMode === 'hp' ? '12px' : '14px'} !important; font-weight: 900 !important; }
               }
             `
                 }} />
@@ -3850,6 +3895,14 @@ export default function ChallanPage() {
                       <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-between no-print select-none">
                         <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 1 PRINT ESTIMATE | F3 EXCEL | N ADD ROW</div>
                         <div className="flex items-center gap-3">
+                          <select
+                            value={printerMode}
+                            onChange={(e) => setPrinterMode(e.target.value as 'epson' | 'hp')}
+                            className="bg-white border-2 border-slate-300 px-2 py-1.5 text-xs font-bold text-slate-700 rounded outline-none cursor-pointer"
+                          >
+                            <option value="epson">Printer: Epson (A4)</option>
+                            <option value="hp">Printer: HP (Half-A4)</option>
+                          </select>
                           <button
                             type="button"
                             onClick={openAddRowPopup}
@@ -3959,6 +4012,14 @@ export default function ChallanPage() {
                       <div className="pt-4 border-t border-slate-200 flex flex-wrap gap-4 items-center justify-between no-print select-none">
                         <div className="text-[10px] text-slate-500 font-bold uppercase">Shortcut keys: 2 PRINT WITH RATE | F6 ADD CREDIT</div>
                         <div className="flex items-center gap-3">
+                          <select
+                            value={printerMode}
+                            onChange={(e) => setPrinterMode(e.target.value as 'epson' | 'hp')}
+                            className="bg-white border-2 border-slate-300 px-2 py-1.5 text-xs font-bold text-slate-700 rounded outline-none cursor-pointer"
+                          >
+                            <option value="epson">Printer: Epson (A4)</option>
+                            <option value="hp">Printer: HP (Half-A4)</option>
+                          </select>
                           <button
                             type="button"
                             onClick={openCreditPopup}
