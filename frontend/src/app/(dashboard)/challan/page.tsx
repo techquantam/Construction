@@ -3223,7 +3223,7 @@ export default function ChallanPage() {
       <div className="space-y-4">
         <div className="text-center border-b-2 border-slate-800 pb-2 flex justify-between items-center">
           <div className="w-1/3"></div>
-          <h3 className="text-[6px] font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h3>
+          <h3 className="text-[10px] font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h3>
           <div className="w-1/3"></div>
         </div>
 
@@ -3332,7 +3332,7 @@ export default function ChallanPage() {
       <div className="space-y-4">
         <div className="text-center border-b-2 border-slate-800 pb-2 flex justify-between items-center">
           <div className="w-1/3"></div>
-          <h3 className="text-[6px] font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h3>
+          <h3 className="text-[10px] font-black tracking-widest text-slate-955 uppercase estimate-title w-1/3 text-center">ESTIMATE - {designation}</h3>
           <div className="w-1/3"></div>
         </div>
 
@@ -3782,7 +3782,7 @@ export default function ChallanPage() {
                 }
                 
                 /* Typography & Layout */
-                .estimate-title { font-size: 8px !important; font-weight: 900 !important; }
+                .estimate-title { font-size: 12px !important; font-weight: 900 !important; }
                 .supplier-name { font-size: ${printerMode === 'hp' ? '14px' : '16px'} !important; font-weight: 900 !important; }
                 .supplier-info { font-size: ${printerMode === 'hp' ? '12px' : '15px'} !important; font-weight: 900 !important; line-height: ${printerMode === 'hp' ? '1.1' : '1.4'} !important; }
                 .meta-title { font-size: ${printerMode === 'hp' ? '9px' : '11px'} !important; font-weight: 900 !important; }
