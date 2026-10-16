@@ -17,6 +17,7 @@ import {
   X,
   FileText,
   Package,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -56,9 +57,15 @@ function SearchParamsSync() {
     } else if (pathname.includes("/materials")) {
       setActiveMainMenu(4);
       setActiveSubMenu("4.1");
+    } else if (pathname.includes("/company")) {
+      setActiveMainMenu(5);
+      setActiveSubMenu("5.1");
     } else if (pathname.includes("/backup")) {
       setActiveMainMenu(6);
-      setActiveSubMenu("5.1");
+      setActiveSubMenu("6.1");
+    } else if (pathname.includes("/delete-site-data") || pathname.includes("/clear-site-data")) {
+      setActiveMainMenu(7);
+      setActiveSubMenu("7.1");
     }
   }, [pathname, searchParams, setActiveMainMenu, setActiveSubMenu]);
 
@@ -149,7 +156,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       case "2.3": return "2.3. PRINT DAYBOOK";
       case "3.1": return "3.1. PRINT CHALLAN";
       case "4.1": return "4.1. MATERIAL";
-      case "5.1": return "5.1. BACKUP DATABASE";
+      case "5.1": return "5.1. OPEN ACCOUNT";
+      case "6.1": return "6.1. BACKUP DATABASE";
+      case "7.1": return "7.1. DELETE SITE DATA";
       default: return "";
     }
   };
@@ -207,6 +216,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           { label: "6.1. BACKUP DATABASE", href: "/backup?action=backup", code: "6.1" },
           { label: "6.2. EXIT", href: "exit", code: "exit" },
         ];
+      case 7:
+        return [
+          { label: "7.1. DELETE SITE DATA", href: "/delete-site-data", code: "7.1" },
+          { label: "7.2. EXIT", href: "exit", code: "exit" },
+        ];
       default:
         return [];
     }
@@ -248,10 +262,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (focusedColumn === "main") {
         if (e.key === "ArrowDown") {
           e.preventDefault();
-          setFocusedMainIndex((prev) => (prev + 1) % 7);
+          setFocusedMainIndex((prev) => (prev + 1) % 8);
         } else if (e.key === "ArrowUp") {
           e.preventDefault();
-          setFocusedMainIndex((prev) => (prev - 1 + 7) % 7);
+          setFocusedMainIndex((prev) => (prev - 1 + 8) % 8);
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
           if (activeMainMenu && activeMainMenu !== 0) {
@@ -260,7 +274,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }
         } else if (e.key === "Enter") {
           e.preventDefault();
-          if (focusedMainIndex === 6) {
+          if (focusedMainIndex === 7) {
             handleLogout();
           } else if (focusedMainIndex === 2) {
             setActiveMainMenu(3);
@@ -278,6 +292,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             setActiveMainMenu(6);
             setActiveSubMenu("6.1");
             router.push("/backup?action=backup");
+          } else if (focusedMainIndex === 6) {
+            setActiveMainMenu(7);
+            setActiveSubMenu("7.1");
+            router.push("/delete-site-data");
           } else {
             const nextMenu = focusedMainIndex + 1;
             setActiveMainMenu(nextMenu);
@@ -329,8 +347,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const handleMainMenuClick = (menuNum: number) => {
-    if (menuNum === 7) {
+    if (menuNum === 8) {
       handleLogout();
+      return;
+    }
+
+    if (menuNum === 7) {
+      setActiveMainMenu(7);
+      setActiveSubMenu("7.1");
+      router.push("/delete-site-data");
+      return;
+    }
+
+    if (menuNum === 6) {
+      setActiveMainMenu(6);
+      setActiveSubMenu("6.1");
+      router.push("/backup?action=backup");
       return;
     }
 
@@ -377,7 +409,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           activeMainMenu === 3 ? "3. CHALLAN" :
             activeMainMenu === 4 ? "4. MATERIAL" :
               activeMainMenu === 5 ? "5. OPEN ACCOUNT" :
-                activeMainMenu === 6 ? "6. DATA BACKUP" : "";
+                activeMainMenu === 6 ? "6. DATA BACKUP" :
+                  activeMainMenu === 7 ? "7. DELETE SITE DATA" : "";
 
     return (
       <div className="flex flex-col h-full bg-slate-50 border-r border-slate-300 w-full animate-in fade-in slide-in-from-left-4 duration-200 font-sans">
@@ -461,6 +494,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               { label: "4. MATERIAL", menuNum: 4, icon: Package },
               { label: "5. OPEN ACCOUNT", menuNum: 5, icon: User },
               { label: "6. DATA BACKUP", menuNum: 6, icon: Database },
+              { label: "7. DELETE SITE DATA", menuNum: 7, icon: Trash2 },
             ].filter((menu) => {
               if (userRole === "PRINTER") {
                 return menu.menuNum === 2;
@@ -487,19 +521,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             })}
 
             {/* EXIT / LOGOUT BUTTON IN MAIN MENU */}
-            <div className="pt-8 border-t border-slate-800 mt-4">
+            <div className="pt-6 border-t border-slate-800 mt-3">
               <button
-                onClick={() => handleMainMenuClick(7)}
-                className={`w-full flex items-center justify-between px-4 py-3 font-bold transition-all text-left border border-transparent ${focusedColumn === "main" && focusedMainIndex === 6
+                onClick={() => handleMainMenuClick(8)}
+                className={`w-full flex items-center justify-between px-4 py-3 font-bold transition-all text-left border border-transparent ${focusedColumn === "main" && focusedMainIndex === 7
                   ? "bg-red-600 text-white border-slate-955 shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]"
                   : "text-red-400 hover:bg-red-950/40 hover:text-red-300"
                   }`}
               >
                 <div className="flex items-center gap-3">
-                  <LogOut className={`h-5 w-5 ${focusedColumn === "main" && focusedMainIndex === 6 ? "text-white" : "text-red-500"}`} />
-                  <span>7. EXIT</span>
+                  <LogOut className={`h-5 w-5 ${focusedColumn === "main" && focusedMainIndex === 7 ? "text-white" : "text-red-500"}`} />
+                  <span>8. EXIT</span>
                 </div>
-                <XCircle className={`h-4 w-4 ${focusedColumn === "main" && focusedMainIndex === 6 ? "text-white" : "text-red-500"}`} />
+                <XCircle className={`h-4 w-4 ${focusedColumn === "main" && focusedMainIndex === 7 ? "text-white" : "text-red-500"}`} />
               </button>
             </div>
           </nav>

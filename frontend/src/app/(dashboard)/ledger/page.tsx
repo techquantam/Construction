@@ -733,6 +733,10 @@ function LedgerContent() {
       });
     });
 
+    list.sort((a, b) =>
+      (a.name || "").trim().localeCompare((b.name || "").trim(), undefined, { sensitivity: "base" })
+    );
+
     return list;
   }, [selectedSiteId, siteDaybooks, ledgerTypeTab, ledgers]);
 

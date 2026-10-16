@@ -180,3 +180,73 @@ export const deleteSite = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const clearSiteAccountsData = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const admin = (req as any).admin;
+    if (admin && admin.role === 'PRINTER') {
+      return res.status(403).json({ success: false, message: 'Forbidden: Printers cannot delete site data.' });
+    }
+
+    const site = await prisma.site.findUnique({
+      where: { id },
+      include: {
+        ledgers: true,
+        _count: {
+          select: {
+            dayBooks: true,
+            materialTransactions: true
+          }
+        }
+      }
+    });
+
+    if (!site) {
+      return res.status(404).json({ success: false, message: 'Site not found' });
+    }
+
+    const ledgerIds = site.ledgers.map(l => l.id);
+
+    let deletedDaybooksCount = 0;
+    let deletedMatTransCount = 0;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete all DayBook entries for this site
+      const dbRes = await tx.dayBook.deleteMany({
+        where: { siteId: id }
+      });
+      deletedDaybooksCount = dbRes.count;
+
+      // 2. Delete all Material Transactions for this site
+      const mtRes = await tx.materialTransaction.deleteMany({
+        where: { siteId: id }
+      });
+      deletedMatTransCount = mtRes.count;
+
+      // 3. Delete all LedgerTransaction records for this site's ledgers
+      if (ledgerIds.length > 0) {
+        await tx.ledgerTransaction.deleteMany({
+          where: { ledgerId: { in: ledgerIds } }
+        });
+
+        // 4. Reset outstanding balances to 0 for all ledgers (keep heads intact!)
+        await tx.ledger.updateMany({
+          where: { id: { in: ledgerIds } },
+          data: { outstandingBalance: 0 }
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully deleted all account data (${deletedDaybooksCount} entries) for site "${site.name}". All ${site.ledgers.length} account heads were preserved.`,
+      deletedEntries: deletedDaybooksCount,
+      deletedMaterialTransactions: deletedMatTransCount,
+      preservedHeads: site.ledgers.length
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

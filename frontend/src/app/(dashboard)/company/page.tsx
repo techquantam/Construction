@@ -100,12 +100,15 @@ export default function CompanyAccountsPage() {
     enabled: !!selectedSiteId,
   });
 
-  // Filter ledgers by Company type and Search Query
+  // Filter ledgers by Company type and Search Query, sorted in ascending order (A to Z)
   const companyAccounts = useMemo(() => {
     const list = ledgers.filter((l: any) => l.type === "Company");
-    if (!accountSearchQuery.trim()) return list;
-    const q = accountSearchQuery.trim().toUpperCase();
-    return list.filter((l: any) => l.name.toUpperCase().includes(q));
+    const filtered = !accountSearchQuery.trim()
+      ? list
+      : list.filter((l: any) => l.name.toUpperCase().includes(accountSearchQuery.trim().toUpperCase()));
+    return [...filtered].sort((a: any, b: any) =>
+      (a.name || "").trim().localeCompare((b.name || "").trim(), undefined, { sensitivity: "base" })
+    );
   }, [ledgers, accountSearchQuery]);
 
   // Reset focus index when query or site changes

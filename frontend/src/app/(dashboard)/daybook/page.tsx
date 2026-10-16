@@ -610,14 +610,16 @@ function DayBookContent() {
       }
     });
 
-    // 3. Return as array of objects with id and name
+    // 3. Return as array of objects with id and name, sorted ascending (A to Z)
     return Array.from(namesSet).map((name) => {
       const dbLedger = existingLedgers.find((l: any) => l.name.toUpperCase() === name);
       return {
         id: dbLedger ? dbLedger.id : name,
         name: name
       };
-    });
+    }).sort((a, b) =>
+      (a.name || "").trim().localeCompare((b.name || "").trim(), undefined, { sensitivity: "base" })
+    );
   }, [dayBooks, existingLedgers]);
 
   // List of all account suggestions including ALL ACCOUNTS at the top

@@ -27,7 +27,7 @@ export const getLedgers = async (req: Request, res: Response) => {
 
     const ledgers = await prisma.ledger.findMany({
       where: whereClause,
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { name: 'asc' }
     });
     res.json({ success: true, data: ledgers });
   } catch (error: any) {
